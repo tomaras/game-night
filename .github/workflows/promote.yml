@@ -34,7 +34,7 @@ jobs:
       name: production
       url: https://squattersnights.fun
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
@@ -42,7 +42,7 @@ jobs:
       - name: Check this version can be built
         run: test -f scripts/build.mjs || { echo "This ref predates the release pipeline — pick a newer one." >&2; exit 1; }
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
