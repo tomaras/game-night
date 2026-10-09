@@ -1,6 +1,6 @@
 # 🎲 Game Night
 
-**▶ Play it: https://tomaras.github.io/game-night/**
+**▶ Play it: https://squattersnights.fun/**
 
 Free multiplayer party games you play with friends **in the browser** — pick a game, make a room, send the link.
 No installs, no accounts, built **phone-first** with a colourful Material-style design. It is a fully static site (perfect for GitHub Pages): there is **no game server**.
