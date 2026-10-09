@@ -1,0 +1,113 @@
+# Releases to production (https://squattersnights.fun). Run it from the Actions tab — or `gh workflow run promote.yml`.
+#   • Default: releases the current main (what you have been testing on dev).
+#   • Roll back: run it again with an older release tag, e.g. ref = prod-20261009.0412-ab12cd3.
+# The same checks run again, the site is built for production, published, then the pipeline waits until the live
+# site really serves the new build. If that never happens the previous production version is restored.
+name: Promote to production
+run-name: Promote ${{ inputs.ref }} to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to release (default: main). To roll back, enter an older prod-… tag.'
+        required: true
+        default: main
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+
+env:
+  PROD_URL: https://squattersnights.fun
+  PROD_CNAME: squattersnights.fun
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://squattersnights.fun
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Check this version can be built
+        run: test -f scripts/build.mjs || { echo "This ref predates the release pipeline — pick a newer one." >&2; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the checks
+        run: npm test
+
+      - name: Build the production site
+        run: node scripts/build.mjs --env prod --cname "$PROD_CNAME" --out dist
+
+      - name: Remember what is live now (for automatic rollback)
+        id: prev
+        run: |
+          git fetch origin prod:refs/remotes/origin/prod 2>/dev/null || true
+          echo "sha=$(git rev-parse -q --verify refs/remotes/origin/prod || true)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to the prod branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BUILD=$(jq -r .build dist/build.json)
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          cd dist
+          git init -q -b prod
+          git config user.name "game-night-bot"
+          git config user.email "game-night-bot@users.noreply.github.com"
+          git add -A
+          git commit -q -m "production build $BUILD (source ${GITHUB_SHA::7})"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c "http.https://github.com/.extraheader=$AUTH" push --force origin prod
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent || true
+
+      - name: Wait until squattersnights.fun is serving this build
+        run: |
+          BUILD=$(jq -r .build dist/build.json)
+          for i in $(seq 1 60); do
+            LIVE=$(curl -fsS "$PROD_URL/build.json?t=$RANDOM" 2>/dev/null | jq -r .build 2>/dev/null || true)
+            echo "attempt $i: live=$LIVE want=$BUILD"
+            [ "$LIVE" = "$BUILD" ] && { echo "✔ production is live: $PROD_URL"; exit 0; }
+            sleep 10
+          done
+          echo "production did not pick up the new build in 10 minutes" >&2
+          exit 1
+
+      - name: Tag this release
+        run: |
+          BUILD=$(jq -r .build dist/build.json)
+          git tag -f "prod-live" HEAD
+          git push -f origin "refs/tags/prod-live"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/prod-$BUILD" >/dev/null 2>&1; then
+            git tag "prod-$BUILD" HEAD
+            git push origin "refs/tags/prod-$BUILD"
+          fi
+
+      - name: Restore the previous production version (the release failed)
+        if: failure() && steps.prev.outputs.sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=$AUTH" push --force origin "${{ steps.prev.outputs.sha }}:refs/heads/prod" || true
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent || true
+          echo "Previous production version restored." >&2

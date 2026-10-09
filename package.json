@@ -1,0 +1,15 @@
+{
+  "name": "game-night",
+  "private": true,
+  "type": "module",
+  "description": "Multiplayer party games in the browser (static site, PeerJS).",
+  "scripts": {
+    "build:dev": "node scripts/build.mjs --env dev",
+    "build:prod": "node scripts/build.mjs --env prod --cname squattersnights.fun",
+    "test": "node tests/ci.mjs"
+  },
+  "devDependencies": {
+    "peer": "^1.0.2",
+    "playwright": "^1.49.0"
+  }
+}

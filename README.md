@@ -87,18 +87,35 @@ Every game has a **? rules button** (in the header, even mid-game) with the goal
 * Screen sharing needs a desktop browser (Chrome/Edge can also share tab/system **audio**; Firefox/Safari share video only). Phones can watch but not share.
 * Use headphones — otherwise the movie sound leaks into your mic and everyone hears an echo.
 
-## Deploy to GitHub Pages
+## Environments & releases
 
-```bash
-cd game-night
-git init -b main && git add . && git commit -m "Game Night"
-gh repo create game-night --public --source=. --push
-gh api -X POST repos/:owner/game-night/pages -f 'source[branch]=main' -f 'source[path]=/'
-```
+Three places the app can run, each with its **own room numbers** (so testing never touches real players):
 
-Your site will be live at `https://<your-username>.github.io/game-night/` in about a minute. (Or: push to GitHub, then *Settings → Pages → Deploy from a branch → main / root*.)
+| | Where | Rooms use | Updated |
+|---|---|---|---|
+| **local** | open the source tree (`python3 -m http.server`) | `gnight-local-v1-N` | as you edit |
+| **dev** | https://tomaras.github.io/game-night-dev/ (orange **DEV** pill, orange icon) | `gnight-dev-v1-N` | automatically on every push to `main` |
+| **prod** | https://squattersnights.fun | `gnight-v1-N` | only when you press **Promote to production** |
 
-> **Forking tip:** open `js/config.js` and set a unique `prefix` so your rooms never mix with another copy of this project that shares the public PeerJS server. Want full control? Run your own [PeerServer](https://github.com/peers/peerjs-server) and set `peer: { host, port, path, secure }` there.
+**Everyday flow**
+
+1. Edit, then `git push` to `main`.
+2. GitHub Actions runs the checks (`npm test`: every game module loads, rooms work, the version handshake, offline start, and *updates never interrupt a room*), builds the dev copy and publishes it. Test it on the dev site (on your phone too).
+3. Happy? Run **Actions → Promote to production → Run workflow** (or `gh workflow run promote.yml`). The same checks run again, the site is built for production and published, and the pipeline waits until squattersnights.fun really serves the new build. If it never does, the previous version is restored automatically.
+4. Players get it the next time they are on the home screen — no reinstall, no store review.
+
+**Roll back** — every release is tagged `prod-<build>`. Run the promote workflow with `ref` set to an older tag. See what is live with `git log prod-live..main` (changes not yet released).
+
+**How updates stay invisible.** The site is an installable web app (PWA). A new version is downloaded in the background and waits; it is applied with one quick reload only when the user is on the home screen — never inside a room or a game. People on different *builds* can still play together; if a change ever makes old and new unable to play together, bump `PROTO` in `js/net.js` and they're asked to update before joining instead of hitting a broken room.
+
+**Use it like an app (no app store needed).** Android/Chrome: menu → *Install app* (or the *Install app* button on the home screen). iPhone/iPad: Safari → Share → *Add to Home Screen*. It opens full-screen with its own icon and start-up is instant. (Native App Store / Play Store builds are possible later with Capacitor and would load the same site.)
+
+**If something goes wrong**
+
+* A single device acting oddly: open the site with `?reset` at the end of the address (e.g. `https://squattersnights.fun/?reset`) — wipes its cache and service worker.
+* Everyone is stuck on a broken version: roll back (above). In the worst case ship a `sw.js` that only calls `registration.unregister()` — every browser re-checks `sw.js` on each visit and removes the cache.
+
+**One-time setup this repo uses** (already done): `prod` branch is the GitHub Pages source for the repo (custom domain `squattersnights.fun`); `tomaras/game-night-dev` is the dev site's Pages repo, written by CI through a write-only *deploy key* stored as the `DEV_DEPLOY_KEY` secret.
 
 ## Run locally
 
@@ -106,6 +123,8 @@ It's static files — any web server works:
 
 ```bash
 python3 -m http.server 8080      # then open http://localhost:8080
+npm install && PW_CHANNEL=chrome npm test   # the full check suite (PW_CHANNEL=chrome uses your installed Chrome)
+npm run build:dev                # builds ./dist exactly like CI does
 ```
 
 Open it in two browser windows (use a private window for the second — each tab is its own player) to try a room by yourself. For fully offline development run a local PeerServer (`npx peerjs --port 9000`) and add `?signal=localhost:9000` to the URL.

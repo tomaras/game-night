@@ -1,0 +1,70 @@
+# Every push to main: run the checks, build the dev copy and publish it to https://<owner>.github.io/game-night-dev/
+# Production is NOT touched — that only happens when you run the "Promote to production" workflow.
+name: Deploy to dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the checks
+        run: npm test
+
+      - name: Build the dev site
+        run: node scripts/build.mjs --env dev --out dist
+
+      - name: Publish to the dev repo
+        env:
+          DEV_DEPLOY_KEY: ${{ secrets.DEV_DEPLOY_KEY }}
+          DEV_REPO: ${{ github.repository_owner }}/game-night-dev
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEV_DEPLOY_KEY" > ~/.ssh/dev_key
+          chmod 600 ~/.ssh/dev_key
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/dev_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          BUILD=$(jq -r .build dist/build.json)
+          cd dist
+          git init -q -b main
+          git config user.name "game-night-bot"
+          git config user.email "game-night-bot@users.noreply.github.com"
+          git add -A
+          git commit -q -m "dev build $BUILD (source ${GITHUB_SHA::7})"
+          git remote add dev "git@github.com:${DEV_REPO}.git"
+          git push --force dev main
+
+      - name: Wait until the dev site is serving this build
+        run: |
+          BUILD=$(jq -r .build dist/build.json)
+          URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/game-night-dev/build.json"
+          for i in $(seq 1 60); do
+            LIVE=$(curl -fsS "$URL?t=$RANDOM" 2>/dev/null | jq -r .build 2>/dev/null || true)
+            echo "attempt $i: live=$LIVE want=$BUILD"
+            [ "$LIVE" = "$BUILD" ] && { echo "✔ dev is live: https://${GITHUB_REPOSITORY_OWNER}.github.io/game-night-dev/"; exit 0; }
+            sleep 10
+          done
+          echo "dev site did not pick up the new build in 10 minutes" >&2
+          exit 1

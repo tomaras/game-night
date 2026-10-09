@@ -11,9 +11,16 @@
 import { Emitter, sleep, uid } from './util.js';
 import { sanitizeAvatar } from './avatar.js';
 
+/** Wire-protocol version. Bump it ONLY when a change makes old and new clients unable to play together
+ *  (message shapes, game rules the host and guests must agree on). People on different protocol versions
+ *  are asked to update instead of joining a broken room; same protocol + different build is fine. */
+export const PROTO = 1;
+
 export const CFG = Object.assign(
   {
-    prefix: 'gnight-v1-', // CHANGE THIS if you fork the project so rooms don't mix with other copies
+    env: 'local', // 'local' | 'dev' | 'prod' — stamped by scripts/build.mjs
+    build: 'local', // build id, e.g. 20261009.0412-ab12cd3
+    prefix: 'gnight-local-v1-', // room namespace; prod uses 'gnight-v1-' (set in config.js)
     maxRooms: 999,
     maxPlayers: 12,
     graceMs: 45000,
@@ -247,6 +254,8 @@ export class Room extends Emitter {
   }
 
   _onHello(conn, msg) {
+    // Different wire-protocol versions can't play together: tell the guest which side is older.
+    if ((msg.v || 1) !== PROTO) { this._send(conn, { t: 'denied', reason: 'version', v: PROTO, b: CFG.build }); setTimeout(() => conn.close(), 200); return null; }
     const cid = String(msg.cid || '').slice(0, 40);
     if (!cid || this.kicked.has(cid)) { this._send(conn, { t: 'denied', reason: 'kicked' }); setTimeout(() => conn.close(), 200); return null; }
     let rec = [...this.recs.values()].find((r) => r.clientId === cid);
@@ -260,7 +269,7 @@ export class Room extends Emitter {
       rec.p.pid = conn.peer;
       const nm = cleanName(msg.name);
       if (nm && nm !== rec.p.name && !this._players.some((p) => p !== rec.p && p.name === nm)) rec.p.name = nm;
-      this._send(conn, { t: 'welcome', id: rec.p.id, state: this._buildState(), chat: this.chat.slice(-30) });
+      this._send(conn, { t: 'welcome', id: rec.p.id, state: this._buildState(), chat: this.chat.slice(-30), v: PROTO, b: CFG.build });
       this._publish();
       const g = this._st.game;
       if (this._st.phase !== 'lobby' && g && g.playerIds.includes(rec.p.id)) {
@@ -274,7 +283,7 @@ export class Room extends Emitter {
     const p = this._addPlayer(cid, msg);
     p.pid = conn.peer;
     this.conns.set(p.id, conn);
-    this._send(conn, { t: 'welcome', id: p.id, state: this._buildState(), chat: this.chat.slice(-30) });
+    this._send(conn, { t: 'welcome', id: p.id, state: this._buildState(), chat: this.chat.slice(-30), v: PROTO, b: CFG.build });
     this._publish();
     this._sys(p.name + ' joined');
     this.emit('joined', p.id);
@@ -430,7 +439,7 @@ export class Room extends Emitter {
       };
       this.peer.on('error', onPeerErr);
       conn.on('open', () => {
-        conn.send({ t: 'hello', cid: this.clientId, name: this.profile.name, avatar: this.profile.avatar });
+        conn.send({ t: 'hello', cid: this.clientId, name: this.profile.name, avatar: this.profile.avatar, v: PROTO, b: CFG.build });
       });
       conn.on('data', (raw) => {
         if (!raw || typeof raw !== 'object') return;
@@ -446,7 +455,12 @@ export class Room extends Emitter {
             finish();
             this.emit('state', this.state);
           } else if (msg.t === 'denied') {
-            finish(new RoomError('denied:' + msg.reason, msg.reason === 'locked' ? 'This room is locked by the host' : msg.reason === 'full' ? 'This room is full' : 'You cannot join this room'));
+            const why = msg.reason === 'locked' ? 'This room is locked by the host' : msg.reason === 'full' ? 'This room is full'
+              : msg.reason === 'version' ? ((msg.v || 1) > PROTO ? 'This room runs a newer version of the game. Reload the page to update, then join again.' : 'This room’s host is on an older version. Ask them to reload the page, then join again.')
+              : 'You cannot join this room';
+            const err = new RoomError('denied:' + msg.reason, why);
+            if (msg.reason === 'version') err.hostNewer = (msg.v || 1) > PROTO;
+            finish(err);
           }
           return;
         }

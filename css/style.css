@@ -412,3 +412,11 @@ select.txt { appearance: none; padding-right: 38px; background: #fff url("data:i
 .kt-in { animation: ktpop 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 
 .kt-sticky { position: sticky; bottom: -2px; z-index: 3; padding: 14px 0 2px; background: linear-gradient(transparent, var(--bg) 40%); }
+
+/* ---------- app / environment chrome ---------- */
+.envpill { position: fixed; left: 8px; bottom: calc(8px + var(--sab, 0px)); z-index: 9000; background: #ef6c00; color: #fff; font: 800 11px/1 var(--font); letter-spacing: 0.6px; padding: 5px 9px; border-radius: 999px; opacity: 0.88; pointer-events: none; text-transform: uppercase; box-shadow: var(--e1); }
+.installchip { display: flex; justify-content: center; margin-top: 20px; } .installchip:empty { display: none; }
+.appbox { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.appbox .sw-row { margin-top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--s2); border-radius: 16px; padding: 10px 14px; font: 600 14px var(--font); }
+.appbox .sw-row.col { flex-direction: column; align-items: flex-start; gap: 2px; }
+.appbox code { font: 600 12px ui-monospace, Menlo, monospace; color: var(--on2); word-break: break-all; text-align: right; }

@@ -1,6 +1,7 @@
 // App shell: home, name/avatar gate, lobby, in-room chrome (app bar, chat, calls, rules), results, routing.
 import { h, mount, clear, copyText, pick, installSafeDom } from './util.js';
-import { Room, parseRoomInput, roomLink } from './net.js';
+import { Room, parseRoomInput, roomLink, CFG, PROTO } from './net.js';
+import { pwa, onPwaChange, initPwa, promptInstall, isIOS } from './pwa.js';
 import { GAMES, GAME_BY_ID, CATEGORIES } from './games/index.js';
 import { GameSession } from './session.js';
 import { sfx, isMuted, setMuted, audioContext } from './audio.js';
@@ -11,6 +12,10 @@ import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialo
 
 installSafeDom();
 installRipples();
+
+// Non-production builds are tagged everywhere so a test copy can never be mistaken for the real thing.
+const ENV_TAG = CFG.env === 'prod' ? '' : CFG.env === 'dev' ? '[DEV]' : '[LOCAL]';
+const setTitle = (t) => { document.title = (ENV_TAG ? ENV_TAG + ' ' : '') + t; };
 
 const $app = document.getElementById('app');
 const wideMQ = matchMedia('(min-width: 1000px)');
@@ -135,7 +140,29 @@ function openAbout() {
       'Lose connection? Reopen the link within 45 seconds and you’ll get your seat (and game) back.',
       'Works best on a phone in portrait. Keep the screen awake — the host’s device runs the game.',
     ].map((x) => h('li', { style: { '--c': '#34a853' } }, x))),
+    h('h4', 'This app'),
+    appSection(),
   ].flat()));
+}
+
+/** Version, update and install controls (shown in the About sheet). */
+function appSection() {
+  const box = h('div.appbox');
+  const paint = () => {
+    const rows = [];
+    rows.push(h('div.sw-row', h('span', 'Version'), h('code', (CFG.env === 'prod' ? '' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO)));
+    if (pwa.ready) rows.push(h('div.sw-row', h('span', '✨ A new version is ready'), h('button.btn.primary.small', { onclick: () => pwa.applyUpdate?.(true) }, 'Update now')));
+    else if (pwa.supported && CFG.env !== 'local') rows.push(h('div.sw-row', h('span', 'You’re on the latest version'), h('button.btn.tonal.small', { onclick: async (e) => { e.target.textContent = 'Checking…'; const r = await pwa.checkNow?.(); e.target.textContent = r ? 'Update found!' : 'Up to date ✓'; } }, 'Check for updates')));
+    if (!pwa.standalone) {
+      if (pwa.installEvent) rows.push(h('div.sw-row', h('span', 'Install it like an app'), h('button.btn.primary.small', { onclick: () => promptInstall() }, icon('download'), 'Install')));
+      else if (isIOS()) rows.push(h('div.sw-row.col', h('span', 'Install on iPhone / iPad'), h('small.muted', 'Open this page in Safari, tap the Share button, then “Add to Home Screen”.')));
+      else rows.push(h('div.sw-row.col', h('span', 'Install as an app'), h('small.muted', 'Use your browser menu → “Install app” / “Add to Home screen”.')));
+    }
+    mount(box, ...rows);
+  };
+  paint();
+  const off = onPwaChange(() => { if (box.isConnected) paint(); else off(); });
+  return box;
 }
 
 // ------------------------------------------------------------------ header / app bar
@@ -200,7 +227,7 @@ function gameCard(def, onPick) {
 
 function renderHome() {
   S.mode = 'none';
-  document.title = 'Game Night — play with friends';
+  setTitle('Game Night — play with friends');
   renderHeader();
   const input = h('input', {
     placeholder: 'Room number or link', autocomplete: 'off', inputmode: 'text', enterkeyhint: 'go',
@@ -231,11 +258,26 @@ function renderHome() {
       ]),
       chips,
       grid,
+      installChip(),
       h('div.footnote', [
         h('p', 'Rooms are peer-to-peer: the first player to create a room becomes its host and gets the lowest free number (1, 2, 3 …). Nothing is stored on a server. Tap 🎤 / 📹 inside a room to talk and show your face. Retro Console uses jsnes and free homebrew by Damian Yerrick.'),
       ]),
     ])
   );
+}
+
+/** A small "Install app" pill on the home screen when the browser can install us (Android/desktop Chrome, or iOS how-to). */
+function installChip() {
+  const el = h('div.installchip');
+  const paint = () => {
+    if (pwa.standalone || CFG.env === 'local') { mount(el); return; }
+    if (pwa.installEvent) mount(el, h('button.btn.tonal', { onclick: () => promptInstall() }, icon('download'), 'Install app'));
+    else if (isIOS()) mount(el, h('button.btn.tonal', { onclick: openAbout }, icon('download'), 'Add to Home Screen'));
+    else mount(el);
+  };
+  paint();
+  const off = onPwaChange(() => { if (el.isConnected) paint(); else off(); });
+  return el;
 }
 
 function openGameSheet(def) {
@@ -308,6 +350,7 @@ async function joinRoom(n) {
 }
 
 function friendlyError(e) {
+  if (e.code === 'denied:version' && e.hostNewer) pwa.checkNow?.(); // we're the old one: fetch the new version now
   if (e.code === 'network') return 'Could not reach the matchmaking server. Check your internet connection.';
   if (e.code === 'notfound') return e.message;
   if (e.code === 'timeout') return e.message + '. Is the host still there?';
@@ -544,7 +587,7 @@ function showLobby() {
   S.mode = 'lobby';
   S.runId = 0;
   const L = (S.ui.lobby = { invite: h('div.panel.invite'), players: h('div.panel'), game: h('div.panel'), start: h('div.startbar') });
-  document.title = `Room ${S.room.number} — Game Night`;
+  setTitle(`Room ${S.room.number} — Game Night`);
   mount(S.ui.stage, h('div.lobby', [h('div.colL', [L.invite, L.players]), h('div.colR', [L.game]), L.start]));
   S.ui.lobby.start.style.gridColumn = '1 / -1';
   applyChatLayout();
@@ -677,7 +720,7 @@ async function startSession(g) {
   S.resultsFor = 0;
   S.ui.resultsEl = null;
   applyChatLayout();
-  document.title = `${def.name} — Room ${room.number}`;
+  setTitle(`${def.name} — Room ${room.number}`);
   const root = h('div.game-root', h('div.waitscreen', h('div', h('div.spinner'), h('p.muted', 'Loading ' + def.name + '…'))));
   mount(S.ui.stage, root);
   let mod;
@@ -812,6 +855,10 @@ function boot() {
   });
   document.addEventListener('pointerdown', () => { audioContext(); keepAwake(); }, { once: true });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+  window.__pwa = pwa;
+  if (ENV_TAG) document.body.append(h('div.envpill', ENV_TAG.replace(/[\[\]]/g, '') + ' · ' + CFG.build));
+  // reload for a waiting update only when nobody is in the middle of anything
+  initPwa(() => !S.room && !S.joining && !document.querySelector('.sheet, .dialog, .scrim') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || ''));
   route();
 }
 
