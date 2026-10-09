@@ -1,0 +1,37 @@
+{
+  "name": "Game Night",
+  "short_name": "Game Night",
+  "description": "Multiplayer party games with friends: pick a game, make a room, send the link.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafd",
+  "theme_color": "#f8fafd",
+  "categories": [
+    "games",
+    "entertainment",
+    "social"
+  ],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
