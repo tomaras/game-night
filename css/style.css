@@ -759,3 +759,14 @@ body:not([data-tab="games"]) .envpill { display: none; }
 /* ---------- every game gets its own accent backdrop ---------- */
 .game-root { background: radial-gradient(900px 480px at 50% -10%, color-mix(in srgb, var(--gc, transparent) 17%, transparent), transparent 72%), radial-gradient(640px 440px at 105% 105%, color-mix(in srgb, var(--gc, transparent) 11%, transparent), transparent 70%); }
 .game-root[data-cat="Cards"], .game-root[data-cat="Bluffing"], .game-root[data-cat="Board"] { background: radial-gradient(900px 520px at 50% 20%, color-mix(in srgb, var(--gc, transparent) 14%, transparent), transparent 75%), radial-gradient(640px 440px at 0% 105%, color-mix(in srgb, var(--gc, transparent) 10%, transparent), transparent 70%); }
+
+/* ---------- how-to-play videos ---------- */
+.vcard { margin: 2px 0 10px; border-radius: 20px; overflow: hidden; background: var(--s2); }
+.vcard.hide { display: none; }
+.vposter { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 14px 8px 8px; border: 0; background: transparent; color: var(--on); cursor: pointer; text-align: left; font-family: var(--font); }
+.vthumb { position: relative; width: 52px; height: 72px; flex: none; border-radius: 12px; overflow: hidden; background: #222; }
+.vthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vplay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.28); color: #fff; } .vplay .ic { width: 30px; height: 30px; }
+.vtxt b { display: block; font: 700 15px var(--font); } .vtxt small { color: var(--on2); font-size: 12.5px; }
+.vcard.playing { background: #000; display: flex; justify-content: center; }
+.vcard video { width: auto; max-width: 100%; max-height: min(50dvh, 460px); display: block; background: #000; }

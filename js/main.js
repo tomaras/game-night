@@ -10,6 +10,7 @@ import { createAvUI } from './avui.js';
 import { Comms } from './comms.js';
 import { createCommsButtons, openCommsSheet, channelList, createMiniCall } from './commsui.js';
 import { chatView } from './chatview.js';
+import { videoCard } from './videos.js';
 import { createChatOverlay } from './chatoverlay.js';
 import { Recorder } from './recorder.js';
 import { openRecordings } from './recui.js';
@@ -144,6 +145,7 @@ function openRules(def) {
       h('div.tile.emo', def.emoji),
       h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 2).map((t) => h('span.chip', t))])]),
     ]),
+    videoCard(def),
     h('div.goal', help.goal || def.desc),
     ...sect('How to play', steps, true),
     help.controls && help.controls.length ? [h('h4', 'Controls'), h('div.keys', help.controls.map((c) => h('span', h('kbd', c[0]), ' ' + c[1])))] : [],
@@ -177,7 +179,7 @@ function appSection() {
   const box = h('div.appbox');
   const paint = () => {
     const rows = [];
-    rows.push(h('div.sw-row', h('span', 'Version'), h('code', (CFG.env === 'prod' ? '' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO)));
+    rows.push(h('div.sw-row', h('span', 'Version'), h('code', (CFG.env === 'prod' ? '' : CFG.env === 'nightly' ? '🌙 ' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO)));
     if (pwa.ready) rows.push(h('div.sw-row', h('span', '✨ A new version is ready'), h('button.btn.primary.small', { onclick: () => pwa.applyUpdate?.(true) }, 'Update now')));
     else if (pwa.supported && CFG.env !== 'local') rows.push(h('div.sw-row', h('span', 'You’re on the latest version'), h('button.btn.tonal.small', { onclick: async (e) => { e.target.textContent = 'Checking…'; const r = await pwa.checkNow?.(); e.target.textContent = r ? 'Update found!' : 'Up to date ✓'; } }, 'Check for updates')));
     if (!pwa.standalone) {
@@ -417,6 +419,7 @@ function openGameSheet(def) {
   const sheet = openSheet(h('div.help', { style: { '--gc': def.color } }, [
     h('h2', def.name),
     h('div.hd', [h('div.tile.emo', def.emoji), h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 2).map((t) => h('span.chip', t))])])]),
+    videoCard(def),
     h('div.goal', help.goal || def.desc),
     h('h4', 'How to play'),
     h('ol', (help.steps || def.howto).map((x) => h('li', x))),
@@ -1485,7 +1488,7 @@ function boot() {
   S.chrome = createChrome({
     getOverlay: () => S.chatOverlayPref, setOverlay: (v) => { S.chatOverlayPref = v; writePref('gn.chatOv', v ? '1' : '0'); refreshOverlay(); },
     S, switchChannel: async (to) => { if (S.room) { toast('Leave the room first', 'bad'); return false; } const ok = await switchChannel(to); if (!ok) toast(channelLabel(to) + ' isn’t available right now', 'bad'); return ok; }, go: (hash) => { if ((location.hash || '#/') === hash) route(); else location.hash = hash; }, editProfile, openAbout, openRecordings: () => openRecordings(S.rec, { toast }),
-    versionText: (CFG.env === 'prod' ? '' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO,
+    versionText: (CFG.env === 'prod' ? '' : CFG.env === 'nightly' ? '🌙 ' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO,
   });
   mount($app, S.headerEl, h('div.body', S.chrome.rail, S.view), S.chrome.bottom, S.chrome.fabHost);
   renderHeader();

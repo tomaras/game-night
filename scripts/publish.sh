@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Publishes into the `prod` branch (the GitHub Pages source for squattersnights.fun):
-#   scripts/publish.sh root|nightly|restore-root <dir> "<commit message>"
+#   scripts/publish.sh root|nightly|restore-root|media <dir> "<commit message>"
 # It takes the CURRENT contents of the branch, replaces only the part that belongs to this channel (see assemble.mjs)
 # and pushes the result as a single fresh commit (no history piles up on the Pages branch). If somebody else published
 # in the meantime it simply starts again from their result, so Stable and Nightly publishes can never overwrite each other.

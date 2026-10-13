@@ -57,7 +57,7 @@ const START = `${site.url}nightly/index.html?${QUERY}`; // the pages under test 
 const STABLE = `${site.url}index.html?${QUERY}`;
 
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || undefined, headless: true, args: ['--disable-features=WebRtcHideLocalIpsWithMdns', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
-const errorsOf = (page) => { page.errs = []; page.on('pageerror', (e) => page.errs.push('pageerror: ' + e.message)); page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.(googleapis|gstatic)|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|net::ERR_FAILED/.test(m.text() + (m.location()?.url || ''))) page.errs.push('console: ' + m.text()); }); return page; };
+const errorsOf = (page) => { page.errs = []; page.on('pageerror', (e) => page.errs.push('pageerror: ' + e.message)); page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.(googleapis|gstatic)|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|net::ERR_FAILED|\/media\/videos\//.test(m.text() + (m.location()?.url || ''))) page.errs.push('console: ' + m.text()); }); return page; };
 const newPage = async (name = 'Player', opts = {}) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, ...opts });
   await ctx.addInitScript((n) => { try { localStorage.setItem('gn.profile', JSON.stringify({ name: n, avatar: '🦊' })); } catch { /* */ } }, name);

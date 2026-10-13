@@ -94,7 +94,7 @@ export function createRoomPanel({ room, chatEl, plaza, toast, copyInvite, onReco
           host ? segmented([{ value: 'open', label: 'Open' }, { value: 'ask', label: 'Ask' }, { value: 'locked', label: 'Locked' }], st.access, (v) => room.setSetting('access', v)) : h('span.chip', { open: 'Open', ask: 'Ask first', locked: 'Locked' }[st.access])),
         setting('Allow watching', 'People can sit in the audience: they see the game and chat, but don’t play.', host ? switchEl(st.aud, (v) => room.setSetting('aud', v)) : h('span.chip', st.aud ? 'Yes' : 'No'))),
       h('div.pp-sec', openComms ? h('button.btn.tonal.block', { onclick: openComms }, icon('headset'), 'Voice, video & chat…') : null, onRecord ? h('button.btn.tonal.block', { onclick: onRecord }, icon('fiber_manual_record'), 'Record…') : null),
-      h('div.muted', { style: 'font-size:12px;text-align:center;margin-top:8px' }, `${CFG.env === 'prod' ? '' : CFG.env + ' · '}${CFG.build}`));
+      h('div.muted', { style: 'font-size:12px;text-align:center;margin-top:8px' }, `${CFG.env === 'prod' ? '' : CFG.env === 'nightly' ? '🌙 ' : CFG.env + ' · '}${CFG.build}`));
   }
 
   // ------------------------------------------------------------ frame

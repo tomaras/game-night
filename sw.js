@@ -44,6 +44,7 @@ self.addEventListener('fetch', (e) => {
   const u = new URL(req.url);
   if (u.origin !== location.origin) return; // fonts, PeerJS cloud etc. go straight to the network
   if (u.pathname.endsWith('/build.json') || u.pathname.endsWith('/sw.js')) return; // always fresh
+  if (u.pathname.includes('/media/')) return; // big how-to-play videos: let the browser stream them itself (range requests)
   if (u.pathname.startsWith(NIGHTLY_PATH)) return; // Nightly's pages and files are Nightly's worker's business, never ours
 
   if (req.mode === 'navigate') {
