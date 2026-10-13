@@ -801,3 +801,8 @@ body:has(.matchbar) #toasts { bottom: calc(118px + var(--sab, 0px)); }
 :root[data-theme="dark"] .tt-c { background: rgba(255, 255, 255, 0.05); }
 .pk-table { margin-top: 26px; }
 @media (max-width: 640px) { .cr-mid .cr-card { width: 78px; height: 116px; font-size: 36px; } }
+
+/* every game's cards: one corner, one resting shadow, one lifted shadow (state rules in the games add rings on top) */
+.game-root :is(.rl-card, .tc-card, .cr-card, .rr-card, .sg-c, .th-card, .tt-card, .wd-c, .is-card, .tp-c, .rl2-c, .ow-cc, .bt-card) { border-radius: var(--card-r); }
+.game-root :is(.rl-card, .tc-card, .cr-card, .rr-card, .sg-c, .th-card, .tt-card, .wd-c, .is-card, .tp-c, .rl2-c, .bt-card):not(.mini) { box-shadow: var(--card-z); }
+@media (hover: hover) { .game-root :is(.rl-card, .tc-card.hand, .cr-card.ok, .rr-card, .sg-c, .th-card, .rl2-c, .tt-card):not(.mini):not(.dim):not(.no):hover { box-shadow: var(--card-z-up); } }
