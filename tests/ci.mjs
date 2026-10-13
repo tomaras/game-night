@@ -354,7 +354,7 @@ await test('Stable and Nightly share one site: the menu switches, the choice is 
   await until(() => p.evaluate(() => !!navigator.serviceWorker.controller), 15000, 'Stable service worker');
   // switch to Nightly from the menu
   await p.evaluate(() => window.__gn.chrome.openDrawer());
-  await p.click('.dtheme button:has-text("Nightly")');
+  await p.click('.drow:has-text("Nightly version") label.switch');
   await p.waitForURL(/\/nightly\//, { timeout: 15000 });
   await p.waitForSelector('.gcard');
   c = await cfg();

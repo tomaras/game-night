@@ -106,7 +106,7 @@ Every game has a **? rules button** (in the header, even mid-game) with the goal
 
 ## Stable & Nightly
 
-One site, two versions — switch any time in the side menu (**Version → Stable | Nightly**):
+One site, two versions — flip the **Nightly version** switch in the side menu (under Preferences) any time — off = Stable, on = Nightly:
 
 | | Where | Rooms use | Updated |
 |---|---|---|---|
