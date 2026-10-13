@@ -13,6 +13,20 @@ function ac() {
   return ctx;
 }
 
+// Every sound effect goes through one master bus, so the recorder can tap "what the app sounds like".
+let bus = null, tap = null;
+function out(c) {
+  if (!bus) { bus = c.createGain(); bus.connect(c.destination); }
+  return bus;
+}
+/** A MediaStream carrying the app's sound effects (for recordings). */
+export function recordingTap() {
+  const c = ac();
+  if (!c) return null;
+  if (!tap) { tap = c.createMediaStreamDestination(); out(c).connect(tap); }
+  return tap.stream;
+}
+
 function tone(freq, dur, { type = 'square', vol = 0.06, slide = 0, delay = 0 } = {}) {
   const c = ac();
   if (!c) return;
@@ -24,7 +38,7 @@ function tone(freq, dur, { type = 'square', vol = 0.06, slide = 0, delay = 0 } =
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), t0 + dur);
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(c.destination);
+  o.connect(g).connect(out(c));
   o.start(t0);
   o.stop(t0 + dur + 0.02);
 }
@@ -40,7 +54,7 @@ function noise(dur, vol = 0.08, delay = 0) {
   const g = c.createGain();
   g.gain.value = vol;
   s.buffer = buf;
-  s.connect(g).connect(c.destination);
+  s.connect(g).connect(out(c));
   s.start(c.currentTime + delay);
 }
 

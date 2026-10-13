@@ -10,8 +10,10 @@
 import { Emitter } from './util.js';
 import { audioContext } from './audio.js';
 import { drawAvatar } from './avatar.js';
+import { acquire, release } from './media.js';
 
-const idNum = (id) => parseInt(String(id).slice(1), 10) || 0;
+// both sides compare ids the same way, so exactly one of every pair dials
+const dialsFirst = (a, b) => String(a) < String(b);
 
 export class AV extends Emitter {
   constructor(room) {
@@ -75,14 +77,17 @@ export class AV extends Emitter {
     if (on) {
       if (!this.micTrack) {
         try {
-          const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-          this.micTrack = s.getAudioTracks()[0];
+          this.micTrack = await acquire('audio');
           this._replaceAll('audio', this.micTrack);
-          this._watch(this.room.me, s);
+          this._watch(this.room.me, new MediaStream([this.micTrack]));
         } catch (e) { this.emit('error', e); return false; }
       }
-      this.micTrack.enabled = true;
-    } else if (this.micTrack) this.micTrack.enabled = false;
+    } else if (this.micTrack) { // let go of the microphone entirely (so its indicator turns off) and fall back to the silent track
+      release(this.micTrack, 'audio');
+      this.micTrack = null;
+      this._an.delete(this.room.me);
+      this._replaceAll('audio', this.silentTrack);
+    }
     this.local.mic = !!on;
     this._announce();
     this.emit('change');
@@ -93,13 +98,12 @@ export class AV extends Emitter {
     if (on) {
       if (!this.camTrack) {
         try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 20 } } });
-          this.camTrack = s.getVideoTracks()[0];
+          this.camTrack = await acquire('video');
           this._replaceAll('video', this.camTrack);
         } catch (e) { this.emit('error', e); return false; }
       }
     } else if (this.camTrack) {
-      this.camTrack.stop();
+      release(this.camTrack, 'video');
       this.camTrack = null;
       this._replaceAll('video', this.placeholder);
     }
@@ -116,7 +120,8 @@ export class AV extends Emitter {
     this.calls.clear();
     this.remote.clear();
     this._an.clear();
-    this.micTrack?.stop(); this.camTrack?.stop();
+    if (this.micTrack) release(this.micTrack, 'audio');
+    if (this.camTrack) release(this.camTrack, 'video');
     this.micTrack = this.camTrack = null;
     clearInterval(this._phTimer);
     this.local = { on: false, mic: false, cam: false };
@@ -143,12 +148,12 @@ export class AV extends Emitter {
     const room = this.room;
     const want = new Set();
     if (this.local.on) {
-      for (const p of room.players) {
+      for (const p of room.people || room.players) {
         if (p.id === room.me || !p.av || !p.av.on || !p.online || !p.pid) continue;
         want.add(p.id);
         const ex = this.calls.get(p.id);
         if (ex && ex.pid !== p.pid) this._drop(p.id); // they reloaded and have a new peer id
-        if (!this.calls.has(p.id) && idNum(room.me) < idNum(p.id)) this._dial(p);
+        if (!this.calls.has(p.id) && dialsFirst(room.me, p.id)) this._dial(p);
       }
     }
     for (const id of [...this.calls.keys()]) if (!want.has(id)) this._drop(id);
@@ -171,7 +176,7 @@ export class AV extends Emitter {
   }
   _incoming(call) {
     if (!call.metadata || call.metadata.kind !== 'av') return;
-    const p = this.room.players.find((x) => x.pid === call.peer);
+    const p = (this.room.people || this.room.players).find((x) => x.pid === call.peer);
     if (!this.local.on || !p) return;
     call.answer(this.currentStream());
     this._attach(call, p.id);

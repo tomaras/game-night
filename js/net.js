@@ -45,6 +45,8 @@ function sendConn(conn, msg) {
   const id = Math.random().toString(36).slice(2, 9), n = Math.ceil(s.length / CHUNK);
   for (let i = 0; i < n; i++) conn.send({ t: 'ch', id, i, n, s: s.slice(i * CHUNK, (i + 1) * CHUNK) });
 }
+/** What a remote peer would receive (JSON over the data channel): the host's own handlers get the same, never a shared reference. */
+export const wireCopy = (d) => (d && typeof d === 'object' ? JSON.parse(JSON.stringify(d)) : d);
 const asm = new Map();
 function unchunk(key, msg) {
   if (msg.t !== 'ch') return msg;
@@ -78,7 +80,7 @@ function peerOptions() {
   return o;
 }
 
-function openPeer(id) {
+export function openPeer(id) {
   return new Promise((resolve, reject) => {
     if (typeof window.Peer !== 'function') return reject(new RoomError('browser', 'PeerJS failed to load'));
     let peer;
@@ -161,10 +163,17 @@ export class Room extends Emitter {
     this._leaving = false;
     this._gBuf = [];
     this._gHandler = null;
+    this.requests = [];
   }
 
   get players() { return this.state?.players || []; }
+  get audience() { return this.state?.audience || []; }
+  /** Everyone in the room: players first, then people just watching. */
+  get people() { return [...this.players, ...this.audience]; }
   player(id) { return this.players.find((p) => p.id === id); }
+  /** A player OR an audience member. */
+  person(id) { return this.player(id) || this.audience.find((p) => p.id === id); }
+  get isAudience() { return this.audience.some((p) => p.id === this.me); }
   get hostId() { return this.state?.hostId || 'p1'; }
   get runId() { return this.state?.game?.runId || 0; }
 
@@ -184,7 +193,9 @@ export class Room extends Emitter {
     room._v = 0;
     room._runSeq = 0;
     room._players = [];
-    room._st = { number, hostId: 'p1', gameId: null, opts: {}, locked: false, phase: 'lobby', game: null, results: null, botLevel: 'normal' };
+    room._aud = [];
+    room.requests = []; // people waiting for the host to let them in (host only)
+    room._st = { number, hostId: 'p1', gameId: null, opts: {}, locked: false, access: 'ask', pub: true, aud: true, phase: 'lobby', game: null, results: null, botLevel: 'normal' };
     const me = room._addPlayer(room.clientId, profile);
     me.pid = peer.id;
     room.me = me.id;
@@ -193,10 +204,14 @@ export class Room extends Emitter {
     return room;
   }
 
-  static async join(number, profile) {
+  /** `role`: 'player' | 'audience'. `via`: 'code' (typed the number / opened an invite) or 'dir' (picked from the room list). `onPending` is called when the host has to approve you first. */
+  static async join(number, profile, { role = 'player', via = 'code', onPending, ref } = {}) {
     const room = new Room();
     room.number = number;
     room.profile = profile;
+    room._want = { role, via };
+    room._onPending = onPending;
+    if (ref) ref.cancel = () => { room._leaving = true; try { room.peer?.destroy(); } catch { /* */ } };
     room.clientId = getClientId();
     room.peer = await openPeer();
     room.peer.on('disconnected', () => { try { if (!room._leaving && !room.peer.destroyed) room.peer.reconnect(); } catch { /* */ } });
@@ -224,6 +239,17 @@ export class Room extends Emitter {
     return p;
   }
 
+  _addAudience(clientId, prof) {
+    const id = 'a' + (++this._seq);
+    let name = cleanName(prof.name) || 'Guest ' + this._seq;
+    const base = name;
+    for (let i = 2; this._players.concat(this._aud).some((p) => p.name === name); i++) name = base + ' ' + i;
+    const p = { id, name, avatar: sanitizeAvatar(prof.avatar), color: COLORS[this._seq % COLORS.length], online: true, pid: '', av: { on: 0, mic: 0, cam: 0 } };
+    this._aud.push(p);
+    this.recs.set(id, { clientId, lastSeen: Date.now(), timer: null, p, aud: true });
+    return p;
+  }
+
   _hostInit() {
     this.peer.on('connection', (conn) => this._onConn(conn));
     this.peer.on('disconnected', () => { try { if (!this._leaving && !this.peer.destroyed) this.peer.reconnect(); } catch { /* */ } });
@@ -233,11 +259,12 @@ export class Room extends Emitter {
 
   _onConn(conn) {
     let pid = null;
-    const t = setTimeout(() => { if (!pid) try { conn.close(); } catch { /* */ } }, 10000);
+    const t = setTimeout(() => { if (!pid && !conn._gnPid && !this.requests.some((r) => r.conn === conn)) try { conn.close(); } catch { /* */ } }, 10000);
     conn.on('data', (raw) => {
       if (!raw || typeof raw !== 'object') return;
       const msg = unchunk(conn.peer, raw);
       if (!msg) return;
+      if (conn._gnPid) pid = conn._gnPid; // set when the host lets a waiting guest in, or moves a watcher to a seat
       if (!pid) {
         if (msg.t === 'hello') pid = this._onHello(conn, msg);
         return;
@@ -246,7 +273,7 @@ export class Room extends Emitter {
       if (rec) rec.lastSeen = Date.now();
       if (this.conns.get(pid) === conn) this._onGuestMsg(pid, msg);
     });
-    conn.on('close', () => { clearTimeout(t); if (pid) this._onConnClosed(pid, conn); });
+    conn.on('close', () => { clearTimeout(t); pid = pid || conn._gnPid || null; if (pid) this._onConnClosed(pid, conn); else this._dropRequestByConn(conn); });
     conn.on('error', () => {});
   }
 
@@ -264,6 +291,7 @@ export class Room extends Emitter {
       const old = this.conns.get(rec.p.id);
       if (old && old !== conn) { this.conns.delete(rec.p.id); try { old.close(); } catch { /* */ } }
       this.conns.set(rec.p.id, conn);
+      conn._gnPid = rec.p.id;
       clearTimeout(rec.timer);
       rec.lastSeen = Date.now();
       rec.p.online = true;
@@ -279,14 +307,31 @@ export class Room extends Emitter {
       this._sys(rec.p.name + ' reconnected');
       return rec.p.id;
     }
-    if (this._st.locked) { this._send(conn, { t: 'denied', reason: 'locked' }); setTimeout(() => conn.close(), 200); return null; }
-    if (this._players.length >= CFG.maxPlayers) { this._send(conn, { t: 'denied', reason: 'full' }); setTimeout(() => conn.close(), 200); return null; }
+    const deny = (reason) => { this._send(conn, { t: 'denied', reason }); setTimeout(() => conn.close(), 200); return null; };
+    if (msg.role === 'audience') {
+      if (!this._st.aud) return deny('noaudience');
+      if (this._aud.length >= 60) return deny('full');
+      const a = this._addAudience(cid, msg);
+      return this._welcomeNew(conn, a, ' is watching');
+    }
+    if (this._st.locked) return deny('locked');
+    if (this._players.length >= CFG.maxPlayers) return deny('full');
+    if (this._st.access === 'ask' && msg.via === 'dir') { // someone who found us in the room list: the host decides
+      this._addRequest({ key: cid, kind: 'join', conn, name: cleanName(msg.name) || 'Someone', avatar: sanitizeAvatar(msg.avatar), msg });
+      this._send(conn, { t: 'pending' });
+      return null;
+    }
     const p = this._addPlayer(cid, msg);
+    return this._welcomeNew(conn, p, ' joined');
+  }
+
+  _welcomeNew(conn, p, said) {
     p.pid = conn.peer;
+    conn._gnPid = p.id;
     this.conns.set(p.id, conn);
     this._send(conn, { t: 'welcome', id: p.id, state: this._buildState(), chat: this.chat.slice(-30), v: PROTO, b: CFG.build });
     this._publish();
-    this._sys(p.name + ' joined');
+    this._sys(p.name + said);
     this.emit('joined', p.id);
     return p.id;
   }
@@ -311,9 +356,10 @@ export class Room extends Emitter {
     this.conns.delete(pid);
     if (conn) try { conn.close(); } catch { /* */ }
     this._players = this._players.filter((p) => p.id !== pid);
-    this._sys(rec.p.name + (why === 'kick' ? ' was removed' : ' left'));
+    this._aud = this._aud.filter((p) => p.id !== pid);
+    this._sys(rec.p.name + (why === 'kick' ? ' was removed' : rec.aud ? ' stopped watching' : ' left'));
     this._publish();
-    this.emit('left', pid);
+    if (!rec.aud) this.emit('left', pid); // games only care about players leaving
   }
 
   _hostTick() {
@@ -331,7 +377,8 @@ export class Room extends Emitter {
     switch (msg.t) {
       case 'ping': this._send(this.conns.get(pid), { t: 'pong', ts: msg.ts }); break;
       case 'chat': this._chat(pid, msg.text); break;
-      case 'g': this._deliverG(msg.k, msg.d, pid, msg.r); break;
+      case 'g': if (!this.recs.get(pid)?.aud) this._deliverG(msg.k, msg.d, pid, msg.r); break; // the audience only watches
+      case 'askplay': { const rec = this.recs.get(pid); if (rec?.aud && !this._st.locked) this._addRequest({ key: pid, kind: 'play', name: rec.p.name, avatar: rec.p.avatar }); break; }
       case 'profile': {
         const p = this.recs.get(pid)?.p;
         if (!p) break;
@@ -354,7 +401,7 @@ export class Room extends Emitter {
   }
 
   _buildState() {
-    return { ...this._st, players: this._players.map((p) => ({ ...p })), v: ++this._v };
+    return { ...this._st, players: this._players.map((p) => ({ ...p })), audience: this._aud.map((p) => ({ ...p })), v: ++this._v };
   }
 
   _publish() {
@@ -380,11 +427,71 @@ export class Room extends Emitter {
     this._st.opts = { ...this._st.opts, [key]: value };
     this._publish();
   }
-  setLocked(b) {
+  setLocked(b) { this.setSetting('access', b ? 'locked' : this._st.access === 'locked' ? 'open' : this._st.access); }
+  /** Room settings: access ('open' | 'ask' | 'locked'), pub (listed in the room list), aud (people may watch). */
+  setSetting(key, value) {
     if (!this.isHost) return;
-    this._st.locked = !!b;
+    if (key === 'access' && ['open', 'ask', 'locked'].includes(value)) { this._st.access = value; this._st.locked = value === 'locked'; }
+    else if (key === 'pub' || key === 'aud') this._st[key] = !!value;
+    else return;
+    if (key === 'aud' && !value) for (const a of [...this._aud]) this.kick(a.id);
     this._publish();
   }
+
+  // ---- join requests (host): from the room list when access is 'ask', or from the audience asking to play
+  _addRequest(r) {
+    this.requests = this.requests.filter((x) => x.key !== r.key);
+    if (this.requests.length >= 8) { if (r.conn) { this._send(r.conn, { t: 'denied', reason: 'declined' }); setTimeout(() => { try { r.conn.close(); } catch { /* */ } }, 200); } return; } // too many people knocking: ignore the rest
+    r.ts = Date.now();
+    r.timer = setTimeout(() => this.deny(r.key, 'timeout'), 120000);
+    this.requests.push(r);
+    this.emit('requests', this.requests);
+  }
+  _dropRequestByConn(conn) {
+    const r = this.requests.find((x) => x.conn === conn);
+    if (r) { clearTimeout(r.timer); this.requests = this.requests.filter((x) => x !== r); this.emit('requests', this.requests); }
+  }
+  approve(key) {
+    const r = this.requests.find((x) => x.key === key);
+    if (!r) return;
+    clearTimeout(r.timer);
+    this.requests = this.requests.filter((x) => x !== r);
+    if (r.kind === 'join') {
+      if (this._players.length >= CFG.maxPlayers) { this._send(r.conn, { t: 'denied', reason: 'full' }); setTimeout(() => r.conn.close(), 200); }
+      else if (!r.conn.open) { /* they gave up while waiting */ }
+      else { const p = this._addPlayer(r.key, r.msg); this._welcomeNew(r.conn, p, ' joined'); }
+    } else this.promote(r.key);
+    this.emit('requests', this.requests);
+  }
+  deny(key, why = 'declined') {
+    const r = this.requests.find((x) => x.key === key);
+    if (!r) return;
+    clearTimeout(r.timer);
+    this.requests = this.requests.filter((x) => x !== r);
+    if (r.conn) { this._send(r.conn, { t: 'denied', reason: why }); setTimeout(() => { try { r.conn.close(); } catch { /* */ } }, 200); }
+    this.emit('requests', this.requests);
+  }
+  /** Turn a watcher into a player (they sit out the current round if one is running). */
+  promote(aid) {
+    if (!this.isHost) return;
+    const rec = this.recs.get(aid);
+    if (!rec || !rec.aud || this._players.length >= CFG.maxPlayers) return;
+    const id = 'p' + (++this._seq);
+    this._aud = this._aud.filter((p) => p !== rec.p);
+    const used = new Set(this._players.map((p) => p.color));
+    Object.assign(rec.p, { id, color: COLORS.find((c) => !used.has(c)) || rec.p.color });
+    rec.aud = false;
+    this.recs.delete(aid);
+    this.recs.set(id, rec);
+    const conn = this.conns.get(aid);
+    if (conn) { this.conns.delete(aid); this.conns.set(id, conn); conn._gnPid = id; }
+    this._players.push(rec.p);
+    if (conn) this._send(conn, { t: 'role', id });
+    this._sys(rec.p.name + ' is now playing');
+    this._publish();
+  }
+  /** Audience member: ask the host for a seat. */
+  askToPlay() { if (this.isAudience && !this.isHost) this._sendHost({ t: 'askplay' }); }
   kick(pid) {
     if (!this.isHost || pid === this.me) return;
     const rec = this.recs.get(pid);
@@ -460,13 +567,13 @@ export class Room extends Emitter {
         this.peer.off('error', onPeerErr);
         if (err) { try { conn.close(); } catch { /* */ } reject(err); } else resolve();
       };
-      const to = setTimeout(() => finish(new RoomError('timeout', `Room ${this.number} did not respond`)), 12000);
+      let to = setTimeout(() => finish(new RoomError('timeout', `Room ${this.number} did not respond`)), 12000);
       const onPeerErr = (e) => {
         if (e.type === 'peer-unavailable') finish(new RoomError('notfound', `Room ${this.number} doesn't exist (anymore)`));
       };
       this.peer.on('error', onPeerErr);
       conn.on('open', () => {
-        conn.send({ t: 'hello', cid: this.clientId, name: this.profile.name, avatar: this.profile.avatar, v: PROTO, b: CFG.build });
+        conn.send({ t: 'hello', cid: this.clientId, name: this.profile.name, avatar: this.profile.avatar, v: PROTO, b: CFG.build, role: this._want?.role || 'player', via: this._want?.via || 'code' });
       });
       conn.on('data', (raw) => {
         if (!raw || typeof raw !== 'object') return;
@@ -474,6 +581,7 @@ export class Room extends Emitter {
         const msg = unchunk('host', raw);
         if (!msg) return;
         if (!settled) {
+          if (msg.t === 'pending') { clearTimeout(to); to = setTimeout(() => finish(new RoomError('timeout', 'The host did not answer in time')), 130000); this._onPending?.(); return; }
           if (msg.t === 'welcome') {
             this.conn = conn;
             this.me = msg.id;
@@ -483,6 +591,7 @@ export class Room extends Emitter {
             this.emit('state', this.state);
           } else if (msg.t === 'denied') {
             const why = msg.reason === 'locked' ? 'This room is locked by the host' : msg.reason === 'full' ? 'This room is full'
+              : msg.reason === 'declined' ? 'The host didn’t let you in this time' : msg.reason === 'noaudience' ? 'The host has turned off watching for this room'
               : msg.reason === 'version' ? ((msg.v || 1) > PROTO ? 'This room runs a newer version of the game. Reload the page to update, then join again.' : 'This room’s host is on an older version. Ask them to reload the page, then join again.')
               : 'You cannot join this room';
             const err = new RoomError('denied:' + msg.reason, why);
@@ -526,6 +635,7 @@ export class Room extends Emitter {
       case 'chat': this._pushChat(msg.m); break;
       case 'g': this._deliverG(msg.k, msg.d, msg.f, msg.r); break;
       case 'pong': this.rtt = Date.now() - msg.ts; break;
+      case 'role': this.me = msg.id; break; // promoted from the audience to a player
       case 'kick': this._closeRoom('kicked'); break;
       case 'closed': this._closeRoom('host-left'); break;
       default: break;
@@ -610,18 +720,18 @@ export class Room extends Emitter {
   // ---------------------------------------------------------------- game message transport
   /** Guest -> host (or loop back locally if we are the host) */
   gToHost(k, d) {
-    if (this.isHost) this._deliverG(k, d, this.me, this.runId);
+    if (this.isHost) this._deliverG(k, wireCopy(d), this.me, this.runId);
     else this._sendHost({ t: 'g', k, d, r: this.runId });
   }
   /** Host -> everyone (including itself) */
   gBroadcast(k, d, exceptId) {
     if (!this.isHost) return;
     this._bcast({ t: 'g', k, d, f: this.me, r: this.runId }, exceptId);
-    if (exceptId !== this.me) this._deliverG(k, d, this.me, this.runId);
+    if (exceptId !== this.me) this._deliverG(k, wireCopy(d), this.me, this.runId);
   }
   gSendTo(id, k, d) {
     if (!this.isHost) return;
-    if (id === this.me) return this._deliverG(k, d, this.me, this.runId);
+    if (id === this.me) return this._deliverG(k, wireCopy(d), this.me, this.runId);
     this._send(this.conns.get(id), { t: 'g', k, d, f: this.me, r: this.runId });
   }
   _deliverG(k, d, from, r) {

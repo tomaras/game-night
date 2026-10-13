@@ -6,9 +6,16 @@ import { GAMES, GAME_BY_ID, CATEGORIES } from './games/index.js';
 import { GameSession } from './session.js';
 import { sfx, isMuted, setMuted, audioContext } from './audio.js';
 import { avatarEl, avatarEditor, sanitizeAvatar } from './avatar.js';
-import { AV } from './av.js';
 import { createAvUI } from './avui.js';
-import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialog, openMenu, openPopover, switchEl, segmented } from './ui.js';
+import { Comms } from './comms.js';
+import { createCommsButtons, openCommsSheet, channelList, createMiniCall } from './commsui.js';
+import { chatView } from './chatview.js';
+import { Recorder } from './recorder.js';
+import { openRecordings } from './recui.js';
+import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialog, openMenu, openPopover, switchEl, segmented, notice } from './ui.js';
+import { plaza } from './plaza.js';
+import { createRoomPanel, gameName } from './roompanel.js';
+import { channelName } from './lounge.js';
 import { initTheme, THEMES, getThemePref, setThemePref, onTheme } from './theme.js';
 import { createChrome } from './chrome.js';
 import { LocalRoom } from './local.js';
@@ -46,6 +53,9 @@ const S = {
   ui: null,
   chat: null,
   unread: 0,
+  unreadG: 0, // unread messages in the global (Lounge) chat while in a room
+  comms: null,
+  loungeUI: null,
   sheetOpen: false,
   chatCollapsed: readPref('gn.chatCollapsed') === '1',
   resultsFor: 0,
@@ -112,6 +122,7 @@ async function editProfile() {
   const p = await askProfile({ title: 'Edit your profile', sub: 'Everyone in the room sees changes instantly.' });
   if (p) {
     S.room?.setProfile(p);
+    plaza.setProfile(p);
     renderHeader();
     toast('Profile updated', 'good');
   }
@@ -180,6 +191,8 @@ function appSection() {
 // ------------------------------------------------------------------ header / app bar
 function renderHeader() {
   const room = S.room;
+  document.body.dataset.tab = room ? 'room' : S.tab;
+  if (S.comms) { S.comms.hidden = !!room || (S.tab === 'lounge' && S.mode === 'none'); S.mini?.paint(); }
   document.getElementById('app')?.classList.toggle('inroom', !!room);
   if (!room) {
     mount(S.headerEl,
@@ -187,6 +200,7 @@ function renderHeader() {
       h('a.logo', { href: '#/', 'aria-label': 'Home' }, logoMark()),
       joinPill(),
       h('div.spacer'),
+      ...(S.comms?.loungeAV ? S.commsBtns.buttons : []),
       iconBtn(resolvedThemeIcon(), 'Theme', (e) => openThemePopover(e.currentTarget)),
       h('button.profilechip', { onclick: editProfile, title: 'Edit your name & avatar' }, avatarEl({ avatar: S.profile.avatar }, 'sm'), h('span.n', S.profile.name))
     );
@@ -198,12 +212,14 @@ function renderHeader() {
   const ids = st.game ? st.game.playerIds : st.players.map((p) => p.id);
   mount(S.headerEl,
     iconBtn('arrow_back', 'Leave room', () => requestLeave()),
-    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
+    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Watching · Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
     h('div.tb-players', ids.map((id) => room.player(id)).filter(Boolean).slice(0, 10).map((p) => avatarEl(p, 'sm', { still: true }))),
     h('div.spacer'),
-    ...S.avUI.buttons,
+    S.rec?.active ? h('button.recpill', { onclick: () => openRecordings(S.rec, { toast }), title: 'Recording — tap to save a clip' }, icon('fiber_manual_record', 'sm'), 'REC') : null,
+    ...S.commsBtns.buttons,
+    S.peopleBtn ? (S.peopleBtn.querySelector('.dot')?.remove(), room.requests.length ? S.peopleBtn.append(h('span.dot', room.requests.length)) : null, S.peopleBtn) : null,
     S.chatBtn,
-    iconBtn('help_outline', 'Rules & how to play', () => openRules(currentDef())),
+    iconBtn('help_outline', 'Rules & how to play', () => openRules(currentDef()), 'hide-narrow'),
     iconBtn('more_vert', 'More', (e) => openRoomMenu(e.currentTarget))
   );
   updateChatBadge();
@@ -240,10 +256,12 @@ function openRoomMenu(anchor) {
     room.match && room.match.mode === 'link' ? { icon: 'sms', label: 'Send my move again', onClick: () => { if (room.match.snap) matchBar(room.match); else toast('Make a move first'); } } : null,
     !room.local && room.isHost && currentDef()?.async && S.session?.lastSave ? { icon: 'sms', label: 'Continue by message…', onClick: convertToMatch } : null,
     room.local ? null : { icon: 'link', label: 'Copy invite link', onClick: copyInvite },
-    room.local ? null : navigator.share ? { icon: 'share', label: 'Share invite…', onClick: () => navigator.share({ title: 'Game Night', text: `Join my game room ${room.number}!`, url: roomLink(room.number) }).catch(() => {}) } : null,
     { icon: 'person', label: 'Edit name & avatar', onClick: editProfile },
     { icon: isMuted() ? 'volume_off' : 'volume_up', label: isMuted() ? 'Turn sound on' : 'Turn sound off', onClick: () => { setMuted(!isMuted()); toast(isMuted() ? 'Sound off' : 'Sound on'); } },
-    room.isHost && !room.local ? { icon: st.locked ? 'lock_open' : 'lock', label: st.locked ? 'Unlock room' : 'Lock room (no new players)', onClick: () => room.setLocked(!st.locked) } : null,
+    { icon: 'menu_book', label: 'Rules & how to play', onClick: () => openRules(currentDef()) },
+    room.local ? null : { icon: 'headset', label: 'Voice, video & chat…', onClick: openComms },
+    S.rec?.active ? { icon: 'save_alt', label: `Save last ${S.rec.settings.minutes} min as a clip`, onClick: async () => { try { const r = await S.rec.save(); toast(r.stitched ? 'Stitched onto your earlier clip ✓' : 'Clip saved ✓', 'good'); } catch (e) { toast(e.message, 'bad'); } } } : { icon: 'fiber_manual_record', label: 'Record…', onClick: () => openRecordings(S.rec, { toast }) },
+    room.local ? null : { icon: 'tune', label: 'Room settings & invite', onClick: () => openPanel('room') },
     room.isHost && st.phase !== 'lobby' ? { icon: 'stop', label: 'End game → back to lobby', onClick: async () => { if (await confirmDialog('End this game?', 'Everyone goes back to the lobby.', { ok: 'End game', danger: true })) room.toLobby(); } } : null,
     '-',
     { icon: 'logout', label: 'Leave room', danger: true, onClick: () => requestLeave() },
@@ -536,7 +554,7 @@ function renderMatchesTab() {
         m.mode === 'link' && m.snap ? iconBtn('share', 'Send again', async () => { const me = m.players.find((p) => p.id === m.mine); const link = matchLink(await encodeMatch(m)); if (!(await nativeShare(m, def, link, me.name))) { await copyText(shareText(m, def, link, me.name)); toast('Link copied', 'good'); } }, 'sm') : null,
         iconBtn('delete', 'Delete match', async () => { if (await confirmDialog('Delete this match?', 'It’s only removed from this device.', { ok: 'Delete', danger: true })) { deleteMatch(m.id); renderMatchesTab(); } }, 'sm')));
   };
-  mount(S.view, h('div.home', h('div.tabhead', h('h2', 'Turn-by-turn matches'), h('div.muted', 'Play Chess, Connect Four and Pool at your own pace — send each move by text.')),
+  mount(S.view, h('div.home',
     all.length ? groups.map(([t, l]) => h('div.msec', h('div.kt-title', t), h('div.mlist', l.map(card)))) : h('div.empty', h('div', { style: 'font-size:54px' }, '💬'), h('p', 'No matches yet. Start one with the + button — then text your move to a friend.'))));
   S.chrome.setFab([
     { label: 'New match', icon: 'add_circle', onClick: () => pickGame({ title: 'Turn-by-turn match', only: (g) => g.async, onPick: (d) => startMatch(d) }) },
@@ -559,9 +577,9 @@ async function importMatch(token) {
 }
 
 // ------------------------------------------------------------------ connecting
-function showBusy(text) {
+function showBusy(text, { sub = 'Connecting peer-to-peer…', cancel } = {}) {
   S.mode = 'none';
-  mount(S.view, h('div.waitscreen', h('div', [h('div.spinner'), h('h3', { style: 'font-size:20px' }, text), h('p.muted', { style: 'margin-top:6px' }, 'Connecting peer-to-peer…')])));
+  mount(S.view, h('div.waitscreen', h('div', [h('div.spinner'), h('h3', { style: 'font-size:20px' }, text), h('p.muted', { style: 'margin-top:6px' }, sub), cancel ? h('button.btn.tonal', { style: 'margin-top:18px', onclick: cancel }, 'Cancel') : null])));
 }
 
 async function createRoom(gameId) {
@@ -583,17 +601,25 @@ async function createRoom(gameId) {
   }
 }
 
-async function joinRoom(n) {
+/** `role`: 'player' | 'audience'. `via`: 'code' (typed it / invite link) or 'dir' (picked from the room list, where the host may want to approve you). */
+async function joinRoom(n, { role = 'player', via = 'code' } = {}) {
   if (S.room || S.joining) return;
   S.joining = true;
+  let cancelled = false;
+  const ref = {};
   try {
-    const prof = await askProfile({ title: `Join room ${n}`, sub: 'Pick a name and a look — you can change them any time.', confirm: 'Join room' });
+    const watch = role === 'audience';
+    const prof = await askProfile({ title: watch ? `Watch room ${n}` : `Join room ${n}`, sub: watch ? 'You’ll see the game and the chat, without playing.' : 'Pick a name and a look — you can change them any time.', confirm: watch ? 'Watch' : 'Join room' });
     if (!prof) { history.replaceState(null, '', '#/'); renderHome(); return; }
-    showBusy(`Joining room ${n}…`);
-    const room = await Room.join(n, S.profile);
+    plaza.setProfile(prof);
+    const cancel = () => { cancelled = true; ref.cancel?.(); };
+    showBusy(watch ? `Opening room ${n}…` : `Joining room ${n}…`, { cancel });
+    const room = await Room.join(n, S.profile, { role, via, ref, onPending: () => showBusy('Waiting for the host…', { sub: `Room ${n}’s host has been asked to let you in.`, cancel }) });
+    if (cancelled) { room.leave(); return; }
     enterRoom(room);
+    history.replaceState(null, '', '#/room/' + n + (watch ? '/watch' : ''));
   } catch (e) {
-    toast(friendlyError(e), 'bad');
+    if (!cancelled) toast(friendlyError(e), 'bad');
     history.replaceState(null, '', '#/');
     renderHome();
   } finally {
@@ -615,9 +641,13 @@ function enterRoom(room) {
   keepAwake();
   S.mode = 'none';
   S.unread = 0;
+  S.unreadG = 0;
   S.sheetOpen = false;
   S.resultsFor = 0;
   S.chat = createChat(room);
+  S.panel = room.local ? null : createRoomPanel({ room, chatEl: S.chat.el, plaza, toast, copyInvite, onRecord: () => openRecordings(S.rec, { toast }), openComms });
+  S.paneEl = S.panel ? S.panel.el : S.chat.el;
+  S.panel?.onChange(() => updateChatBadge());
   const ui = (S.ui = {
     stage: h('div.stage'),
     roommain: null,
@@ -628,24 +658,25 @@ function enterRoom(room) {
     sheet: h('div.chatsheet'),
     sheetBack: h('div.sheetback', { onclick: () => toggleSheet(false) }),
   });
-  S.chatBtn = iconBtn('chat_bubble', 'Chat', () => toggleSheet(true), 'chat-btn');
+  S.chatBtn = iconBtn('chat_bubble', 'Chat', () => openPanel('chat'), 'chat-btn');
   S.chatBtn.classList.add('hide-wide');
-  ui.barInput = h('input.txt', { placeholder: 'Say something…', maxlength: 300, autocomplete: 'off', enterkeyhint: 'send' });
+  S.peopleBtn = room.local ? null : iconBtn('group', 'People & room', () => openPanel('people'), 'people-btn');
+  ui.barInput = h('input.txt', { placeholder: S.comms.scope.chat === 'global' ? 'Say something to everyone…' : 'Say something…', maxlength: 300, autocomplete: 'off', enterkeyhint: 'send' });
   ui.bar = h('form.chatbar', {
     onsubmit: (e) => {
       e.preventDefault();
       const t = ui.barInput.value.trim();
-      if (t) room.sendChat(t);
+      if (t) { if (S.comms.scope.chat === 'global') plaza.sendChat(t); else room.sendChat(t); }
       ui.barInput.value = '';
     },
   }, ui.barInput, h('button.chatsend', { type: 'submit', 'aria-label': 'Send' }, icon('send')));
-  if (room.local) { S.av = null; S.avUI = { dock: h('div.hide'), buttons: [], destroy() {} }; } else {
-    S.av = new AV(room);
-    S.avUI = createAvUI(room, S.av, { toast });
-  }
+  S.av = S.comms.attachRoom(room); // null for offline rooms
+  S.avUI = S.av ? createAvUI(room, S.av, { toast }) : { dock: h('div.hide'), destroy() {} };
+  S.dockStack = h('div.avstack');
+  mount(S.dockStack, S.avUI.dock, S.loungeUI ? S.loungeUI.dock : null);
   document.body.append(ui.sheetBack, ui.sheet);
   ui.roommain = h('div.roommain', ui.stage, ui.float, ui.bar);
-  mount(S.view, h('div.roomwrap', ui.roommain, S.avUI.dock, ui.side));
+  mount(S.view, h('div.roomwrap', ui.roommain, S.dockStack, ui.side));
   const onMQ = () => applyChatLayout();
   wideMQ.addEventListener('change', onMQ);
   S.offs = [
@@ -660,37 +691,80 @@ function enterRoom(room) {
     }),
     room.on('conn', (ok) => setBanner(ok ? null : 'Connection lost — reconnecting…')),
     room.on('joined', () => sfx('join')),
+    room.on('requests', onRequests),
+    plaza.on('chat', onGlobalChat),
+    S.comms.on('scope', (kind) => { if (kind === 'chat' && S.chat) { S.chat.show(S.comms.scope.chat); updateChatBadge(); S.chat.focus(); } renderHeader(); }),
+    () => { reqNotices.forEach((n) => n.close()); reqNotices.clear(); S.panel?.destroy(); },
   ];
+  if (!room.local) { syncPresence(); S.offs.push(room.on('state', syncPresence)); if (room.isHost) plaza.hostRoom(room); }
   applyChatLayout();
   onState();
 }
 
+const reqNotices = new Map();
+/** Host: somebody wants in — show a card with Let in / Decline wherever the host is (lobby or mid-game). */
+function onRequests(list) {
+  const room = S.room;
+  if (!room) return;
+  for (const r of list) {
+    if (reqNotices.has(r.key)) continue;
+    reqNotices.set(r.key, notice({ key: 'req-' + r.key, avatar: avatarEl({ avatar: r.avatar, name: r.name }, 'sm'), title: `${r.name} ${r.kind === 'play' ? 'wants to play' : 'wants to join'}`,
+      actions: [{ label: 'Let in', primary: true, onClick: () => room.approve(r.key) }, { label: 'Decline', onClick: () => room.deny(r.key) }] }));
+    sfx('join');
+  }
+  for (const [k, n] of [...reqNotices]) if (!list.some((r) => r.key === k)) { n.close(); reqNotices.delete(k); }
+  renderHeader();
+}
+
+/** The chat for a room: a Room / Global switch on top of two logs (the room's and the Lounge's). */
+/** Others online may see which room I'm in only if the room is listed; a hidden room shows as "in a private room". */
+function syncPresence() {
+  const room = S.room;
+  if (!room || room.local) return;
+  const pub = !!room.state?.pub;
+  if (plaza.me.room !== (pub ? room.number : null) || plaza.me.priv !== !pub) plaza.setPresence({ room: pub ? room.number : null, priv: !pub });
+}
+
 function createChat(room) {
-  const msgs = h('div.msgs');
-  const input = h('input.txt', { placeholder: 'Message…', maxlength: 300, autocomplete: 'off', enterkeyhint: 'send' });
-  const form = h('form', {
-    onsubmit: (e) => {
-      e.preventDefault();
-      const t = input.value.trim();
-      if (t) room.sendChat(t);
-      input.value = '';
-    },
-  }, input, h('button.chatsend', { type: 'submit', 'aria-label': 'Send' }, icon('send')));
-  const el = h('div.chat', msgs, form);
-  const add = (m) => {
-    const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
-    const who = m.from ? room.player(m.from) : null;
-    const mine = m.from === room.me;
-    msgs.append(
-      m.sys
-        ? h('div.m.sys', h('div.bub', m.text))
-        : h('div.m' + (mine ? '.me' : ''), who ? avatarEl(who, 'sm', { still: true }) : null, h('div.bub', mine ? null : h('b', { style: { color: `color-mix(in srgb, ${m.color} 62%, #000)` } }, m.name), m.text))
-    );
-    while (msgs.childNodes.length > 120) msgs.firstChild.remove();
-    if (nearBottom || mine) msgs.scrollTop = msgs.scrollHeight;
+  const norm = (m) => ({ id: m.id, mine: m.from === room.me, name: m.name, color: m.color, avatar: room.person(m.from)?.avatar, text: m.text, sys: m.sys, from: m.from });
+  const roomView = chatView({ placeholder: 'Message the room…', send: (t) => room.sendChat(t) });
+  room.chat.forEach((m) => roomView.add(norm(m)));
+  const globalView = chatView({ placeholder: 'Message everyone online…', send: (t) => plaza.sendChat(t), onName: globalNameMenu, empty: 'Say hi to everyone who’s online 👋' });
+  globalView.reset(plaza.chat('lounge'));
+  const wrap = h('div.chatwrap');
+  const tabs = h('div.cscope');
+  const body = h('div.cbody');
+  wrap.append(tabs, body);
+  let shown = null;
+  function paintTabs() {
+    const cur = S.comms.scope.chat;
+    mount(tabs, [['room', 'meeting_room', 'Room', S.unread], ['global', 'public', 'Global', S.unreadG]].map(([v, ic, label, n]) =>
+      h('button.csb' + (cur === v ? '.on' : ''), { type: 'button', onclick: () => S.comms.setScope('chat', v) }, icon(ic, 'sm'), label, n && cur !== v ? h('span.dot.static', n > 9 ? '9+' : n) : null)));
+  }
+  function show(scope) {
+    if (shown !== scope) { shown = scope; mount(body, scope === 'room' ? roomView.el : globalView.el); (scope === 'room' ? roomView : globalView).scroll(); }
+    paintTabs();
+  }
+  show(S.comms.scope.chat);
+  const view = () => (S.comms.scope.chat === 'room' ? roomView : globalView);
+  return {
+    el: wrap, show, paintTabs,
+    add: (m) => roomView.add(norm(m)),
+    addGlobal: (m) => globalView.add(m),
+    resetGlobal: () => globalView.reset(plaza.chat('lounge')),
+    focus: () => view().focus(),
+    scroll: () => view().scroll(),
   };
-  room.chat.forEach(add);
-  return { el, add, focus: () => input.focus(), scroll: () => { msgs.scrollTop = msgs.scrollHeight; } };
+}
+
+/** Tap a name in the global chat. */
+function globalNameMenu(m, anchor) {
+  const person = plaza.people.get(m.from);
+  openMenu(anchor, [
+    person?.room && !S.room ? { icon: 'login', label: `Join their room (${person.room})`, onClick: () => { location.hash = '#/room/' + person.room; } } : null,
+    S.room && !S.room.local && !S.room.isAudience ? { icon: 'person_add', label: 'Invite to my room', onClick: () => { plaza.invite(m.from, S.room.number, S.room.state.gameId); toast('Invitation sent', 'good'); } } : null,
+    { icon: 'block', label: 'Mute ' + m.name, danger: true, onClick: () => { plaza.mute(m.from); toast(m.name + ' is muted'); } },
+  ].filter(Boolean));
 }
 
 function applyChatLayout() {
@@ -711,15 +785,41 @@ function applyChatLayout() {
       mount(ui.side, head);
       if (S.unread) ui.side.append(h('span.dot.static', S.unread > 9 ? '9+' : S.unread));
     } else {
-      mount(ui.side, head, S.chat.el);
+      mount(ui.side, head, S.paneEl);
       S.chat.scroll();
     }
   } else {
     ui.side.classList.remove('collapsed');
     ui.side.replaceChildren();
-    if (S.sheetOpen) mount(ui.sheet, h('div.grab'), h('div.chathead', [h('span', 'Chat'), h('div.spacer'), iconBtn('close', 'Close chat', () => toggleSheet(false), 'sm')]), S.chat.el);
+    if (S.sheetOpen) mount(ui.sheet, h('div.grab'), h('div.chathead', [h('span', S.panel ? 'Room ' + S.room.number : 'Chat'), h('div.spacer'), iconBtn('close', 'Close', () => toggleSheet(false), 'sm')]), S.paneEl);
   }
   updateChatBadge();
+}
+
+function openComms() {
+  openCommsSheet(S.comms, { inRoom: !!S.room && !S.room.local, roomNumber: S.room?.number, goLounge: S.room ? null : () => { location.hash = '#/lounge'; } });
+}
+
+/** Keep the Lounge call's tiles in sync with the call (they show beside the room's tiles, or on the Lounge tab). */
+function syncLounge() {
+  const av = S.comms.loungeAV;
+  if (!av) { S.loungeUI?.destroy(); S.loungeUI = null; }
+  else if (!S.loungeUI || S.loungeUI.av !== av) {
+    S.loungeUI?.destroy();
+    S.loungeUI = createAvUI(S.comms.lounge, av, { toast, label: channelName(S.comms.channel), onLeave: () => S.comms.leaveChannel() });
+    S.loungeUI.av = av;
+  }
+  if (S.dockStack && S.avUI) mount(S.dockStack, S.avUI.dock, S.loungeUI ? S.loungeUI.dock : null);
+  if (S.loungeHost?.isConnected) mount(S.loungeHost, S.loungeUI ? S.loungeUI.dock : null);
+  if (!S.room) renderHeader();
+}
+
+/** Open the side panel (wide screens) or the bottom sheet (phones) on a tab. */
+function openPanel(tab = 'chat') {
+  if (!S.ui) return;
+  S.panel?.show(tab);
+  if (wideMQ.matches) { if (S.chatCollapsed) { S.chatCollapsed = false; writePref('gn.chatCollapsed', '0'); S.unread = 0; applyChatLayout(); } }
+  else toggleSheet(true);
 }
 
 function toggleSheet(force, silent) {
@@ -742,32 +842,54 @@ function toggleSheet(force, silent) {
 }
 
 function updateChatBadge() {
+  if (chatVisible('room')) S.unread = 0;
+  if (chatVisible('global')) S.unreadG = 0;
+  const n = S.unread + S.unreadG;
   if (S.chatBtn) {
     S.chatBtn.querySelector('.dot')?.remove();
-    if (S.unread > 0 && !wideMQ.matches) S.chatBtn.append(h('span.dot', S.unread > 9 ? '9+' : S.unread));
+    if (n > 0 && !wideMQ.matches) S.chatBtn.append(h('span.dot', n > 9 ? '9+' : n));
   }
   const ui = S.ui;
   if (ui && wideMQ.matches && S.chatCollapsed) {
     ui.side.querySelector('.dot')?.remove();
-    if (S.unread > 0) ui.side.append(h('span.dot.static', S.unread > 9 ? '9+' : S.unread));
+    if (n > 0) ui.side.append(h('span.dot.static', n > 9 ? '9+' : n));
   }
+  S.chat?.paintTabs();
+}
+
+/** Is the chat for `scope` on screen right now? */
+function chatVisible(scope) {
+  const open = wideMQ.matches ? !S.chatCollapsed : S.sheetOpen;
+  return open && (!S.panel || S.panel.active === 'chat') && S.comms.scope.chat === scope;
+}
+function floatMsg(m) {
+  if (wideMQ.matches || S.sheetOpen || !S.ui) return;
+  const who = m.avatar ? { avatar: m.avatar } : m.from ? S.room.person(m.from) : null;
+  const f = h('div.fm' + (m.sys ? '.sys' : ''), m.sys ? m.text : [who ? avatarEl(who, 'xs', { still: true }) : null, h('b', m.name), h('span', m.text)]);
+  S.ui.float.append(f);
+  while (S.ui.float.childNodes.length > 3) S.ui.float.firstChild.remove();
+  setTimeout(() => f.remove(), 7000);
 }
 
 function onChatMsg(m) {
   if (!S.ui) return;
   S.chat.add(m);
   const mine = m.from === S.room.me;
-  if (wideMQ.matches) {
-    if (S.chatCollapsed && !mine && !m.sys) { S.unread++; updateChatBadge(); }
-  } else if (!S.sheetOpen) {
-    const who = m.from ? S.room.player(m.from) : null;
-    const f = h('div.fm' + (m.sys ? '.sys' : ''), m.sys ? m.text : [who ? avatarEl(who, 'xs', { still: true }) : null, h('b', m.name), h('span', m.text)]);
-    S.ui.float.append(f);
-    while (S.ui.float.childNodes.length > 3) S.ui.float.firstChild.remove();
-    setTimeout(() => f.remove(), 7000);
-    if (!mine && !m.sys) { S.unread++; updateChatBadge(); }
+  floatMsg(m);
+  if (!mine && !m.sys) {
+    if (!chatVisible('room')) { S.unread++; updateChatBadge(); }
+    sfx('msg');
   }
-  if (!m.sys && !mine) sfx('msg');
+}
+/** A message from the global (Lounge) chat arrived while I'm in a room. */
+function onGlobalChat(ch, m) {
+  if (!S.ui || !S.chat) return;
+  if (!m) { S.chat.resetGlobal(); return; }
+  S.chat.addGlobal(m);
+  if (m.mine || m.history) return;
+  if (S.comms.scope.chat === 'global') floatMsg(m);
+  if (!chatVisible('global')) { S.unreadG++; updateChatBadge(); }
+  sfx('msg');
 }
 
 function setBanner(text) {
@@ -782,8 +904,9 @@ function teardownRoom() {
   S.offs = [];
   S.ui?.sheet.remove();
   S.ui?.sheetBack.remove();
-  S.avUI?.destroy(); S.av?.dispose();
-  S.avUI = null; S.av = null; S.chatBtn = null;
+  S.avUI?.destroy(); S.comms.detachRoom();
+  plaza.unhostRoom(); plaza.setPresence({ room: null, priv: false });
+  S.avUI = null; S.av = null; S.dockStack = null; S.chatBtn = null; S.peopleBtn = null; S.panel = null; S.paneEl = null;
   S.ui = null;
   S.chat = null;
   S.match = null;
@@ -830,7 +953,7 @@ function onState() {
     if (st.gameId && GAME_BY_ID[st.gameId]) GAME_BY_ID[st.gameId].load().catch(() => {});
     return;
   }
-  const mine = g.playerIds.includes(room.me);
+  const mine = g.playerIds.includes(room.me) || room.isAudience; // the audience sees the game too (read-only)
   if (!mine) {
     if (S.mode !== 'wait' || S.runId !== g.runId) showWait(g);
     renderHeader();
@@ -880,6 +1003,7 @@ function updateLobby() {
   mount(L.players,
     h('div.row', { style: 'margin-bottom:12px' }, h('h3', { style: 'font:700 18px var(--font)' }, 'Players'), h('span.chip.blue', st.players.length), h('div.spacer'), h('button.btn.small.tonal', { onclick: editProfile }, icon('edit'), 'Edit me')),
     botControls(),
+    st.audience?.length ? h('div.watchrow', icon('visibility', 'sm'), h('span', `${st.audience.length} watching`), h('div.row', { style: 'gap:2px' }, st.audience.slice(0, 8).map((p) => avatarEl(p, 'xs', { still: true })))) : null,
     h('div.plist', st.players.map((p) => h('div.prow', [
       h('div.avwrap', avatarEl(p, 'lg'), p.id === st.hostId ? h('span.crown', icon('star')) : null),
       h('div.grow', [h('div.pname', p.name + (p.id === room.me ? ' (you)' : '')), p.bot ? h('div.tag', 'Computer · ' + ((LEVELS.find((l) => l.value === (p.level || st.botLevel)) || {}).label || 'Normal')) : !p.online ? h('div.tag', 'reconnecting…') : p.id === st.hostId ? h('div.tag', 'Host') : null]),
@@ -931,6 +1055,7 @@ function updateLobby() {
   mount(L.start,
     room.isHost
       ? h('button.btn.primary.big.block', { disabled: !!problem, onclick: hostStart }, icon('play_arrow'), 'Start game')
+      : room.isAudience ? h('div.panel.row', { style: 'padding:12px 14px;justify-content:space-between' }, h('span.row', icon('visibility'), h('span.muted', 'You’re watching')), h('button.btn.small.primary', { onclick: () => { room.askToPlay(); toast('Asked the host for a seat', 'good'); } }, icon('sports_esports', 'sm'), 'Ask to play'))
       : h('div.panel', { style: 'text-align:center;padding:14px' }, h('span.muted', problem ? 'Waiting for more players…' : 'Waiting for the host to start…'))
   );
 }
@@ -992,6 +1117,12 @@ async function startSession(g) {
   S.ui.resultsEl = null;
   applyChatLayout();
   setTitle(room.local ? `${def.name} — vs computer` : `${def.name} — Room ${room.number}`);
+  if (room.isAudience && def.watch === false) { // private screens: nothing to draw for someone without a seat
+    mount(S.ui.stage, h('div.game-root', standIn(def, g)));
+    S.ui.stage.append(h('div.specbadge', icon('visibility', 'sm'), 'Watching'));
+    updateResults();
+    return;
+  }
   const root = h('div.game-root', h('div.waitscreen', h('div', h('div.spinner'), h('p.muted', 'Loading ' + def.name + '…'))));
   mount(S.ui.stage, root);
   let mod;
@@ -1006,10 +1137,39 @@ async function startSession(g) {
   clear(root);
   S.session = new GameSession({ room, def, mod, run: g, root, toast, onSave: onGameSave });
   S.session.updatePlayers();
+  if (room.isAudience) watchOnly(root, def);
   updateResults();
   // first time in this game on this device? show the rules briefly
   const seen = readPref('gn.seen.' + def.id);
   if (!seen) { writePref('gn.seen.' + def.id, '1'); setTimeout(() => { if (S.session && S.mode === 'game') toast('Tip: tap the ? button any time for the rules'); }, 1200); }
+}
+
+/** The audience sees what the players see, but can't touch it. If a game can't draw itself without a seat, show a friendly stand-in. */
+function watchOnly(root, def) {
+  root.classList.add('spectating');
+  if (S.session?.failed) { clear(root); root.append(standIn(def, S.room.state.game)); }
+  else { // some games draw nothing until they have something to say to *you*: after a moment, check and cover the gap
+    const room = S.room, session = S.session;
+    const blank = () => !root.innerText.trim() && !root.querySelector('canvas, video, img, svg');
+    setTimeout(() => { if (S.session === session && S.room === room && blank()) { const cover = h('div.spec-cover', standIn(def, room.state.game)); root.append(cover); const iv = setInterval(() => { if (S.session !== session || !cover.isConnected) return clearInterval(iv); if (!blank_(root, cover)) { cover.remove(); clearInterval(iv); } }, 2500); } }, 3500);
+  }
+  S.ui.stage.querySelector('.specbadge')?.remove();
+  S.ui.stage.append(h('div.specbadge', icon('visibility', 'sm'), 'Watching'));
+}
+/** Is the game's own picture empty (ignoring our stand-in cover)? */
+function blank_(root, cover) { cover.hidden = true; const empty = !root.innerText.trim() && !root.querySelector('canvas, video, img, svg'); cover.hidden = false; return empty; }
+
+/** What the audience sees when a game has nothing it can show them. */
+function standIn(def, g) {
+  const room = S.room;
+  const ps = (g?.playerIds || []).map((id) => room.player(id)).filter(Boolean);
+  return h('div.waitscreen', h('div', [
+    h('div.emo', { style: 'font-size:72px' }, def.emoji),
+    h('h2', `${def.name} is being played`),
+    h('div.row.wrap', { style: 'justify-content:center;gap:6px;margin-top:10px' }, ps.map((p) => h('span.chip', avatarEl(p, 'xs', { still: true }), p.name))),
+    h('p.muted', { style: 'margin:12px 0 18px;max-width:320px' }, 'Everyone has a private screen in this game, so there’s nothing to show here. You’ll see the results when it ends — chat with the room meanwhile!'),
+    h('div.spinner'),
+  ]));
 }
 
 // ------------------------------------------------------------------ results overlay
@@ -1094,7 +1254,7 @@ async function route() {
   if (hash === '#/solo' && S.room?.local) return;
   if (/^#\/m\//.test(hash) && S.room && !(await confirmDialog('Leave this game?', 'Open the match from the link instead.', { ok: 'Open match', danger: true }))) { history.replaceState(null, '', '#/solo'); return; }
   if (/^#\/m\//.test(hash) && S.room) teardownRoom();
-  const m = /^#\/room\/(\d+)/.exec(hash);
+  const m = /^#\/room\/(\d+)(\/watch)?/.exec(hash);
   if (m) {
     const n = +m[1];
     if (S.room) {
@@ -1102,7 +1262,7 @@ async function route() {
       if (!(await confirmDialog(`Leave room ${S.room.number}?`, `Join room ${n} instead.`, { ok: 'Switch rooms', danger: true }))) { history.replaceState(null, '', '#/room/' + S.room.number); return; }
       teardownRoom();
     }
-    return joinRoom(n);
+    return joinRoom(n, { role: m[2] ? 'audience' : 'player', via: 'code' });
   }
   if (S.room) {
     if (!(await confirmDialog(`Leave room ${S.room.number}?`, 'You’ll go back to the home screen.', { ok: 'Leave', danger: true }))) { history.replaceState(null, '', '#/room/' + S.room.number); return; }
@@ -1117,9 +1277,116 @@ async function route() {
   if (g && GAME_BY_ID[g[1]]) openGameSheet(GAME_BY_ID[g[1]]);
 }
 
+// ------------------------------------------------------------------ Rooms tab (the public room list)
+const joinable = (r) => r.access !== 'locked';
+function updateRoomsBadge() { S.chrome?.setBadge('rooms', plaza.openRooms.filter((r) => r.number !== S.room?.number && joinable(r)).length); }
+
+function roomCard(r) {
+  const def = GAME_BY_ID[r.game];
+  const phase = r.phase === 'playing' ? 'Playing now' : r.phase === 'results' ? 'Wrapping up' : 'In the lobby';
+  return h('button.rcard', { style: { '--gc': def?.color || '#1a73e8' }, onclick: () => openRoomSheet(r) },
+    h('div.tile.emo', def?.emoji || '🎲'),
+    h('div.grow', h('b', def ? def.name : 'Picking a game…'), h('div.muted', { style: 'font-size:13px' }, `Room ${r.number} · ${phase}`),
+      h('div.row.rpl', r.players.slice(0, 5).map((p) => avatarEl(p, 'xs', { still: true })), r.count > 5 ? h('span.muted', '+' + (r.count - 5)) : null, r.bots ? h('span.chip', icon('smart_toy', 'sm'), r.bots) : null)),
+    h('div.rmeta', r.audience ? h('span.chip', icon('visibility', 'sm'), r.audience) : null, r.access === 'locked' ? h('span.chip.yellow', icon('lock', 'sm')) : r.access === 'ask' ? h('span.chip', icon('front_hand', 'sm')) : h('span.chip.green', icon('login', 'sm'))));
+}
+
+function openRoomSheet(r) {
+  const def = GAME_BY_ID[r.game];
+  const old = r.proto !== PROTO;
+  const go = (role) => { sheet.close(); joinRoom(r.number, { role, via: 'dir' }); };
+  const sheet = openSheet(h('div.col', { style: 'gap:14px' },
+    h('div.gsel', { style: { '--gc': def?.color || '#1a73e8' } }, h('div.tile.emo', def?.emoji || '🎲'), h('div.grow', h('h2', def ? def.name : 'Room ' + r.number), h('div.muted', `Room ${r.number} · ${r.phase === 'playing' ? 'playing now' : r.phase === 'results' ? 'wrapping up' : 'in the lobby'}`))),
+    h('div.rplist', r.players.map((p) => h('div.pp-row', avatarEl(p, 'sm'), h('div.pp-name', h('b', p.name), p.host ? h('div.pp-tags', h('span.chip.blue', 'Host')) : null)))),
+    r.bots || r.audience ? h('div.muted', `${r.bots ? r.bots + ' computer player' + (r.bots > 1 ? 's' : '') : ''}${r.bots && r.audience ? ' · ' : ''}${r.audience ? r.audience + ' watching' : ''}`) : null,
+    old ? h('div.warnbox', icon('info'), 'This room runs a different version of the game — reload the page to update, or ask them to.') : null,
+    r.access === 'locked' ? h('div.warnbox', icon('lock'), 'The host has locked this room.') : r.access === 'ask' ? h('div.muted', { style: 'font-size:13px' }, 'The host will be asked to let you in.') : null,
+    h('div.row.wrap', { style: 'gap:8px' },
+      r.access !== 'locked' ? h('button.btn.primary.big.grow', { disabled: old, onclick: () => go('player') }, icon('login'), r.access === 'ask' ? 'Ask to join' : 'Join') : null,
+      r.allowAudience ? h('button.btn.tonal.big.grow', { disabled: old, onclick: () => go('audience') }, icon('visibility'), 'Watch') : null)));
+}
+
+function renderRoomsTab() {
+  S.mode = 'none';
+  S.tab = 'rooms';
+  setTitle('Open rooms');
+  renderHeader();
+  S.chrome.setActive('rooms');
+  const status = h('div.rstatus');
+  const list = h('div.rlist');
+  const paint = () => {
+    const rooms = plaza.openRooms.filter((r) => r.number !== S.room?.number);
+    const online = plaza.online.length + 1;
+    mount(status,
+      h('span.chip' + (plaza.connected ? '.green' : '.yellow'), icon(plaza.connected ? 'public' : 'sync', 'sm'), plaza.connected ? `${online} online` : 'Connecting…'),
+      h('span.muted', rooms.length ? `${rooms.length} open room${rooms.length === 1 ? '' : 's'}` : ''));
+    mount(list, rooms.length ? rooms.map(roomCard) : h('div.empty', h('div', { style: 'font-size:54px' }, '🏜️'),
+      h('p', plaza.connected ? 'No public rooms right now. Start one and friends can find it here.' : 'Looking for rooms…'),
+      h('button.btn.primary', { onclick: () => pickGame({ title: 'Create a room', onPick: (d) => createRoom(d.id) }) }, icon('add'), 'Create a room')));
+  };
+  const el = h('div.home', status, list);
+  const subs = ['rooms', 'people', 'connection'].map((ev) => plaza.on(ev, () => { if (el.isConnected) paint(); else subs.forEach((f) => f?.()); }));
+  paint();
+  mount(S.view, el);
+  S.chrome.setFab([
+    { label: 'Create a room', icon: 'add_circle', onClick: () => pickGame({ title: 'Create a room', onPick: (d) => createRoom(d.id) }) },
+    { label: 'Join with a code', icon: 'login', onClick: () => S.joinInput?.focus() },
+  ]);
+}
+
+// ------------------------------------------------------------------ Lounge tab (global chat, voice channels, who's online)
+function renderLoungeTab() {
+  S.mode = 'none';
+  S.tab = 'lounge';
+  setTitle('Lounge');
+  S.loungeUnseen = 0;
+  S.chrome.setBadge('lounge', 0);
+  renderHeader();
+  S.chrome.setActive('lounge');
+  S.chrome.setFab(null);
+  const pane = h('div.lpane');
+  const chat = chatView({ placeholder: 'Message everyone online…', send: (t) => plaza.sendChat(t), onName: globalNameMenu, empty: 'Nobody has said anything yet — be the first 👋' });
+  chat.reset(plaza.chat('lounge'));
+  const el = h('div.lounge');
+  const subs = [plaza.on('chat', (ch, m) => { if (!el.isConnected) return subs.forEach((f) => f?.()); if (m) chat.add(m); else chat.reset(plaza.chat('lounge')); }), plaza.on('people', () => { if (el.isConnected && S.loungeSec === 'people') paintPeople(); })];
+  const peopleEl = h('div.lpeople');
+  function paintPeople() {
+    const rows = plaza.online;
+    const mutedList = [...plaza.muted];
+    mount(peopleEl,
+      h('div.kt-title', { style: 'padding:4px 6px' }, `Online now · ${rows.length + 1}`),
+      h('div.pp-row', avatarEl({ avatar: S.profile.avatar }, 'sm'), h('div.pp-name', h('b', S.profile.name + ' (you)'))),
+      ...rows.map((p) => h('div.pp-row', avatarEl(p, 'sm'), h('div.pp-name', h('b', p.name), h('div.pp-tags', p.room ? h('span.chip.blue', icon('meeting_room', 'sm'), 'Room ' + p.room) : p.priv ? h('span.chip', icon('lock', 'sm'), 'Private room') : null, p.ch ? h('span.chip.green', icon('headset', 'sm'), channelName(p.ch)) : null, !p.room && !p.priv && !p.ch ? h('span.muted', { style: 'font-size:12.5px' }, 'browsing') : null)),
+        h('span.spacer'),
+        p.room && !S.room ? h('button.btn.small.tonal', { onclick: () => { const r = plaza.rooms.get(p.room); if (r) openRoomSheet(r); else location.hash = '#/room/' + p.room; } }, 'Join') : null,
+        S.room && !S.room.local && !S.room.isAudience && !p.room ? h('button.btn.small.tonal', { onclick: (e) => { plaza.invite(p.cid, S.room.number, S.room.state.gameId); e.currentTarget.textContent = 'Sent ✓'; e.currentTarget.disabled = true; } }, 'Invite') : null,
+        iconBtn('block', 'Mute ' + p.name, () => { plaza.mute(p.cid); toast(p.name + ' is muted'); }, 'sm'))),
+      mutedList.length ? h('div.pp-row', h('div.pp-name', h('span.muted', `${mutedList.length} muted`)), h('span.spacer'), h('button.btn.small.ghost', { onclick: () => { mutedList.forEach((c) => plaza.mute(c, false)); paintPeople(); } }, 'Unmute all')) : null,
+      !rows.length ? h('div.empty', { style: 'padding:24px 0' }, plaza.connected ? 'Nobody else is online right now.' : 'Connecting…') : null);
+  }
+  function paintPane() {
+    const sec = S.loungeSec || 'chat';
+    if (sec === 'chat') mount(pane, chat.el);
+    else if (sec === 'voice') {
+      S.loungeHost = h('div.lvhost');
+      mount(pane, h('div.lvoice.col', { style: 'gap:12px' },
+        h('div.row.wrap', { style: 'gap:8px' }, h('button.btn.tonal', { onclick: openComms }, icon('tune'), 'Mic, camera & chat settings')),
+        channelList(S.comms), S.loungeHost));
+      syncLounge();
+    } else { paintPeople(); mount(pane, peopleEl); }
+    if (sec === 'chat') setTimeout(() => chat.scroll(), 0);
+  }
+  const seg = segmented([{ value: 'chat', label: 'Chat', icon: 'forum' }, { value: 'voice', label: 'Voice', icon: 'headset' }, { value: 'people', label: 'People', icon: 'groups' }], S.loungeSec || 'chat', (v) => { S.loungeSec = v; paintPane(); });
+  mount(el, seg, pane);
+  mount(S.view, el);
+  paintPane();
+}
+
 /** Rooms / Matches / Lounge tabs (filled in by their own modules). */
 function renderTab(id) {
   if (id === 'matches') return renderMatchesTab();
+  if (id === 'rooms') return renderRoomsTab();
+  if (id === 'lounge') return renderLoungeTab();
   S.mode = 'none';
   S.tab = id;
   renderHeader();
@@ -1140,7 +1407,7 @@ function boot() {
   S.headerEl = h('header.top');
   S.view = h('main#view');
   S.chrome = createChrome({
-    S, go: (hash) => { if ((location.hash || '#/') === hash) route(); else location.hash = hash; }, editProfile, openAbout, openRecordings: () => toast('Recordings are coming soon'),
+    S, go: (hash) => { if ((location.hash || '#/') === hash) route(); else location.hash = hash; }, editProfile, openAbout, openRecordings: () => openRecordings(S.rec, { toast }),
     versionText: (CFG.env === 'prod' ? '' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO,
   });
   mount($app, S.headerEl, h('div.body', S.chrome.rail, S.view), S.chrome.bottom, S.chrome.fabHost);
@@ -1154,6 +1421,18 @@ function boot() {
   document.addEventListener('pointerdown', () => { audioContext(); keepAwake(); }, { once: true });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
   window.__pwa = pwa;
+  S.comms = new Comms({ plaza, toast });
+  S.rec = new Recorder({ remoteStreams: () => [...(S.comms.roomAV?.remote.values() || []), ...(S.comms.loungeAV?.remote.values() || [])] });
+  S.rec.on('state', () => { renderHeader(); });
+  S.commsBtns = createCommsButtons(S.comms, { toast });
+  S.comms.on('avs', syncLounge);
+  S.mini = createMiniCall(S.comms, { go: () => { location.hash = '#/lounge'; } });
+  document.body.append(S.mini.el);
+  plaza.start(S.profile);
+  plaza.on('rooms', updateRoomsBadge);
+  plaza.on('chat', (ch, m) => { if (m && !m.mine && !m.history && !S.room && S.tab !== 'lounge') { S.loungeUnseen = (S.loungeUnseen || 0) + 1; S.chrome.setBadge('lounge', S.loungeUnseen); } });
+  plaza.on('invite', (inv) => notice({ key: 'inv-' + inv.room, avatar: avatarEl({ avatar: inv.avatar, name: inv.from }, 'sm'), title: `${inv.from} invited you`, text: `Room ${inv.room}${inv.game ? ' · ' + gameName(inv.game) : ''}`, ttl: 25000,
+    actions: [{ label: 'Join', primary: true, onClick: () => { if (S.room) toast('Leave your current room first'); else location.hash = '#/room/' + inv.room; } }, { label: 'Not now' }] }));
   if (ENV_TAG) document.body.append(h('div.envpill', ENV_TAG.replace(/[\[\]]/g, '') + ' · ' + CFG.build));
   // reload for a waiting update only when nobody is in the middle of anything
   refreshBadges();

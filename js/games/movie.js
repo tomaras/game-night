@@ -113,7 +113,7 @@ export function start(api) {
     const c = api.streamTo(id, shareStream);
     if (c) { calls.set(id, c); setTimeout(() => tune(c), 1500); }
   }
-  const callAll = () => ids.forEach(callPlayer);
+  const callAll = () => ids.concat(api.audience).forEach(callPlayer);
   api.interval(() => { if (shareStream && S.presenter === api.me) callAll(); }, 4000); // keep every viewer connected
   api.cleanup(() => stopShare(false));
 

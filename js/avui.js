@@ -1,28 +1,18 @@
-// UI for the voice/video call: the mic / camera buttons in the app bar and the dock of participant tiles.
+// The dock of participant tiles for one call (a room's, or a Lounge channel's). The mic / camera buttons and the
+// Room ↔ Global switches live in commsui.js, because they steer both calls.
 import { h } from './util.js';
 import { avatarEl } from './avatar.js';
-import { icon, iconBtn } from './ui.js';
+import { icon } from './ui.js';
 
-export function createAvUI(room, av, { toast }) {
+export function createAvUI(room, av, { toast, label, onLeave } = {}) {
   const dock = h('aside.avdock');
   const tilesEl = h('div.avtiles');
   const joinCard = h('div.avjoin');
   const barEl = h('div.avbar');
   const gestureBtn = h('button.btn.small.primary.hide', { onclick: () => { tiles.forEach((t) => t.video.play().catch(() => {})); gestureBtn.classList.add('hide'); } }, icon('volume_up'), 'Tap to hear');
-  dock.append(joinCard, tilesEl, barEl, gestureBtn);
+  const head = label ? h('div.avlabel', icon('headset', 'sm'), h('span', label)) : null;
+  dock.append(...[head, joinCard, tilesEl, barEl, gestureBtn].filter(Boolean));
   const tiles = new Map();
-
-  const micBtn = iconBtn('mic', 'Microphone — join the voice call and talk', () => guard(() => av.toggleMic()));
-  const camBtn = iconBtn('videocam', 'Camera — let everyone see you', () => guard(() => av.toggleCam()));
-
-  function guard(fn) {
-    if (!av.supported) return toast('Voice & video need a secure (https) page and a browser with WebRTC support.', 'bad');
-    fn();
-  }
-  const offErr = av.on('error', (e) => {
-    const n = e && e.name;
-    toast(n === 'NotAllowedError' || n === 'SecurityError' ? 'Permission blocked — allow the microphone/camera in your browser, then try again.' : n === 'NotFoundError' ? 'No microphone/camera was found on this device.' : 'Could not start your microphone/camera: ' + (e && e.message), 'bad');
-  });
 
   function tileFor(id) {
     let t = tiles.get(id);
@@ -38,30 +28,22 @@ export function createAvUI(room, av, { toast }) {
     return t;
   }
 
-  function setIcon(btn, name) { btn.replaceChildren(icon(name)); }
-
   function render() {
     const me = room.me;
-    const members = room.players.filter((p) => (p.id === me ? av.local.on : p.av && p.av.on));
+    const members = (room.people || room.players).filter((p) => (p.id === me ? av.local.on : p.av && p.av.on));
     const others = members.filter((p) => p.id !== me);
     dock.classList.toggle('show', members.length > 0);
-    // app-bar buttons
-    micBtn.classList.toggle('live', av.local.on && av.local.mic);
-    micBtn.classList.toggle('muted', av.local.on && !av.local.mic);
-    setIcon(micBtn, av.local.on && !av.local.mic ? 'mic_off' : 'mic');
-    camBtn.classList.toggle('live', av.local.cam);
-    setIcon(camBtn, av.local.cam ? 'videocam' : 'videocam_off');
     // join card when others are talking and I'm not in yet
     if (!av.local.on && others.length) {
       joinCard.classList.remove('hide');
       joinCard.replaceChildren(
         h('div', { style: 'font:700 13px var(--font)' }, `${others.length} in the call`),
         h('div.row', { style: 'gap:2px;flex-wrap:wrap' }, others.map((p) => avatarEl(p, 'xs', { still: true }))),
-        h('button.btn.small.good', { onclick: () => guard(() => av.join().then(() => av.setMic(false))) }, icon('headset'), 'Join call')
+        h('button.btn.small.good', { onclick: () => { if (!av.supported) return toast('Voice & video need a secure (https) page and a browser with WebRTC support.', 'bad'); av.join().then(() => av.setMic(false)); } }, icon('headset'), 'Join call')
       );
     } else joinCard.classList.add('hide');
     barEl.classList.toggle('hide', !av.local.on);
-    barEl.replaceChildren(av.local.on ? h('button.btn.small.bad', { onclick: () => av.leave() }, icon('call_end'), 'Leave call') : null);
+    barEl.replaceChildren(av.local.on ? h('button.btn.small.bad', { onclick: () => (onLeave ? onLeave() : av.leave()) }, icon('call_end'), 'Leave call') : null);
     tilesEl.classList.toggle('hide', !av.local.on);
     // tiles
     const ids = new Set();
@@ -95,7 +77,7 @@ export function createAvUI(room, av, { toast }) {
   render();
   return {
     dock,
-    buttons: [micBtn, camBtn],
-    destroy() { offs.forEach((f) => f()); offErr(); tiles.forEach((t) => { t.video.srcObject = null; }); dock.remove(); },
+    render,
+    destroy() { offs.forEach((f) => f()); tiles.forEach((t) => { t.video.srcObject = null; }); dock.remove(); },
   };
 }

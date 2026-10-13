@@ -162,7 +162,7 @@ export function start(api) {
       const c = api.streamTo(id, getStream());
       if (c) H.calls.set(id, c);
     }
-    function callAll() { ids.forEach(callPlayer); }
+    function callAll() { ids.concat(api.audience).forEach(callPlayer); }
 
     async function loadRom(name, bytes) {
       setupAudio();

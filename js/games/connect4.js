@@ -73,12 +73,14 @@ export function start(api) {
     }
   }
 
+  // `st` is shared with the host logic below (the host is also a player), so changes are detected against what is DRAWN, not against `st`.
+  const shown = Array(R * C).fill(0);
   api.on('state', (s) => {
-    const prev = st.board.slice();
-    const placed = s.board.some((v, i) => v !== prev[i]);
     Object.assign(st, s);
+    const placed = st.board.some((v, i) => v && v !== shown[i]);
     if (placed) api.sfx('drop');
-    render(prev);
+    render(shown);
+    shown.splice(0, shown.length, ...st.board);
     if (s.winner >= 0) api.sfx(order[s.winner] === api.me ? 'win' : 'lose');
   });
 
@@ -135,6 +137,7 @@ export function start(api) {
     maybeBot();
   }
   render();
+  shown.splice(0, shown.length, ...st.board);
 }
 
 function findLine(b, r, c) {

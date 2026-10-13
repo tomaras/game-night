@@ -4,7 +4,7 @@
 import { Emitter } from './util.js';
 import { sanitizeAvatar } from './avatar.js';
 import { makeBot } from './bots.js';
-import { CFG, COLORS } from './net.js';
+import { CFG, COLORS, wireCopy } from './net.js';
 
 export class LocalRoom extends Emitter {
   /** `players` + `me` let a turn-by-turn match put two real people in the room while only one of them is on this device. */
@@ -34,7 +34,11 @@ export class LocalRoom extends Emitter {
   }
 
   get players() { return this.state?.players || []; }
+  get audience() { return []; }
+  get people() { return this.players; }
+  get isAudience() { return false; }
   player(id) { return this.players.find((p) => p.id === id); }
+  person(id) { return this.player(id); }
   get hostId() { return this.me; }
   get runId() { return this.state?.game?.runId || 0; }
 
@@ -70,6 +74,7 @@ export class LocalRoom extends Emitter {
   setOpt(key, value) { if (this._st.phase !== 'lobby') return; this._st.opts = { ...this._st.opts, [key]: value }; this._publish(); }
   setLocked() { /* nobody else can join */ }
   setSetting() { /* online-only settings */ }
+  approve() {} deny() {} promote() {} askToPlay() {}
   kick(id) { this.removeBot(id); }
   startGame(gameId, opts, playerIds, extra = {}) {
     const st = this._st;
@@ -103,9 +108,9 @@ export class LocalRoom extends Emitter {
   setAv() { /* no calls offline */ }
 
   // ---- game message transport (everything is local, delivered synchronously like the host's own messages)
-  gToHost(k, d) { this._deliverG(k, d, this.me, this.runId); }
-  gBroadcast(k, d, exceptId) { if (exceptId !== this.me) this._deliverG(k, d, this.me, this.runId); }
-  gSendTo(id, k, d) { if (id === this.me) this._deliverG(k, d, this.me, this.runId); }
+  gToHost(k, d) { this._deliverG(k, wireCopy(d), this.me, this.runId); }
+  gBroadcast(k, d, exceptId) { if (exceptId !== this.me) this._deliverG(k, wireCopy(d), this.me, this.runId); }
+  gSendTo(id, k, d) { if (id === this.me) this._deliverG(k, wireCopy(d), this.me, this.runId); }
   _deliverG(k, d, from, r) {
     const cur = this.runId;
     if (r < cur) return;

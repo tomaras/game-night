@@ -704,13 +704,14 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 // Capabilities beyond the basic live room:
 //   bots  — has a computer brain, so it can be played alone / with computer players filling empty seats
 //   async — can be played turn by turn by sharing a link (a text message), not only live
+//   watch:false — every player's screen is private (or built around having a seat), so the audience gets a stand-in screen instead
 const CAPS = {
   connect4: { bots: true, async: true },
   chess: { bots: true, async: true },
-  colorrush: { bots: true },
+  colorrush: { watch: false, bots: true },
   rowrumble: { bots: true },
   sushitrain: { bots: true },
-  liars: { bots: true },
+  liars: { watch: false, bots: true },
   poker: { bots: true },
   pong: { bots: true },
   snake: { bots: true },
@@ -724,12 +725,18 @@ const CAPS = {
   royalletters: { bots: true },
   tilemosaic: { bots: true },
   temple: { bots: true },
-  wonderrivals: { bots: true },
+  wonderrivals: { watch: false, bots: true },
   islandsettlers: { bots: true },
   redline: { bots: true },
   copilots: { bots: true },
   trickcrew: { bots: true },
   wordbomb: { bots: true },
+  codecrack: { watch: false },
+  beans: { watch: false },
+  imposter: { watch: false },
+  wordspies: { watch: false },
+  petals: { watch: false },
+  spyplace: { watch: false },
   // fine to play alone (no computer opponents needed): your score / survival is the game
   letterdash: { solo: true, min: 1 },
   triviatrap: { solo: true, min: 1 },

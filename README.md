@@ -2,12 +2,12 @@
 
 **▶ Play it: https://squattersnights.fun/**
 
-Free multiplayer party games you play with friends **in the browser** — pick a game, make a room, send the link.
-No installs, no accounts, built **phone-first** with a colourful Material-style design. It is a fully static site (perfect for GitHub Pages): there is **no game server**.
+Free multiplayer party games you play with friends **in the browser** — pick a game, make a room, send the link — or play the computer, or take turns by text message.
+No installs, no accounts, built **phone-first** with a Material-style design (day, night or follow-the-system). It is a fully static site (perfect for GitHub Pages): there is **no game server of ours**.
 
 ## The games (52)
 
-Every game has a **? rules button** (in the header, even mid-game) with the goal, step-by-step how to play, controls and tips — and a **chat, voice and video** are always one tap away.
+Every game has a **? rules button** (in the header, even mid-game) with the goal, step-by-step how to play, controls and tips — and **chat, voice and video** are always one tap away. The **Players** filter in the search bar shows only the games that work with exactly the number of people you have right now (tap it, pick 1–12).
 
 | | Game | Players | Type | What it is |
 |---|---|---|---|---|
@@ -66,24 +66,41 @@ Every game has a **? rules button** (in the header, even mid-game) with the goal
 
 *Highlights:* **Movie Night** is Discord-style screen sharing (with or without sound); **Retro Console** runs real NES games (bring your own `.nes` ROM, or play the two bundled homebrew games); **Jigsaw Together** lets you upload your own photo to build; **Pin the Place** is a GeoGuessr-style world-map game.
 
+## Ways to play
+
+| | |
+|---|---|
+| **With friends, live** | Make a room (or join one), everybody plays at once — see *How rooms work*. |
+| **Against the computer** | 25 games have computer players (Chess, Pool, Poker, Connect Four, Liar's Dice, Pong, Snake, Tanks, Bomber, Block Battle, Sushi Train, Island Settlers … ), and Letter Dash / Trivia Trap can be played alone. Pick *Play vs computer* in the game's sheet; choose how many opponents and Easy / Normal / Hard. It runs **entirely on your device and works offline**. |
+| **Turn by turn, by message** | For Chess, Connect Four and 8-Ball Pool: *Turn by turn* → *A friend, by message*. After every move the app offers to text your friend a link (Messages on iPhone, SMS/WhatsApp on Android, through the phone's share sheet). The whole position travels inside the link — there is nothing to host, and your friend replies with a link back. Your matches live in the **Matches** tab, with a badge when it's your move. *Pass & play* hands one phone back and forth; *The computer* lets you resume a game any time. Any live Chess / Connect Four / Pool room can also be turned into a message match from its ⋮ menu. |
+| **Watch** | The **Rooms** tab lists public rooms with their game and players. Tap one to **Watch** (audience — you see the game and chat but can't play) or to **Join** (if the host chose *Ask first*, they get a pop-up with *Let in / Decline*). Audience members can *Ask to play* and the host can make them players. |
+| **Hang out** | The **Lounge** tab has a global chat, four voice/video channels (up to 6 people each) and the list of who is online and what they're doing. |
+
+### Calls, chat and recording
+
+* **Each of the microphone, the camera and the chat can go to your *Room* or to *Global* (the Lounge)** — tap the little **R / G** badge on the 🎤 / 📹 buttons or the Room | Global tabs in the chat to move it, or use *Voice, video & chat…* in the ⋮ menu. The calls stay connected while you switch; the microphone is only ever used by one place at a time and is released as soon as it is off.
+* **Recording** (⋮ → *Record…*, or the side menu → *Recordings*): keeps the last 1 / 2 / 5 / 10 minutes in the background and saves them as a clip on demand. Options: **screen video**, **screen sound** (the tab's audio, or the app's sounds and everybody's voices), **your microphone**, and **taps & cursor** (a visible dot/ripples in the video). If a new clip would overlap one saved earlier **with the same settings, it is stitched onto it** instead of making a duplicate. Clips live in this browser (IndexedDB) and can be played, renamed, downloaded or deleted. Screen video needs a desktop browser (phones record sound only).
+* Muting people in global chat is local and permanent for that browser (tap their name).
+
 ## How rooms work
 
 * Press **Create room** → you become the host and get the **lowest free room number** (1, 2, 3 …). When a room closes its number is free again.
 * Friends **type the number** or **open/paste the invite link** (`…/#/room/5`). Everyone picks a **name and avatar** first (edit them any time from the header or the lobby — skribbl-style animated avatars, or upload a photo).
-* A **chat** is always on (side panel on desktop; bottom bar with floating messages on phones).
-* **Voice & video call**: the 🎤 and 📹 buttons at the top (in the lobby and in every game) let anyone join a peer-to-peer call — mic, camera, speaking highlights, tap a face to enlarge. Cameras are optional: without one your animated-avatar picture is shown. Needs HTTPS (GitHub Pages is) and your permission.
+* The **side panel** (a bottom sheet on phones) has three tabs: **Chat**, **People** (players, audience, join requests, *invite someone who's online*) and **Room** (invite code, link, **QR code**, a watch-only link and the host's settings: *show in the room list*, *who can join* — Open / Ask / Locked — and *allow watching*).
+* **Voice & video call**: the 🎤 and 📹 buttons at the top let anyone join a peer-to-peer call — speaking highlights, tap a face to enlarge. Cameras are optional: without one your animated-avatar picture is shown. Needs HTTPS (GitHub Pages is) and your permission.
 * Players who lose connection (phone sleeps, wifi blip, page reload) get 45 seconds to come back and keep their seat — the game resyncs automatically.
-* Host can lock the room, kick players, pick/change the game and tweak its options in the lobby.
+* Host can lock the room, kick players, let people in, add computer players, pick/change the game and tweak its options in the lobby.
 
-### Under the hood (no server!)
+### Under the hood (no server of ours)
 
-* Networking is **WebRTC data channels via [PeerJS](https://peerjs.com)**. Room *N* is just the PeerJS id `gnight-v1-N` on PeerJS's free public matchmaking server; creating a room means *registering the lowest free id*, which is how numbers count up from 1 without a database.
+* **The Plaza** (room list, who's online, global chat, Lounge presence) runs over a free public **MQTT broker** (EMQX → HiveMQ → Mosquitto, with automatic failover) using a tiny built-in client (`js/mqtt.js`, `js/plaza.js`). Rooms publish a card every 30 s (cards older than 2 min are ignored, so a vanished host disappears by itself); presence uses MQTT last-will. Topics are `squattersnights/v1/<env>/…` so dev and prod never see each other. Everything from strangers is validated, length-limited and shown only as text. **What's public:** a listed room's number, game, host/player names and avatars (not photos), and your name/avatar/where you are while online. A host can hide a room from the list in *Room → Show in the room list*. The games and calls themselves stay peer-to-peer.
+* Networking for rooms is **WebRTC data channels via [PeerJS](https://peerjs.com)**. Room *N* is just the PeerJS id `gnight-v1-N` on PeerJS's free public matchmaking server; creating a room means *registering the lowest free id*, which is how numbers count up from 1 without a database.
 * The host's browser is the authority: it runs the rules, holds hidden information (cards, dice, secret words) and sends each player only what they may see. Guests send inputs and render what the host sends.
 * After the handshake all game traffic is peer-to-peer. The only third party is the matchmaking server, and TURN relays for the rare network that can't connect directly (PeerJS's defaults).
 
 ### Voice/video & screen-share notes
 
-* Calls are a peer-to-peer mesh (everyone ↔ everyone), so audio scales to the whole room but **video is best with ≤ 6 people**; Movie Night streams presenter → each viewer, with bitrate automatically capped by viewer count.
+* Calls are a peer-to-peer mesh (everyone ↔ everyone), so audio scales to the whole room but **video is best with ≤ 6 people** (a Lounge channel holds 6); Movie Night streams presenter → each viewer, with bitrate automatically capped by viewer count.
 * Screen sharing needs a desktop browser (Chrome/Edge can also share tab/system **audio**; Firefox/Safari share video only). Phones can watch but not share.
 * Use headphones — otherwise the movie sound leaks into your mic and everyone hears an echo.
 
@@ -100,7 +117,7 @@ Three places the app can run, each with its **own room numbers** (so testing nev
 **Everyday flow**
 
 1. Edit, then `git push` to `main`.
-2. GitHub Actions runs the checks (`npm test`: every game module loads, rooms work, the version handshake, offline start, and *updates never interrupt a room*), builds the dev copy and publishes it. Test it on the dev site (on your phone too).
+2. GitHub Actions runs the checks (`npm test`: every game module loads, rooms work, the version handshake, offline start, playing the computer, turn-by-turn messages, the Rooms list with join requests and audience, global chat and call switching, recording and stitching, theme and filters, and *updates never interrupt a room*), builds the dev copy and publishes it. Test it on the dev site (on your phone too).
 3. Happy? Run **Actions → Promote to production → Run workflow** (or `gh workflow run promote.yml`). The same checks run again, the site is built for production and published, and the pipeline waits until squattersnights.fun really serves the new build. If it never does, the previous version is restored automatically.
 4. Players get it the next time they are on the home screen — no reinstall, no store review.
 
@@ -123,11 +140,11 @@ It's static files — any web server works:
 
 ```bash
 python3 -m http.server 8080      # then open http://localhost:8080
-npm install && PW_CHANNEL=chrome npm test   # the full check suite (PW_CHANNEL=chrome uses your installed Chrome)
+npm install && PW_CHANNEL=chrome npm test   # the full check suite (PW_CHANNEL=chrome uses your installed Chrome; it starts its own local PeerServer and MQTT broker)
 npm run build:dev                # builds ./dist exactly like CI does
 ```
 
-Open it in two browser windows (use a private window for the second — each tab is its own player) to try a room by yourself. For fully offline development run a local PeerServer (`npx peerjs --port 9000`) and add `?signal=localhost:9000` to the URL.
+Open it in two browser windows (use a private window for the second — each tab is its own player) to try a room by yourself. For fully offline development run a local PeerServer (`npx peerjs --port 9000`) and add `?signal=localhost:9000` to the URL; add `&mqtt=ws://localhost:1884` to use your own MQTT-over-WebSocket broker (`tests/broker.mjs` starts one). `?autopilot=1` (never on prod) lets a bot play the human seat in solo games, which is how the games are soak-tested.
 
 ## Adding a game
 
@@ -154,6 +171,22 @@ api.sfx(name), api.toast(text)
 ```
 
 Pattern: the host holds the truth and `broadcast`s state; everyone renders it. On `onRejoin(id)` the host re-sends full state to that player.
+
+### Computer players and turn-by-turn play (for game authors)
+
+```js
+api.isBot(id), api.bots        // which seats are computers (host only runs their brains)
+api.botDo(id, type, data)      // make a bot act: runs the host's own handler, so bots obey the same rule checks as people
+api.level                      // 'easy' | 'normal' | 'hard'
+api.solo                       // true when playing offline against the computer
+js/bots.js → botLoop(api, plan)   // a ready-made "think, then act" loop with human-like delays
+
+// turn-based games (add `async: true` in CAPS) also report their position after every move:
+api.save(snapshot, { turn: playerId | null, over, summary, moves })
+api.restore                    // the snapshot to resume from (null on a fresh game)
+```
+
+Register capabilities in the `CAPS` map in `js/games/index.js` (`bots`, `async`, `solo`). The host's own copy of every message is delivered as a JSON copy (like a remote player's), so a game can never accidentally share objects with its own renderer.
 
 ## Credits & licenses
 

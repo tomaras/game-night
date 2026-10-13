@@ -41,7 +41,10 @@ export class GameSession {
       players,
       player: (id) => players.find((p) => p.id === id),
       get activePlayers() { return players.filter((p) => !p.left); },
-      get iAmPlayer() { return true; },
+      get iAmPlayer() { return !room.isAudience; },
+      get spectator() { return !!room.isAudience; },
+      /** People watching this room (not playing): games that stream media to viewers should include them. */
+      get audience() { return room.audience.map((p) => p.id); },
 
       // ---- computer players (host only runs their brains)
       get solo() { return !!room.local; },
@@ -97,7 +100,7 @@ export class GameSession {
       cleanup(fn) { self._cleanups.push(fn); },
 
       // WebRTC media for game streams (NES console, movie night). Any player can stream to any other.
-      streamTo(id, stream) { const pid = room.player(id)?.pid; return pid ? room.callPeer(pid, stream, 'game') : null; },
+      streamTo(id, stream) { const pid = room.person(id)?.pid; return pid ? room.callPeer(pid, stream, 'game') : null; },
       onStream(fn) {
         const off = room.onMediaCall((call) => {
           if (call.metadata && call.metadata.kind && call.metadata.kind !== 'game') return;
@@ -121,6 +124,7 @@ export class GameSession {
       this.instance = mod.start(api) || {};
     } catch (e) {
       console.error('game failed to start', e);
+      this.failed = true;
       root.textContent = 'This game crashed: ' + e.message;
     }
   }

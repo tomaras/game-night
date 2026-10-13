@@ -56,6 +56,22 @@ export function toast(text, kind = '') {
   setTimeout(() => t.remove(), 3400);
 }
 
+/** A card that slides in at the top of the screen and waits for a decision (join requests, invitations).
+ *  `actions`: [{label, primary?, onClick}]. Returns {close}. `ttl` auto-dismisses it (ms). */
+export function notice({ avatar, icon: ic, title, text, actions = [], ttl = 0, key }) {
+  let host = document.getElementById('notices');
+  if (!host) { host = h('div#notices'); document.body.append(host); }
+  if (key) host.querySelector(`[data-key="${key}"]`)?.remove();
+  const close = () => el.remove();
+  const el = h('div.notice', { 'data-key': key || '', role: 'alert' },
+    avatar || (ic ? h('div.nic', icon(ic)) : null),
+    h('div.nbody', h('b', title), text ? h('div.nt', text) : null,
+      h('div.nact', actions.map((a) => h('button.btn.small' + (a.primary ? '.primary' : '.tonal'), { onclick: () => { close(); a.onClick?.(); } }, a.label)))));
+  host.append(el);
+  if (ttl) setTimeout(close, ttl);
+  return { close };
+}
+
 // ------------------------------------------------------------------ sheets (bottom sheet on phones, dialog on desktop)
 export function openSheet(content, { wide, onClose, closable = true, cls = '' } = {}) {
   const back = h('div.scrim', { onclick: (e) => { if (e.target === back && closable) close(); } });
