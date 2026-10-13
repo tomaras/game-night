@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>[NIGHTLY] Game Night</title>
+  <meta name="description" content="Free multiplayer party games you can play with friends in your browser: drawing, cards, pool, chess, arcade and more. Make a room, share the link, play.">
+  <meta name="theme-color" content="#F6F3EE">
+  <meta name="color-scheme" content="light">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="GN Nightly">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <meta property="og:title" content="Game Night">
+  <meta property="og:description" content="Pick a game, make a room, send the link. Multiplayer games in your browser — no installs, no accounts.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">
+  <link rel="preload" href="assets/fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <script>
+    // paint the right theme on the very first frame (full logic lives in js/theme.js)
+    (function () { try { var p = localStorage.getItem('gn.theme'); var dark = p === 'night' || ((p === 'system' || !p) && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; if (dark) { document.querySelector('meta[name="theme-color"]').content = '#121117'; document.querySelector('meta[name="color-scheme"]').content = 'dark'; } } catch (e) {} })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Boot guard. If the app hasn't started a few seconds after the page loads (a stale or half-updated cached copy,
+    // a startup error), wipe this version's service worker and caches once and reload. If that already happened,
+    // show a way out instead of a blank screen.
+    (function () {
+      var failed = false, soon = 0;
+      var fail = function () { if (window.__gnReady) return; failed = true; if (!soon) soon = setTimeout(function () { if (!window.__gnReady) heal(); }, 700); };
+      addEventListener('error', function (e) { if (e.filename && /\/js\//.test(e.filename)) fail(); }, true);
+      function heal() {
+        if (navigator.onLine === false) return; // offline: the cached copy is all there is, never throw it away
+        var tried = false; try { tried = sessionStorage.getItem('gn.healed') === '1'; sessionStorage.setItem('gn.healed', '1'); } catch (e) {}
+        if (!tried && 'serviceWorker' in navigator) {
+          var done = function () { location.reload(); };
+          var scope = new URL('.', location.href).href;
+          Promise.all([
+            navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.filter(function (r) { return r.scope === scope; }).map(function (r) { return r.unregister(); })); }),
+            window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return /^gn-(app|nightly)-/.test(k); }).map(function (k) { return caches.delete(k); })); }) : null
+          ]).then(done, done);
+          return;
+        }
+        var app = document.getElementById('app');
+        if (app && !app.firstChild) app.innerHTML = '<div style="margin:auto;max-width:320px;padding:32px 24px;text-align:center;font:16px/1.5 system-ui,sans-serif;color:inherit">' +
+          '<div style="font-size:44px">🎲</div><p style="margin:12px 0 20px">Game Night didn\u2019t start properly.</p>' +
+          '<button onclick="location.reload()" style="font:600 15px system-ui;padding:12px 20px;border-radius:12px;border:0;margin:4px;cursor:pointer">Try again</button>' +
+          '<button onclick="location.href=location.pathname+\'?reset\'" style="font:600 15px system-ui;padding:12px 20px;border-radius:12px;border:0;margin:4px;cursor:pointer;background:#5b5bf0;color:#fff">Reset app</button></div>';
+      }
+      function check() { if (window.__gnReady) { try { sessionStorage.removeItem('gn.healed'); } catch (e) {} return; } if (failed || navigator.serviceWorker && navigator.serviceWorker.controller) heal(); else setTimeout(check, 6000); }
+      addEventListener('load', function () { setTimeout(check, 5000); });
+    })();
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="toasts"></div>
+  <noscript><p style="padding:2rem">Game Night needs JavaScript to run.</p></noscript>
+  <script src="js/config.js"></script>
+  <script src="vendor/peerjs.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
