@@ -106,14 +106,15 @@ export function start(api) {
   const covered = (c) => S.layout.some((o) => !o.taken && o.r === c.r + 1 && Math.abs(o.x - c.x) < 1);
   const price = (cost) => priceFor(S.cities[me], S.wonders[me], S.cities[1 - me], S.wonders[1 - me], cost, S.coins[me]);
   const myTurn = () => S.turn === me && S.phase === 'play';
+  let prevTurn = null;
 
   function cardEl(c) {
     if (c.taken) return h('div.wd-c.gone');
-    if (!c.card) return h('div.wd-c.back', h('span.em.emo', '🏺'));
+    if (!c.card) return h('div.wd-c.back', { 'data-k': c.id }, h('span.em.emo', '🏺'));
     const cov = covered(c);
     const ok = !cov && myTurn() && !S.pend;
     const [nm, t, cost, fx] = c.card;
-    return h('div.wd-c' + (cov ? '.cov' : '') + (ok ? '.ok' : ''), { style: `--cc:${TYPE[t][1]}`, title: nm, onclick: ok ? () => openCard(c) : () => api.toast(cov ? 'Covered by other cards' : `${nm}: ${fxText(fx) || '—'}`) },
+    return h('div.wd-c' + (cov ? '.cov' : '') + (ok ? '.ok' : ''), { 'data-k': c.id, style: `--cc:${TYPE[t][1]}`, title: nm, onclick: ok ? () => openCard(c) : () => api.toast(cov ? 'Covered by other cards' : `${nm}: ${fxText(fx) || '—'}`) },
       h('span', nm.length > 11 ? nm.slice(0, 10) + '…' : nm), h('span.em.emo', fx.sym ? SYM[fx.sym] : fx.sh ? '⚔️' : fx.p ? EM[Object.keys(fx.p)[0]] : fx.vp && t === 'c' ? '🏛️' : fx.coin || fx.coinPer ? '🪙' : fx.trade ? '🤝' : fx.wild ? '✨' : fx.guild ? '👑' : '❖'), h('span.cost', costEls(cost)));
   }
   function openCard(c) {
@@ -169,9 +170,25 @@ export function start(api) {
     const nRows = Math.max(...L.map((c) => c.r)) + 1;
     for (let r = 0; r < nRows; r++) rows.push(h('div.wd-row', L.filter((c) => c.r === r).sort((a, b) => a.x - b.x).map(cardEl)));
     let hint = '';
-    if (S.phase === 'play') hint = S.pend ? (S.pend.who === me ? (S.pend.k === 'destroy' ? 'Choose a rival card to destroy' : 'Pick a discarded card to build for free') : `${nameOf(ids[S.pend.who])} is choosing…`) : myTurn() ? 'Your turn — tap a glowing card' : `${nameOf(ids[S.turn])} is choosing…`;
+    if (S.phase === 'play') hint = S.pend ? (S.pend.who === me ? (S.pend.k === 'destroy' ? 'Choose a rival card to destroy' : 'Pick a discarded card to build for free') : `${nameOf(ids[S.pend.who])} is choosing…`) : myTurn() ? 'Your turn' : `${nameOf(ids[S.turn])} is choosing…`;
     const pend = S.pend && S.pend.who === me ? h('div.wd-city', { style: 'justify-content:center' }, S.pend.opts.map((o) => h('button.wd-c.ok', { style: `--cc:${TYPE[o.type][1]}`, onclick: () => act({ k: 'pend', id: o.id }) }, h('span', o.name.slice(0, 10)), h('span.em.emo', o.fx.sym ? SYM[o.fx.sym] : o.fx.p ? EM[Object.keys(o.fx.p)[0]] : '❖')))) : null;
+    const olds = new Map();
+    for (const e of root.querySelectorAll('.wd-c[data-k]')) olds.set(String(e.dataset.k), { el: e.cloneNode(true), rect: e.getBoundingClientRect() });
     root.replaceChildren(top, milBar(), h('div.wd-log', milTxt), ...cityEl(opp), h('div.wd-pyr', rows), h('div.wd-hint', hint), pend || '', S.log ? h('div.wd-log', S.log) : '', ...cityEl(me));
+    // a card that was just taken flies to its new owner's city; the cards it uncovered flip face up
+    const cities = root.querySelectorAll('.wd-city');
+    const takerSide = prevTurn === me ? cities[cities.length - 1] : cities[0];
+    for (const c of S.layout) {
+      const old = olds.get(String(c.id));
+      if (c.taken && old && takerSide) {
+        const to = takerSide.getBoundingClientRect(), r = old.rect, g = old.el;
+        g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:90;pointer-events:none`;
+        document.body.append(g);
+        g.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${(to.left + to.width / 2) - (r.left + r.width / 2)}px, ${(to.top + to.height / 2) - (r.top + r.height / 2)}px) scale(.35) rotate(${prevTurn === me ? -14 : 14}deg)`, opacity: 0.2 }], { duration: 650, easing: 'cubic-bezier(.3,.7,.2,1)', fill: 'forwards' }).finished.catch(() => {}).then(() => g.remove());
+      }
+    }
+    for (const e of root.querySelectorAll('.wd-c:not(.back):not(.gone)')) { const old = olds.get(String(e.dataset.k)); if (old && old.el.classList.contains('back')) e.animate([{ transform: 'perspective(400px) rotateY(90deg)' }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)' }); }
+    prevTurn = S.turn;
   }
 
   if (api.isHost) {

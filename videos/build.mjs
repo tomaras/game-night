@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Builds the "how to play" video for a game: voiceover (neural TTS) + a title card + the captured gameplay + captions.
 //   node videos/build.mjs <gameId...> [--seconds 110] [--out .video-out] [--keep]
-// Needs: ffmpeg on PATH, Piper (PIPER_PYTHON = a python with piper-tts installed, PIPER_VOICE = path to a .onnx voice).
+// Needs: ffmpeg on PATH and Kokoro (KOKORO_PYTHON = a python with kokoro-onnx, KOKORO_MODEL / KOKORO_VOICES = its model files).
 // Writes <out>/<id>.mp4, <id>.vtt (captions) and <id>.jpg (poster).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,8 +12,8 @@ import { loadGames, buildScript } from './script.mjs';
 import { captureGame } from './capture.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PY = process.env.PIPER_PYTHON, VOICE = process.env.PIPER_VOICE;
-const W = 480, H = 1038, FPS = 30, TITLE = 3.4, LEAD = 0.7, GAP = 0.32, SECTION_GAP = 0.75, TAIL = 1.2;
+const PY = process.env.KOKORO_PYTHON, MODEL = process.env.KOKORO_MODEL, VOICES = process.env.KOKORO_VOICES, VOICE = process.env.KOKORO_VOICE || 'af_heart', SPEED = +(process.env.KOKORO_SPEED || 0.97);
+const W = 480, H = 1038, FPS = 30, TITLE = 3.4, LEAD = 0.7, GAP = 0.3, SECTION_GAP = 0.85, TAIL = 1.4, SR = 24000;
 const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'], ...opts });
 const vttTime = (t) => { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`; };
 
@@ -42,13 +42,13 @@ export async function buildVideo(id, { seconds = 110, out = path.join(ROOT, '.vi
   // 1. voiceover, sentence by sentence (so we know exactly when each one is spoken)
   const wavDir = path.join(dir, 'wav');
   fs.rmSync(wavDir, { recursive: true, force: true });
-  const job = { model: VOICE, outdir: wavDir, length_scale: 1.04, items: script.map((s, i) => ({ id: String(i).padStart(3, '0'), text: s.text })) };
+  const job = { model: MODEL, voices: VOICES, voice: VOICE, speed: SPEED, outdir: wavDir, items: script.map((s, i) => ({ id: String(i).padStart(3, '0'), text: s.text })) };
   const durs = JSON.parse(sh(PY, [path.join(ROOT, 'videos/tts.py')], { input: JSON.stringify(job), maxBuffer: 1 << 26 }).toString());
   // timeline
   const cues = [];
   let t = TITLE > 0 ? LEAD : 0;
   const parts = [];
-  const silence = (sec, name) => { const f = path.join(wavDir, name + '.wav'); if (!fs.existsSync(f)) sh('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=22050:cl=mono', '-t', String(sec), '-c:a', 'pcm_s16le', f]); return f; };
+  const silence = (sec, name) => { const f = path.join(wavDir, name + '.wav'); if (!fs.existsSync(f)) sh('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=' + SR + ':cl=mono', '-t', String(sec), '-c:a', 'pcm_s16le', f]); return f; };
   parts.push(silence(LEAD, 'lead'));
   script.forEach((s, i) => {
     const k = String(i).padStart(3, '0');
@@ -98,7 +98,7 @@ export async function buildVideo(id, { seconds = 110, out = path.join(ROOT, '.vi
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (!PY || !VOICE) { console.error('Set PIPER_PYTHON and PIPER_VOICE (see videos/README.md)'); process.exit(1); }
+  if (!PY || !MODEL || !VOICES) { console.error('Set KOKORO_PYTHON, KOKORO_MODEL and KOKORO_VOICES (see videos/README.md)'); process.exit(1); }
   const args = process.argv.slice(2);
   const opt = (k, d) => { const i = args.indexOf('--' + k); return i > -1 ? args[i + 1] : d; };
   const ids = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && /^--(seconds|out|work)$/.test(args[i - 1])));

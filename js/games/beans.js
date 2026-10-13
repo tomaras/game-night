@@ -7,6 +7,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { flipDeep } from '../motion.js';
 
 const TYPES = {
   coffee: { n: 'Coffee', e: '☕', c: '#7a4a21', v: [[4, 1], [7, 2], [10, 3], [12, 4]], cnt: 24 },
@@ -328,13 +329,13 @@ export function start(api) {
   const card = (c, opts = {}) => {
     const T = TYPES[c.t];
     return h('div.bt-card' + (opts.sm ? '.sm' : '') + (opts.click ? '.click' : '') + (opts.sel ? '.sel' : '') + (opts.top ? '.top' : '') + (opts.dim ? '.dim' : ''), {
-      style: { '--bc': T.c }, title: tip(c.t), onclick: opts.onclick,
+      'data-k': opts.key || (c.id !== undefined ? 'c' + c.id : ''), style: { '--bc': T.c }, title: tip(c.t), onclick: opts.onclick,
     }, T.e, h('small', T.n));
   };
-  const stackEl = (t, cnt, sm) => {
+  const stackEl = (t, cnt, sm, key = '') => {
     const step = sm ? 7 : 9;
     return h('div.bt-stack', { style: { width: (sm ? 34 : 50) + (cnt - 1) * step + 'px', height: sm ? '48px' : '' } },
-      Array.from({ length: cnt }, (_, i) => { const e = card({ t }, { sm }); e.style.left = i * step + 'px'; return e; }));
+      Array.from({ length: cnt }, (_, i) => { const e = card({ t }, { sm, key: key ? key + ':' + i : '' }); e.style.left = i * step + 'px'; return e; }));
   };
 
   api.on('state', (s) => { st = s; if (s.phase !== 'trade') draft = null; render(); });
@@ -393,7 +394,7 @@ export function start(api) {
       return h('div.bt-op' + (turnId === id ? '.turn' : ''), [
         h('div.hd', [avatarEl({ ...info, online: info.online && !info.left }, 'sm' + (turnId === id ? ' bounce' : '')), info.name, turnId === id ? '⭐' : '',
           h('div.ct', [`✋${p.hand}`, `💰${p.coins}`])]),
-        h('div.bt-fields', p.fields.map((f) => h('div.bt-field' + (f.n ? '' : '.empty'), [f.n ? stackEl(f.t, f.n, true) : null, h('div.lbl', f.n ? `${f.n}× ${TYPES[f.t].n} → 💰${wantCoins(f)}` : '')]))),
+        h('div.bt-fields', p.fields.map((f) => h('div.bt-field' + (f.n ? '' : '.empty'), [f.n ? stackEl(f.t, f.n, true, 'f:' + id + ':' + p.fields.indexOf(f)) : null, h('div.lbl', f.n ? `${f.n}× ${TYPES[f.t].n} → 💰${wantCoins(f)}` : '')]))),
         p.pending.length ? h('div.bt-row', { style: 'margin-top:6px;align-items:center' }, [h('span.muted', { style: 'font-size:12px' }, 'to plant:'), ...p.pending.map((c) => card(c, { sm: true }))]) : null,
       ]);
     });
@@ -414,7 +415,7 @@ export function start(api) {
           selPending = null;
         },
       }, [
-        f.n ? stackEl(f.t, f.n, false) : null,
+        f.n ? stackEl(f.t, f.n, false, 'f:' + api.me + ':' + fi) : null,
         h('div.lbl', f.n ? `${f.n}× ${TYPES[f.t].n} → 💰${wantCoins(f)}` : 'Empty field'),
         f.n ? h('button.btn.small', {
           style: 'position:absolute;top:4px;right:4px;padding:2px 8px;font-size:11px', title: 'Harvest this field',
@@ -431,7 +432,7 @@ export function start(api) {
     }) : [h('span.muted', 'Your hand is empty')]);
 
     const pend = myPending();
-    const pendEl = pend.length ? h('div', [h('div.bt-sec', 'Beans to plant now'), h('div.bt-row', pend.map((c) => card(c, { click: pend.length > 1, sel: target && target.pending && target.c.id === c.id, onclick: () => { selPending = c.id; render(); } })))]) : null;
+    const pendEl = pend.length ? h('div', [h('div.bt-sec', 'To plant'), h('div.bt-row', pend.map((c) => card(c, { click: pend.length > 1, sel: target && target.pending && target.c.id === c.id, onclick: () => { selPending = c.id; render(); } })))]) : null;
 
     const actions = [];
     if (st.phase === 'plant2' && isMyTurn()) actions.push(h('button.btn', { onclick: () => act('skip') }, 'Skip 2nd planting'));
@@ -446,11 +447,11 @@ export function start(api) {
       ]),
       fieldsEl,
       pendEl,
-      h('div', [h('div.bt-sec', 'Your hand (in order — you must plant from the front)'), hand]),
+      h('div', [h('div.bt-sec', 'Your hand'), hand]),
     ]);
 
     const logEl = h('div.bt-log', logLines.slice(-4).map((l) => h('div', l)));
-    root.replaceChildren(...[statusBar, mid, meEl, h('div.bt-others', oppEls), logEl].filter(Boolean));
+    flipDeep(root, () => root.replaceChildren(...[statusBar, mid, meEl, h('div.bt-others', oppEls), logEl].filter(Boolean)), { sel: '.bt-card[data-k]:not([data-k=""])', ms: 520 });
 
     // prices overlay
     wrap.querySelector('.bt-prices')?.remove();

@@ -103,7 +103,7 @@ export function start(api) {
     if (S.phase === 'duel' && S.duel) {
       const d = S.duel, mineDuel = d.by.includes(me);
       const opt = (k) => h('button.ts-opt' + (S.voted === k ? '.sel' : ''), { disabled: mineDuel || S.voted !== null, onclick: () => { S.voted = k; api.toHost('vote', { k }); api.sfx('pop'); render(); } }, shirt(d[k]), mineDuel ? '' : S.voted === k ? 'Your vote ✓' : 'Vote');
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#fb8c00' }, h('small', `Battle ${d.i + 1} of ${d.n}`), mineDuel ? 'Your shirt is in this battle!' : 'Which shirt is better?'), h('div.ts-duel', opt('a'), opt('b')), h('div.kt-hint', mineDuel ? 'You can’t vote in your own battle — cross your fingers…' : S.voted ? 'Vote locked. Waiting for the others…' : 'Tap your favourite.'));
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#fb8c00' }, h('small', `Battle ${d.i + 1} of ${d.n}`), mineDuel ? 'Your shirt is in this battle!' : 'Which shirt is better?'), h('div.ts-duel', opt('a'), opt('b')), h('div.kt-hint', mineDuel ? 'Your battle: waiting for votes' : S.voted ? 'Vote locked. Waiting for the others…' : 'Tap your favourite.'));
     }
     if (S.phase === 'reveal' && S.res) {
       const r = S.res, d = S.duel;

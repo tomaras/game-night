@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs } from '../bots.js';
+import { flipDeep, bump } from '../motion.js';
 
 const CARDS = {
   1: ['Guard', '🛡️', 'Name a card (not Guard). If your target holds it, they’re out.', '#34a853', 5],
@@ -41,8 +42,8 @@ export function start(api) {
   api.root.append(h('style', CSS), root);
   const S = { phase: 'wait', hand: [], turn: null, players: {}, log: '', deck: 0, removed: [], peek: null, round: 1, step: null };
   const color = (n) => ({ '--cc': CARDS[n][3] });
-  const full = (n, onclick, dim) => h('div.rl-card' + (dim ? '.dim' : ''), { style: color(n), onclick, title: CARDS[n][2] }, h('div.n', n), h('div.em.emo', CARDS[n][1]), h('b', CARDS[n][0]), h('small', CARDS[n][2]));
-  const mini = (n) => h('div.rl-card.mini', { style: color(n), title: CARDS[n][0] }, h('div.n', n), h('div.em.emo', CARDS[n][1]));
+  const full = (n, onclick, dim, key = '') => h('div.rl-card' + (dim ? '.dim' : ''), { 'data-k': key, style: color(n), onclick, title: CARDS[n][2] }, h('div.n', n), h('div.em.emo', CARDS[n][1]), h('b', CARDS[n][0]), h('small', CARDS[n][2]));
+  const mini = (n, key = '') => h('div.rl-card.mini', { 'data-k': key, style: color(n), title: CARDS[n][0] }, h('div.n', n), h('div.em.emo', CARDS[n][1]));
 
   api.on('state', (s) => { Object.assign(S, s); render(); });
   api.on('peek', (p) => { S.peek = p; api.sfx('pop'); render(); });
@@ -61,7 +62,7 @@ export function start(api) {
         h('div.nm', nameOf(id) + (id === me ? ' (you)' : '')),
         h('div.tk', '♥'.repeat(p.tokens) || '–'),
         p.prot ? h('span.chip.blue.badge', icon('shield', 'sm'), 'safe') : null, !p.alive ? h('span.chip.red.badge', 'out') : null,
-        h('div.rl-disc', p.disc.map(mini)));
+        h('div.rl-disc', p.disc.map((n, di) => mini(n, 'd:' + id + ':' + di))));
     })));
     if (S.log) parts.push(h('div.rl-log', S.log));
     if (S.peek) parts.push(h('div.kt-card', { style: 'text-align:center' }, h('div.kt-title', `${nameOf(S.peek.who)} holds`), h('div.rl-hand', full(S.peek.card, null))));
@@ -69,12 +70,12 @@ export function start(api) {
       if (S.step && S.step.t === 'guess') {
         parts.push(h('div.kt-prompt', { style: '--pc:#34a853' }, h('small', 'Guard'), `What is ${nameOf(S.step.target)} holding?`), h('div.rl-guess', [2, 3, 4, 5, 6, 7, 8].map((n) => h('button.btn.tonal', { onclick: () => submit({ c: 1, target: S.step.target, guess: n }) }, `${n} · ${CARDS[n][0]}`))), h('button.btn.ghost', { onclick: () => { S.step = null; render(); } }, 'Cancel'));
       } else if (S.step && S.step.t === 'target') parts.push(h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, `Tap a player to target with the ${CARDS[S.step.card][0]}`), h('button.btn.ghost', { onclick: () => { S.step = null; render(); } }, 'Cancel'));
-      else parts.push(myTurn ? h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, 'Your turn — choose a card to play') : h('div.kt-hint', `${nameOf(S.turn)} is thinking…`));
+      else parts.push(myTurn ? h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, 'Your turn') : h('div.kt-hint', `${nameOf(S.turn)} is thinking…`));
     }
     if (S.phase === 'between') parts.push(h('div.kt-hint', 'Next round starting…'));
     const mustCountess = S.hand.includes(7) && (S.hand.includes(5) || S.hand.includes(6));
-    parts.push(h('div.rl-hand', S.hand.map((n) => full(n, () => { if (!myTurn || S.step) return; if (mustCountess && n !== 7) return api.toast('You must play the Countess!'); play(n); }, !myTurn || (mustCountess && n !== 7)))));
-    root.replaceChildren(...parts);
+    parts.push(h('div.rl-hand', S.hand.map((n, hi) => full(n, () => { if (!myTurn || S.step) return; if (mustCountess && n !== 7) return api.toast('You must play the Countess!'); play(n); }, !myTurn || (mustCountess && n !== 7), 'h:' + hi + ':' + n))));
+    flipDeep(root, () => root.replaceChildren(...parts), { sel: '.rl-card[data-k]:not([data-k=""])', ms: 520 });
   }
 
   const targetsFor = (c) => ids.filter((i) => S.players[i]?.alive && !S.players[i].prot && (i !== api.me || c === 5));

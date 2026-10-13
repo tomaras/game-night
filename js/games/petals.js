@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { flipDeep, shake, bump } from '../motion.js';
 
 const CSS = `
 .pt { gap:12px; }
@@ -41,7 +42,8 @@ export function start(api) {
     if (!S) return;
     const me = api.me, mine = S.players[me];
     const myTurn = S.turn === me;
-    const parts = [];
+    const parts = [], flips = [];
+    if (S.phase !== 'flip' && S.phase !== 'result' && S.phase !== 'lose') shownRev.clear();
     const msg = { place: 'Everyone secretly places one disc face-down', turns: myTurn ? 'Your turn: add a disc — or start the bidding' : `${nameOf(S.turn)} is deciding…`, bidding: S.bid ? `${nameOf(S.bid.id)} bids ${S.bid.n}. ${myTurn ? 'Raise or pass' : `${nameOf(S.turn)} is thinking…`}` : '', flip: S.chal === me ? `Flip ${S.bid.n - S.flipped.length} more disc${S.bid.n - S.flipped.length === 1 ? '' : 's'} — avoid thorns!` : `${nameOf(S.chal)} is flipping…`, lose: S.chal === me ? 'You hit your own thorn — pick a disc to lose' : `${nameOf(S.chal)} is choosing what to lose…`, result: S.msg }[S.phase] || '';
     parts.push(h('div.kt-prompt', { style: '--pc:#e5399b' }, h('small', S.phase === 'flip' || S.phase === 'result' ? 'Challenge' : 'Petals & Thorns'), msg));
     parts.push(h('div.pt-grid', S.order.map((id) => {
@@ -54,6 +56,8 @@ export function start(api) {
         const rv = (p.rev || []).includes(top) ? p.faces[top] : null;
         const flippable = S.phase === 'flip' && S.chal === me && !rv && top === (p.rev || []).length && (id === me ? !S.ownDone : S.ownDone);
         const el = rv ? disc(rv) : own ? disc(mine.stack[i], 'mine') : h('div.pt-disc');
+        el.dataset.k = 'd:' + id + ':' + i;
+        if (rv) { const rk = id + ':' + top + ':' + (S.round ?? ''); if (!shownRev.has(rk)) { shownRev.add(rk); flips.push([el, rv]); } }
         if (flippable) { el.classList.add('flip'); el.onclick = () => api.toHost('flip', { o: id }); }
         discs.push(el);
       }
@@ -66,19 +70,21 @@ export function start(api) {
 
     if (mine.alive) {
       const act = h('div.pt-act');
-      if (S.phase === 'place' && !mine.stack.length) act.append(h('div.kt-hint', 'Place your first disc (only you can see it)'), placeRow(mine));
+      if (S.phase === 'place' && !mine.stack.length) act.append(h('div.kt-hint', 'Place a disc'), placeRow(mine));
       else if (S.phase === 'place') act.append(h('div.kt-hint', 'Waiting for the others…'));
       else if (S.phase === 'turns' && myTurn) {
         const total = S.tableTotal;
         act.append(placeRow(mine), h('div.kt-hint', '— or —'), bidRow(1, total, 'Start the bidding'));
       } else if (S.phase === 'bidding' && myTurn) act.append(bidRow(S.bid.n + 1, S.tableTotal, 'Raise'), h('button.btn.outline', { onclick: () => api.toHost('pass') }, 'Pass'));
       else if (S.phase === 'lose' && S.chal === me) act.append(h('div.kt-hint', 'Which disc do you give up?'), h('div.row', [mine.hand.F + countIn(mine.stack, 'F') > 0 ? h('button.btn.primary', { onclick: () => api.toHost('lose', { t: 'F' }) }, '✿ A petal') : null, mine.hand.S + countIn(mine.stack, 'S') > 0 ? h('button.btn.bad', { onclick: () => api.toHost('lose', { t: 'S' }) }, '☠ The thorn') : null]));
-      else if (S.phase === 'flip' && S.chal === me) act.append(h('div.kt-hint', S.ownDone ? 'Now tap a rival’s stack to flip their top disc.' : 'Tap your own stack to flip your discs first.'));
+      else if (S.phase === 'flip' && S.chal === me) act.append(h('div.kt-hint', S.ownDone ? 'Flip a rival’s top disc' : 'Flip your own discs first'));
       if (act.childNodes.length) parts.push(act);
       parts.push(h('div.kt-hint', `Your hand: ${mine.hand.F} petal${mine.hand.F === 1 ? '' : 's'}, ${mine.hand.S} thorn${mine.hand.S === 1 ? '' : 's'}`));
     } else parts.push(h('div.kt-hint', 'You’re out — enjoy the show!'));
-    root.replaceChildren(...parts);
+    flipDeep(root, () => root.replaceChildren(...parts), { sel: '.pt-disc[data-k]', ms: 380 });
+    for (const [el, face] of flips) { el.animate([{ transform: 'perspective(300px) rotateY(180deg) scale(1.25)' }, { transform: 'none' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)' }); if (face === 'S') { shake(el, { delay: 450, deg: 18, ms: 600 }); root.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }], { duration: 400, delay: 500 }); } }
   }
+  const shownRev = new Set();
   const countIn = (a, t) => a.filter((x) => x === t).length;
   const placeRow = (mine) => h('div.row', [
     mine.hand.F ? h('button.btn.tonal', { onclick: () => { api.toHost('place', { t: 'F' }); api.sfx('card'); } }, '✿ Place petal (' + mine.hand.F + ')') : null,

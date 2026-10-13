@@ -87,7 +87,7 @@ export function start(api) {
         opt.append(h('button.btn.primary', { disabled: !ok, onclick: () => submit({ c: sel.id, ...S.opt }) }, icon('check'), 'Lock in'));
       }
       if (!locked) opt.append(h('button.btn.tonal', { onclick: () => submit({ draw: true }) }, icon('add'), 'Draw 3 cards instead'));
-      parts.push(h('div.th-step', h('div.kt-hint', 'Pick a card for this step — everyone reveals at once!')), opt, h('div.th-hand', S.hand.map((c) => {
+      parts.push(null, opt, h('div.th-hand', S.hand.map((c) => {
         const [nm, em, col] = CARDS[c.k];
         return h('div.th-card' + (S.sel === c.id ? '.sel' : '') + (c.k === 'bullet' || locked ? '.dead' : ''), { style: `--cc:${col}`, title: CARDS[c.k][3], onclick: () => { if (locked || c.k === 'bullet') return; S.sel = S.sel === c.id ? null : c.id; S.opt = {}; render(); } }, h('span.em.emo', em), nm);
       })));

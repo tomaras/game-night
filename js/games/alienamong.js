@@ -80,7 +80,7 @@ export function start(api) {
     }
     if (S.phase === 'discuss') {
       const rd = S.ready.has(me);
-      return root.replaceChildren(head, roleCard(), h('div.kt-title', 'Everyone’s answers'), ans(), h('div.kt-hint', 'Discuss in chat or by voice: whose answer sounds off? Different questions were asked…'), iAlive() ? h('button.btn.' + (rd ? 'tonal' : 'primary') + '.block', { onclick: () => api.toHost('ready', {}) }, icon('check'), rd ? 'Ready to vote ✓' : 'Ready to vote') : '');
+      return root.replaceChildren(head, roleCard(), h('div.kt-title', 'Everyone’s answers'), ans(), h('div.kt-hint', 'Whose answer sounds off?'), iAlive() ? h('button.btn.' + (rd ? 'tonal' : 'primary') + '.block', { onclick: () => api.toHost('ready', {}) }, icon('check'), rd ? 'Ready to vote ✓' : 'Ready to vote') : '');
     }
     if (S.phase === 'vote') {
       if (!iAlive()) return root.replaceChildren(head, h('div.kt-card', { style: 'text-align:center' }, '🚪 You were ejected — watching the vote.'), ans());

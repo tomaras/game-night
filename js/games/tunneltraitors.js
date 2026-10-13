@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { flipDeep, popIn, bump } from '../motion.js';
 import { makeClock } from '../kit.js';
 
 const ROWS = 9, COLS = 13, START = [4, 2], GOALS = [[2, 10], [4, 10], [6, 10]];
@@ -167,6 +168,7 @@ export function start(api) {
       const l = board.querySelector('.tt-c.last');
       if (l && S.last !== shownLast) {
         shownLast = S.last;
+        popIn(l, { from: 1.6, ms: 460 });
         const x = l.offsetLeft - board.clientWidth / 2 + l.offsetWidth / 2;
         board.scrollTo({ left: Math.max(0, x), behavior: 'smooth' });
       }
@@ -176,17 +178,17 @@ export function start(api) {
     if (S.phase === 'between') hint = 'Next round starting…';
     else if (!myTurn) hint = `${nameOf(S.turn)}${S.log ? '' : ' is playing'}…`;
     else if (!c) hint = brokenAny(me) ? 'Your tools are broken — repair them to dig!' : 'Your turn — pick a card';
-    else if (c.t === 'p') hint = brokenAny(me) ? 'Broken tools: you can’t dig. Repair, or discard this card.' : valid.size ? 'Tap a green spot to place the tunnel (⟳ rotates)' : 'No spot fits — rotate it, or discard';
+    else if (c.t === 'p') hint = brokenAny(me) ? 'Broken tools: you can’t dig. Repair, or discard this card.' : valid.size ? 'Pick a spot' : 'No spot fits — rotate it, or discard';
     else if (c.a === 'brk') hint = `Tap a player to break their ${TOOLS[c.tool][1]}`;
     else if (c.a === 'fix') hint = 'Tap a player (or yourself) to repair a tool';
-    else if (c.a === 'rock') hint = 'Tap a tunnel card to collapse it (not the start/goals)';
-    else hint = 'Tap a ? card to secretly peek at it';
+    else if (c.a === 'rock') hint = 'Pick a tunnel to collapse';
+    else hint = 'Pick a goal to peek at';
     const acts = h('div.tt-acts', c && myTurn ? [
       c.t === 'p' ? h('button.btn.tonal', { onclick: () => { S.rot = !S.rot; render(); } }, icon('rotate_right'), 'Rotate') : null,
       h('button.btn.tonal', { onclick: () => submit({ id: c.id, discard: true }) }, icon('delete'), 'Discard'),
     ] : []);
-    const hand = h('div.tt-hand', S.hand.map((cd) => cardEl(cd, cd.id === S.sel, myTurn)));
-    root.replaceChildren(top, strip, board, h('div.tt-hint', hint), acts, hand);
+    const hand = h('div.tt-hand', S.hand.map((cd) => { const e = cardEl(cd, cd.id === S.sel, myTurn); e.dataset.k = 'c' + cd.id; return e; }));
+    flipDeep(root, () => root.replaceChildren(top, strip, board, h('div.tt-hint', hint), acts, hand), { sel: '.tt-hand [data-k]', ms: 480 });
     const lg = S.log ? h('div.kt-hint', S.log) : null;
     if (lg) root.insertBefore(lg, acts);
   }

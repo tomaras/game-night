@@ -54,7 +54,7 @@ export function start(api) {
     const parts = [];
     if (S.phase === 'loading') { root.replaceChildren(h('div.kt-center', h('div', [h('div.spinner'), h('div.kt-hint', 'Loading the dictionary…')]))); return; }
     parts.push(h('div.wb-bomb' + (S.hot ? '.hot' : ''), h('div.wb-ball'), h('div.wb-fuse'), h('div.wb-syl', S.syl.toUpperCase())));
-    parts.push(h('div.kt-hint.msg', { style: 'font-weight:700;color:var(--on)' }, S.phase === 'over' ? '' : S.turn === me ? 'Your turn — type a word containing these letters!' : `${nameOf(S.turn)} has the bomb…`));
+    parts.push(h('div.kt-hint.msg', { style: 'font-weight:700;color:var(--on)' }, S.phase === 'over' ? '' : S.turn === me ? 'Your turn' : `${nameOf(S.turn)} has the bomb…`));
     if (S.turn === me && S.phase === 'play') {
       input = h('input.txt.wb-in', { placeholder: 'type a word…', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'send',
         oninput: (e) => { const n = performance.now(); if (n - lastTy > 100) { lastTy = n; api.toHost('typing', { t: e.target.value.slice(0, 24) }); } },

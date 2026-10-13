@@ -79,7 +79,7 @@ export function start(api) {
     if (S.phase === 'clue') {
       parts.push(clock.el());
       if (psy) {
-        parts.push(h('div.kt-card', gauge({ target: S.target, hide: false }), ends), h('div.kt-hint', 'You’re the psychic! The dial hides the green zone from everyone else. Give a clue that points at it.'),
+        parts.push(h('div.kt-card', gauge({ target: S.target, hide: false }), ends), h('div.kt-hint', 'You’re the psychic: give a clue for the green zone'),
           answerBox({ placeholder: `A clue between “${S.spec[0]}” and “${S.spec[1]}”`, max: 50, button: 'Send clue', onSubmit: (t) => { api.toHost('clue', { t }); api.sfx('good'); } }).el);
       } else parts.push(h('div.kt-card', gauge({ target: null }), ends), h('div.kt-center', h('div', [h('div.spinner'), h('div.kt-hint', `${nameOf(S.psychic)} is thinking of a clue…`)])));
     } else if (S.phase === 'guess') {

@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock, waiting } from '../kit.js';
 import { botLoop, thinkMs } from '../bots.js';
+import { flipDeep } from '../motion.js';
 
 const bulls = (n) => (n === 55 ? 7 : n % 11 === 0 ? 5 : n % 10 === 0 ? 3 : n % 5 === 0 ? 2 : 1);
 const COL = { 1: ['#ffffff', '#1b1c20'], 2: ['#ffe9a8', '#5b4300'], 3: ['#ffc58a', '#6b2f00'], 5: ['#ff9e94', '#6b100a'], 7: ['#c9a3ff', '#3b0f8a'] };
@@ -39,9 +40,9 @@ export function start(api) {
   const S = { phase: 'wait', rows: [[], [], [], []], hand: [], picked: null, played: [], bullsTotal: {}, round: 1, turn: 1, done: new Set(), chooser: null, log: '', fresh: null };
   ids.forEach((i) => (S.bullsTotal[i] = 0));
 
-  const cardEl = (n, cls = '', onclick) => {
+  const cardEl = (n, cls = '', onclick, key) => {
     const [bg, fg] = COL[bulls(n)];
-    return h('div.rr-card' + (cls ? '.' + cls : ''), { style: { '--cb': bg, '--cf': fg }, onclick }, h('div.b', Array.from({ length: Math.min(bulls(n), 7) }, () => h('i'))), n, h('div.b', Array.from({ length: Math.min(bulls(n), 7) }, () => h('i'))));
+    return h('div.rr-card' + (cls ? '.' + cls : ''), { 'data-k': key || '', style: { '--cb': bg, '--cf': fg }, onclick }, h('div.b', Array.from({ length: Math.min(bulls(n), 7) }, () => h('i'))), n, h('div.b', Array.from({ length: Math.min(bulls(n), 7) }, () => h('i'))));
   };
 
   api.on('state', (s) => { Object.assign(S, s); S.done = new Set(s.done || []); clock.set(s.ms || 0); if (s.fresh) api.sfx('card'); render(); });
@@ -53,15 +54,15 @@ export function start(api) {
     const parts = [h('div.kt-card', { style: 'display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px' }, h('b', `Round ${S.round} · Turn ${S.turn}/10`), ...api.players.map((p) => h('span.kt-pill', avatarEl({ ...p, online: p.online && !p.left }, 'xs', { still: true }), p.name === api.player(me)?.name ? 'You' : p.name.split(' ')[0], h('b', { style: 'color:var(--red)' }, S.bullsTotal[p.id] || 0, ' 🐂'))))];
     if (S.phase === 'pick' || S.phase === 'resolve' || S.phase === 'choose') parts.push(clock.el());
     parts.push(h('div.rr-rows', S.rows.map((row, ri) => h('div.rr-row' + (S.phase === 'choose' && S.chooser === me ? '.pickable' : ''), { onclick: () => { if (S.phase === 'choose' && S.chooser === me) { api.toHost('row', { r: ri }); api.sfx('click'); } } },
-      ...row.map((n) => cardEl(n)), ...Array.from({ length: 5 - row.length }, () => h('div.rr-slot')), h('span.cnt', row.reduce((a, n) => a + bulls(n), 0) + ' 🐂')))));
-    if (S.played.length) parts.push(h('div.rr-played', S.played.map((p) => h('div.it' + (S.fresh === p.id ? '.fresh' : ''), cardEl(p.n, 'big'), h('span', nameOf(p.id))))));
+      ...row.map((n) => cardEl(n, '', null, 'c' + n)), ...Array.from({ length: 5 - row.length }, () => h('div.rr-slot')), h('span.cnt', row.reduce((a, n) => a + bulls(n), 0) + ' 🐂')))));
+    if (S.played.length) parts.push(h('div.rr-played', S.played.map((p) => h('div.it' + (S.fresh === p.id ? '.fresh' : ''), cardEl(p.n, 'big', null, S.rows.some((r) => r.includes(p.n)) ? '' : 'c' + p.n), h('span', nameOf(p.id))))));
     if (S.log) parts.push(h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, S.log));
-    if (S.phase === 'choose') parts.push(h('div.kt-hint', S.chooser === me ? 'Your card is lower than every row — tap a row to take it!' : `${nameOf(S.chooser)} must take a row…`));
+    if (S.phase === 'choose') parts.push(h('div.kt-hint', S.chooser === me ? 'Pick a row to take' : `${nameOf(S.chooser)} must take a row…`));
     if (S.phase === 'pick') {
-      parts.push(S.picked === null ? h('div.kt-hint', 'Pick a card (tap) — everyone reveals at once.') : h('div.kt-hint', 'Locked in.'), waiting(api, ids.filter((i) => !S.done.has(i))));
+      parts.push(S.picked === null ? null : h('div.kt-hint', 'Locked in'), waiting(api, ids.filter((i) => !S.done.has(i))));
     }
-    parts.push(h('div.rr-hand', S.hand.map((n) => cardEl(n, S.picked === n ? 'sel' : '', () => { if (S.phase !== 'pick' || S.picked !== null) return; S.picked = n; api.toHost('pick', { n }); api.sfx('card'); render(); }))));
-    root.replaceChildren(...parts);
+    parts.push(h('div.rr-hand', S.hand.map((n) => cardEl(n, S.picked === n ? 'sel' : '', () => { if (S.phase !== 'pick' || S.picked !== null) return; S.picked = n; api.toHost('pick', { n }); api.sfx('card'); render(); }, 'h' + n))));
+    flipDeep(root, () => root.replaceChildren(...parts), { sel: '.rr-card[data-k]:not([data-k=""])' });
   }
 
   if (api.isHost) {

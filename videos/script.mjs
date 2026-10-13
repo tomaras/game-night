@@ -1,7 +1,12 @@
-// Turns a game's rules (the same text as the in-app "How to play") into a spoken walkthrough: a list of sentences, each
-// with the section it belongs to. The sentences become the voiceover AND the captions.
+// The spoken walkthrough for a game: a list of sentences, each with the paragraph it belongs to. The sentences become the
+// voiceover AND the captions. The wording is hand-written (narration-*.mjs); a game without a script falls back to its rules text.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import A from './narration-a.mjs';
+import B from './narration-b.mjs';
+import C from './narration-c.mjs';
+
+const NARRATION = { ...A, ...B, ...C };
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,6 +59,8 @@ const range = (g) => { const lo = g.bots || g.solo ? 1 : g.min; return lo === g.
 
 /** @returns {{section: string, text: string}[]} */
 export function buildScript(g) {
+  const written = NARRATION[g.id];
+  if (written) return written.flatMap((para, i) => para.map((t) => ({ section: 'p' + i, text: sentence(t) })).filter((x) => x.text));
   const out = [];
   const add = (section, ...texts) => { for (const t of texts.flat()) { const s = sentence(t); if (s) out.push({ section, text: s }); } };
   add('Intro', `Welcome to ${g.name}.`, g.tagline, `It's a ${String(g.cat).toLowerCase()} game for ${range(g)} players${g.bots ? ', and you can play it against the computer when nobody else is around' : g.solo ? ', and it works great on your own too' : ''}.`);

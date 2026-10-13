@@ -2,6 +2,7 @@
 // and decide every step: keep going for more, or run to the camp before the hazards strike!
 import { h } from '../util.js';
 import { avatarEl } from '../avatar.js';
+import { flipDeep, dealIn, shake, jolt } from '../motion.js';
 import { makeClock } from '../kit.js';
 import { botLoop } from '../bots.js';
 
@@ -70,7 +71,7 @@ export function start(api) {
     }
     const hz = h('div.tp-haz', Object.entries(HAZ).map(([k, [em]]) => h('div.tp-h' + (S.haz[k] === 1 ? '.hot' : ''), h('span.emo', em), h('span.pip' + (S.haz[k] >= 1 ? '.on' : '')), h('span.pip' + (S.haz[k] >= 2 ? '.on' : '')))));
     const head = h('div.kt-row', { style: 'justify-content:center' }, h('span.chip.blue', `Expedition ${S.round}/${rounds}`), h('span.chip.yellow', `${S.deck} cards left`), S.phase === 'decide' ? clock.el() : null);
-    const path = h('div.tp-path', S.path.length ? S.path.map((c, i) => cardEl(c, i === S.path.length - 1, S.boom && i === S.path.length - 1)) : h('div', { style: 'color:#8d6e63;font:700 15px var(--font);padding:0 10px' }, 'The temple entrance…'));
+    const path = h('div.tp-path', S.path.length ? S.path.map((c, i) => { const e = cardEl(c, i === S.path.length - 1, S.boom && i === S.path.length - 1); e.dataset.k = 'p' + i; return e; }) : h('div', { style: 'color:#8d6e63;font:700 15px var(--font);padding:0 10px' }, 'The temple entrance…'));
     const pot = h('div.tp-pot', S.pot ? `💎 ${S.pot} on the path` : '', S.arts.length ? `  🏺 ${S.arts.length} artifact${S.arts.length > 1 ? 's' : ''}` : '');
     const pl = h('div.tp-pl', ids.map((id) => {
       const p = S.ps[id] || {};
@@ -84,7 +85,10 @@ export function start(api) {
         h('button.out' + (S.choice === false ? '.pick' : lock ? '.dim' : ''), { onclick: () => choose(false) }, h('span.emo', { style: 'font-size:28px' }, '⛺'), 'Return to camp', h('small', `bank 💎${mine.carry || 0} + share of the path`)));
     } else if (S.phase === 'decide') dec = h('div.kt-hint', mine.dead ? 'You lost everything this round…' : 'You’re safe at camp — watching the others.');
     else if (S.phase === 'flip') dec = h('div.kt-hint', 'Exploring deeper…');
+    const prevLen = root.querySelectorAll('.tp-path [data-k]').length;
     root.replaceChildren(head, hz, path, pot, S.log ? h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, S.log) : '', dec || '', pl);
+    const cards = root.querySelectorAll('.tp-path [data-k]');
+    if (cards.length > prevLen && prevLen > 0) { const last = cards[cards.length - 1]; dealIn(last, { x: 90, y: 0 }, { ms: 560 }); if (S.boom) { shake(last, { delay: 520, deg: 14, ms: 600 }); jolt(root.querySelector('.tp-path'), { px: 8, ms: 500 }); } }
   }
   function choose(stay) { if (S.phase !== 'decide') return; S.choice = stay; api.toHost('choice', { stay }); api.sfx('pop'); render(); }
 

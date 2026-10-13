@@ -67,7 +67,7 @@ export function start(api) {
       const mine = d.authors.includes(api.me);
       parts.push(clock.el(), promptCard(d.prompt, { label: 'Which answer is funnier?', color: '#1a73e8' }));
       parts.push(h('div.qc-duel', d.answers.map((a, i) => [i ? h('div.qc-vs', 'VS') : null, h('button.qc-ans' + (S.voted === i ? '.sel' : ''), { disabled: mine || S.voted !== false, onclick: () => { S.voted = i; api.toHost('vote', { i }); api.sfx('click'); render(); } }, a)]).flat()));
-      parts.push(h('div.kt-hint', mine ? 'This is your duel — sit tight and wait for the votes!' : S.voted !== false ? 'Vote locked in!' : 'Tap the funnier answer.'));
+      parts.push(h('div.kt-hint', mine ? 'Your duel: waiting for votes' : S.voted !== false ? 'Vote locked in!' : 'Tap the funnier answer.'));
     } else if (S.phase === 'reveal' && S.res) {
       const r = S.res;
       parts.push(promptCard(r.prompt, { label: r.flawless ? 'QUIPCLASH! Everyone agreed' : 'The votes are in', color: '#34a853' }));

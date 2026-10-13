@@ -58,7 +58,7 @@ export function start(api) {
     if (S.phase === 'ask') {
       parts.push(clock.el(), roleCard());
       parts.push(h('div.sp-turn', avatarEl(api.player(S.asker) || {}, 'sm'), h('b', nameOf(S.asker)), ' asks ', S.target ? [avatarEl(api.player(S.target) || {}, 'sm'), h('b', nameOf(S.target))] : 'someone…'));
-      if (S.asker === me && !S.target) parts.push(h('div.kt-hint', 'Ask any player a question (out loud or in chat). Pick who you asked:'), playerBtns((p) => p.id !== me && !p.left && p.id !== S.lastAsker, (id) => api.toHost('target', { id })));
+      if (S.asker === me && !S.target) parts.push(h('div.kt-hint', 'Who did you ask?'), playerBtns((p) => p.id !== me && !p.left && p.id !== S.lastAsker, (id) => api.toHost('target', { id })));
       else if (S.target === me) parts.push(h('div.kt-hint', 'Answer the question — then ask someone else!'), h('button.btn.primary', { onclick: () => api.toHost('answered') }, icon('check'), 'I answered — my turn to ask'));
       else parts.push(h('div.kt-hint', S.target ? `${nameOf(S.target)} is answering…` : `${nameOf(S.asker)} is thinking of a question…`));
       parts.push(h('div.row.wrap', { style: 'justify-content:center' }, !S.myAccused ? h('button.btn.bad', { onclick: () => { const f = playerBtns((p) => p.id !== me && !p.left, (id) => { api.toHost('accuse', { id }); dlg.remove(); }); const dlg = h('div.scrim.center', { onclick: (e) => { if (e.target === dlg) dlg.remove(); } }, h('div.dialog', h('h3', 'Who do you accuse?'), f, h('div.actions', h('button.btn.ghost', { onclick: () => dlg.remove() }, 'Cancel')))); document.body.append(dlg); } }, icon('gavel'), 'Accuse someone') : h('span.chip', 'You already accused'), spy ? h('button.btn.primary', { onclick: () => api.toHost('revealspy') }, icon('visibility'), 'I know the location!') : null));
@@ -70,7 +70,7 @@ export function start(api) {
         parts.push(h('div.kt-prompt', { style: '--pc:#ea4335' }, h('small', `${nameOf(v.by)} accuses`), nameOf(v.target)));
         if (v.target === me) parts.push(h('div.kt-hint', 'Everyone is voting on whether you’re the spy…'));
         else if (S.voted) parts.push(h('div.kt-hint', 'Vote cast'), waiting(api, ids.filter((i) => i !== v.target && !S.done.has(i))));
-        else parts.push(h('div.row', { style: 'justify-content:center' }, h('button.btn.bad.big', { onclick: () => { S.voted = true; api.toHost('vote', { yes: true }); render(); } }, 'Guilty'), h('button.btn.good.big', { onclick: () => { S.voted = true; api.toHost('vote', { yes: false }); render(); } }, 'Innocent')), h('div.kt-hint', 'All others must agree for the accusation to stick.'));
+        else parts.push(h('div.row', { style: 'justify-content:center' }, h('button.btn.bad.big', { onclick: () => { S.voted = true; api.toHost('vote', { yes: true }); render(); } }, 'Guilty'), h('button.btn.good.big', { onclick: () => { S.voted = true; api.toHost('vote', { yes: false }); render(); } }, 'Innocent')), h('div.kt-hint', 'Must be unanimous'));
       } else {
         parts.push(h('div.kt-prompt', { style: '--pc:#1a73e8' }, h('small', 'Time is up!'), 'Who is the spy?'));
         if (S.voted) parts.push(h('div.kt-hint', 'Vote cast'), waiting(api, ids.filter((i) => !S.done.has(i))));

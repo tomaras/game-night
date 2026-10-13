@@ -89,12 +89,12 @@ export function start(api) {
       return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#f9a825' }, h('small', 'The sun rises'), 'Discuss! Who is lying?'), roleCard(), infoCard || '',
         h('div.kt-card', h('div.kt-title', 'Players'), h('div.ow-grid', { style: 'margin-top:8px' }, ids.map((id) => h('div.ow-p', { style: 'cursor:default' }, avatarEl(api.player(id), 'lg', { still: true }), nameOf(id) + (id === me ? ' (you)' : ''), S.ready.has(id) ? h('span.chip.green', { style: 'height:20px;font-size:11px' }, 'ready') : null)))),
         h('button.btn.' + (readyMe ? 'tonal' : 'primary') + '.block', { onclick: () => { api.toHost('ready', {}); } }, icon('check'), readyMe ? 'Ready to vote ✓' : 'I’m ready to vote'),
-        h('div.kt-hint', 'Use the chat or voice/video to argue it out. Voting starts when the timer ends or everyone is ready.'));
+        h('div.kt-hint', 'Voting starts when time is up'));
     }
     if (S.phase === 'vote') {
       return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#c62828' }, h('small', 'Time to vote'), 'Who is a werewolf?'), roleCard(),
         h('div.ow-grid', ids.filter((id) => id !== me).map((id) => playerBtn(id, (x) => { S.myVote = x; api.toHost('vote', { id: x }); api.sfx('pop'); render(); }, S.myVote === id, S.voted.has(id) ? h('span.chip.green', { style: 'height:20px;font-size:11px' }, 'voted') : null))),
-        h('div.kt-hint', S.myVote ? 'Vote locked — you can still change it until time runs out.' : 'Tap a player to vote for them.'));
+        h('div.kt-hint', S.myVote ? 'Vote locked' : 'Tap a player to vote for them.'));
     }
     if (S.phase === 'result' && S.res) {
       const r = S.res;

@@ -62,7 +62,7 @@ export function start(api) {
         parts.push(h('div.ld2-list', S.cats.map((c, i) => h('div.ld2-cat', h('label', `${i + 1}. ${c}`), S.inputs[i]))), h('div.kt-sticky', h('button.btn.primary.big.block', { onclick: send }, icon('check'), 'Done')));
       }
     } else if (S.phase === 'review' && S.sheet) {
-      parts.push(clock.el(), h('div.kt-hint', 'Check everyone’s answers — tap “Flag” on anything that doesn’t fit.'));
+      parts.push(clock.el(), h('div.kt-hint', 'Flag answers that don’t fit'));
       S.sheet.forEach((c, ci) => parts.push(h('div.ld2-rev', h('h4', `${ci + 1}. ${c.cat}`), ...c.rows.map((r) => {
         const key = ci + ':' + r.id;
         const bad = !r.ok;

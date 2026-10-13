@@ -74,7 +74,7 @@ export function start(api) {
     const facs = h('div.az-fac', S.facs.map((f, i) => h('div.az-f' + (f.length ? '' : '.empty'), f.map((c) => tile(c, s && s.src === 'f' && s.idx === i && s.color === c ? 'sel' : s && (s.src !== 'f' || s.idx !== i || s.color !== c) ? 'dim' : '', () => pick('f', i, c))))),
       h('div.az-ctr', S.marker ? h('div.az-t.mk.noclick', { title: 'First-player marker' }, '1') : null, [...S.center].sort().map((c) => tile(c, s && s.src === 'c' && s.color === c ? 'sel' : s && !(s.src === 'c' && s.color === c) ? 'dim' : '', () => pick('c', 0, c))), !S.center.length && !S.marker ? h('span.muted', { style: 'padding:6px' }, 'Center') : null));
     const head = h('div.kt-row', { style: 'justify-content:center' }, h('span.chip.blue', `Round ${S.round}`), h('span.chip.yellow', `Bag: ${S.bag}`));
-    let hint = myTurn() ? (s ? `Place ${selCount()} ${NAMES[s.color]} tile${selCount() > 1 ? 's' : ''} on a green line (or the floor)` : 'Your turn — tap a tile to take every tile of that colour') : `${nameOf(S.turn)} is choosing…`;
+    let hint = myTurn() ? (s ? `Place ${selCount()} ${NAMES[s.color]} tile${selCount() > 1 ? 's' : ''} on a green line (or the floor)` : 'Your turn') : `${nameOf(S.turn)} is choosing…`;
     if (S.phase !== 'play') hint = '';
     root.replaceChildren(head, pl, facs, h('div.az-hint', hint), boardEl(S.view || me, (S.view || me) === me && myTurn()), S.view !== me ? h('button.btn.tonal', { onclick: () => { S.view = me; render(); } }, 'Back to my board') : '');
   }

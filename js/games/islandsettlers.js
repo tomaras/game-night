@@ -3,6 +3,8 @@
 import { h, makeRng } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { dieEl } from '../dice.js';
+import { burst as sparks } from '../motion.js';
 import { botLoop, thinkMs } from '../bots.js';
 
 const R = 38, SQ = Math.sqrt(3);
@@ -85,6 +87,10 @@ const CSS = `
 .is-board { background:linear-gradient(160deg,#b3e5fc,#81d4fa); border-radius:26px; padding:6px; box-shadow:var(--e1); }
 .is-svg { width:100%; height:auto; max-height:50dvh; display:block; touch-action:manipulation; }
 .is-svg text { font-family:Outfit, 'Noto Color Emoji', sans-serif; user-select:none; pointer-events:none; }
+.is-ring { transform-box:fill-box; transform-origin:center; animation:isring .9s cubic-bezier(.2,.7,.3,1) forwards; pointer-events:none; }
+@keyframes isring { from { transform:scale(.4); opacity:1; } to { transform:scale(3.4); opacity:0; } }
+.is-hit { transform-box:fill-box; transform-origin:center; animation:ishit .7s ease-out 4; pointer-events:none; }
+@keyframes ishit { from { transform:scale(1); opacity:.9; } to { transform:scale(2.6); opacity:0; } }
 .is-cand { fill:#fff; stroke:#00c853; stroke-width:3; cursor:pointer; transform-box:fill-box; transform-origin:center; animation:ispulse .8s infinite alternate; }
 .is-cande { stroke:#00e676; stroke-width:9; stroke-linecap:round; cursor:pointer; opacity:.85; animation:isfade .8s infinite alternate; }
 .is-hexpick { fill:rgba(0,0,0,.2); stroke:#fff; stroke-width:3; cursor:pointer; animation:isfade .8s infinite alternate; }
@@ -117,7 +123,8 @@ export function start(api) {
   const myIdx = ids.indexOf(api.me);
   const S = { phase: 'setup', turn: 0, step: 'settle', dice: null, robber: board.desert, b: {}, r: {}, pl: ids.map(() => ({ vp: 0, nres: 0, ndev: 0, kn: 0, lr: false, la: false, roads: 0 })), offer: null, need: {}, log: '', free: 0, victims: [], longest: 0, devLeft: 25, res: zero(), dev: [], vpc: 0, mode: null, panel: null, tg: { give: null, get: null }, og: zero(), ob: zero(), dc: zero(), yop: [], last: null };
 
-  api.on('pub', (s) => { const was = S.turn; Object.assign(S, s); if (s.phase !== 'discard') S.dc = zero(); if (s.phase === 'roll' && was !== S.turn && S.turn === myIdx) api.sfx('ding'); if (s.sfx) api.sfx(s.sfx); if (S.phase !== 'main') S.panel = S.panel === 'trade' ? null : S.panel; render(); });
+  const shown = { b: null, r: null, dice: '' }; let rolledAt = 0;
+  api.on('pub', (s) => { const was = S.turn; const dk = s.dice ? s.dice.join(',') : ''; if (dk && dk !== shown.dice) { rolledAt = performance.now(); } shown.dice = dk; Object.assign(S, s); if (s.phase !== 'discard') S.dc = zero(); if (s.phase === 'roll' && was !== S.turn && S.turn === myIdx) api.sfx('ding'); if (s.sfx) api.sfx(s.sfx); if (S.phase !== 'main') S.panel = S.panel === 'trade' ? null : S.panel; render(); });
   api.on('priv', (p) => { Object.assign(S, p); render(); });
   api.onPlayersChanged(render);
   const mine = () => S.turn === myIdx;
@@ -148,7 +155,9 @@ export function start(api) {
       g.append(sv('polygon', { points: hexPts(hx), fill: TC[bh.t], stroke: '#fff', 'stroke-width': 3, 'stroke-linejoin': 'round' }));
       g.append(sv('text', { x: hx.x, y: hx.y - (bh.n ? 12 : -6), 'text-anchor': 'middle', 'font-size': bh.n ? 19 : 26 }, bh.t === 'desert' ? '🏜️' : EM[bh.t]));
       if (bh.n) {
-        g.append(sv('circle', { cx: hx.x, cy: hx.y + 9, r: 12, fill: '#fffaf0', stroke: '#d7ccc8', 'stroke-width': 1.5 }));
+        const hit = S.dice && S.dice[0] + S.dice[1] === bh.n && performance.now() - rolledAt < 3500;
+        if (hit) g.append(sv('circle', { cx: hx.x, cy: hx.y + 9, r: 12, fill: '#ffd54f', class: 'is-hit' }));
+        g.append(sv('circle', { cx: hx.x, cy: hx.y + 9, r: 12, fill: hit ? '#fff3c4' : '#fffaf0', stroke: hit ? '#f9a825' : '#d7ccc8', 'stroke-width': hit ? 2.5 : 1.5 }));
         g.append(sv('text', { x: hx.x, y: hx.y + 14, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 800, fill: bh.n === 6 || bh.n === 8 ? '#d32f2f' : '#37474f' }, bh.n));
       }
       if (S.robber === i) {
@@ -159,6 +168,7 @@ export function start(api) {
     // roads
     for (const [e, o] of Object.entries(S.r)) {
       const { a, b } = T.E[e], A = T.V[a], B = T.V[b];
+      if (shown.r && !shown.r.has(e)) g.append(sv('circle', { cx: (A.x + B.x) / 2, cy: (A.y + B.y) / 2, r: 8, fill: 'none', stroke: PCOL[o], 'stroke-width': 4, class: 'is-ring' }));
       g.append(sv('line', { x1: A.x, y1: A.y, x2: B.x, y2: B.y, stroke: '#fff', 'stroke-width': 12, 'stroke-linecap': 'round' }), sv('line', { x1: A.x, y1: A.y, x2: B.x, y2: B.y, stroke: PCOL[o], 'stroke-width': 8, 'stroke-linecap': 'round' }));
     }
     // candidates
@@ -175,7 +185,9 @@ export function start(api) {
       const { x, y } = T.V[v];
       const pts = t === 'S' ? '-8,7 -8,-2 0,-10 8,-2 8,7' : '-12,8 -12,-3 -4,-3 -4,-9 2,-14 8,-9 8,-3 12,-3 12,8';
       g.append(sv('polygon', { points: pts, transform: `translate(${x} ${y}) scale(1.25)`, fill: PCOL[o], stroke: '#fff', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
+      if (shown.b && !shown.b.has(v + t)) g.append(sv('circle', { cx: x, cy: y, r: 10, fill: 'none', stroke: PCOL[o], 'stroke-width': 4, class: 'is-ring' }));
     }
+    shown.newB = new Set(Object.entries(S.b).map(([v, [, t]]) => v + t)); shown.newR = new Set(Object.keys(S.r));
     return svg;
     function cand(gg, v, i) { gg.append(sv('circle', { cx: v.x, cy: v.y, r: 8, class: 'is-cand', onclick: () => placeAt('v', i) })); }
     function candE(gg, e, i) { const A = T.V[e.a], B = T.V[e.b]; gg.append(sv('line', { x1: A.x, y1: A.y, x2: B.x, y2: B.y, class: 'is-cande', onclick: () => placeAt('e', i) })); }
@@ -211,14 +223,14 @@ export function start(api) {
     // status line
     let hint = '';
     if (S.phase === 'setup') hint = myTurn ? (S.step === 'settle' ? 'Place a settlement on any green spot' : 'Now place a road next to it') : `${nameOf(ids[S.turn])} is placing a ${S.step === 'settle' ? 'settlement' : 'road'}…`;
-    else if (S.phase === 'roll') hint = myTurn ? 'Your turn — roll the dice!' : `${nameOf(ids[S.turn])} is about to roll…`;
+    else if (S.phase === 'roll') hint = myTurn ? 'Roll the dice' : `${nameOf(ids[S.turn])} is about to roll…`;
     else if (S.phase === 'discard') hint = S.need[api.me] ? `A 7 was rolled — discard ${S.need[api.me]} cards` : 'Players with more than 7 cards must discard half…';
     else if (S.phase === 'robber') hint = myTurn ? 'Move the robber — tap a hex' : `${nameOf(ids[S.turn])} is moving the robber…`;
     else if (S.phase === 'steal') hint = myTurn ? 'Choose who to steal from' : `${nameOf(ids[S.turn])} is stealing…`;
     else if (S.phase === 'main') hint = myTurn ? (S.free > 0 ? `Road Building — place ${S.free} free road${S.free > 1 ? 's' : ''}` : S.mode ? `Tap a highlighted spot to build a ${S.mode === 'settle' ? 'settlement' : S.mode}` : 'Build, trade, or end your turn') : `${nameOf(ids[S.turn])}’s turn`;
     dock.append(h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, hint));
     if (S.log) dock.append(h('div.kt-hint', S.log));
-    if (S.dice) dock.append(h('div.is-dice', { style: 'text-align:center' }, FACES[S.dice[0] - 1] + FACES[S.dice[1] - 1], h('span', { style: 'font:800 20px var(--font);margin-left:8px' }, '= ' + (S.dice[0] + S.dice[1]))));
+    if (S.dice) { const fresh = performance.now() - rolledAt < 900; dock.append(h('div.is-dice', { style: 'display:flex;align-items:center;justify-content:center;gap:10px;--w:46px' }, dieEl(S.dice[0], { roll: fresh }), dieEl(S.dice[1], { roll: fresh }), h('span', { style: 'font:800 22px var(--font)' }, '= ' + (S.dice[0] + S.dice[1])))); }
     // offers
     if (S.offer && S.phase === 'main') {
       const o = S.offer;
@@ -254,6 +266,7 @@ export function start(api) {
       })));
     }
     root.replaceChildren(pls, board$, res, dock);
+    shown.b = shown.newB || shown.b; shown.r = shown.newR || shown.r;
   }
 
   function tradePanel() {

@@ -3,6 +3,8 @@
 import { h } from '../util.js';
 import { botLoop, thinkMs } from '../bots.js';
 import { icon } from '../ui.js';
+import { dieEl } from '../dice.js';
+import { flipDeep, dealIn } from '../motion.js';
 
 const MAXR = 8, LAND_AT = 6;
 const PLANES0 = [0, 0, 1, 1, 2, 1, 1]; // planes at approach spaces 1..6 (index = space)
@@ -63,18 +65,22 @@ export function start(api) {
       const can = myTurn && S.sel !== null && slotOk(sl);
       const mine = sl.seat === me || sl.seat === -1;
       return h('div.cp-slot' + (can ? '.can' : '') + (pl ? '.full' : ''), { style: `--gc:${GRP_COL[sl.grp]}`, onclick: can ? () => put(sl.id) : null, title: sl.sub },
-        pl ? h('div.cp-die', { style: `--dc:${dieCol(pl.seat)}` }, pl.v) : [h('span.em.emo', GRP_EM[sl.grp]), sl.label],
+        pl ? tint(dieEl(pl.v, { w: 38 }), pl.seat, 'p' + sl.id) : [h('span.em.emo', GRP_EM[sl.grp]), sl.label],
         h('small', pl ? (pl.seat === 0 ? 'pilot' : 'co-pilot') : sl.seat === -1 ? sl.sub : (mine ? 'your seat' : 'partner’s seat')));
     }));
-    const dice = h('div.cp-row', S.phase === 'place' ? S.dice.map((d) => h('div.cp-die.big' + (S.sel === d.i ? '.sel' : ''), { style: `--dc:${dieCol(me)}`, onclick: () => { if (!myTurn) return api.toast(S.phase === 'place' ? 'Wait for your partner' : ''); S.sel = S.sel === d.i ? null : d.i; api.sfx('pop'); render(); } }, d.v)) : []);
+    const dice = h('div.cp-row', S.phase === 'place' ? S.dice.map((d) => { const e = tint(dieEl(d.v, { w: 54, roll: rolledRound !== S.round, cls: S.sel === d.i ? 'sel' : '' }), me, 'd' + d.i); e.onclick = () => { if (!myTurn) return api.toast(S.phase === 'place' ? 'Wait for your partner' : ''); S.sel = S.sel === d.i ? null : d.i; api.sfx('pop'); render(); }; e.style.cursor = 'pointer'; return e; }) : []);
     const partner = h('div.cp-row', h('span', { style: 'font:600 12px var(--font);color:var(--on2)' }, `${nameOf(seats[1 - me])}’s dice (secret):`), ...Array.from({ length: S.others }, () => h('div.cp-die.hid', '?')));
     let hint = '';
-    if (S.phase === 'place') hint = myTurn ? (S.sel === null ? 'Your turn — pick one of your dice' : 'Now tap a glowing cockpit slot') : `${nameOf(seats[S.turn])} is placing a die…`;
+    if (S.phase === 'place') hint = myTurn ? (S.sel === null ? 'Pick a die' : 'Pick a slot') : `${nameOf(seats[S.turn])} is placing a die…`;
     else if (S.phase === 'resolve') hint = 'Rolling the numbers…';
-    root.replaceChildren(head, trackEl(), axis, cock, h('div.cp-hint', hint), dice, partner, h('div.cp-log', S.log.slice(-3).map((l) => h('div', l))), h('div.kt-hint', '🤐 Rule: you may chat — but never say your dice numbers!'));
+    flipDeep(root, () => root.replaceChildren(head, trackEl(), axis, cock, h('div.cp-hint', hint), dice, partner, h('div.cp-log', S.log.slice(-3).map((l) => h('div', l))), h('div.kt-hint', '🤐 Never say your dice numbers')), { sel: '[data-k]', ms: 520 });
+    rolledRound = S.round;
   }
+  let rolledRound = 0;
+  // dice take the colour of whoever rolled them (the pilot's and co-pilot's differ), and slide from the tray into the cockpit
+  const tint = (el, seat, key) => { el.style.setProperty('--dc', dieCol(seat)); el.dataset.k = key; return el; };
   function trackEl() {
-    return h('div.cp-track', [0, 1, 2, 3, 4, 5, 6].map((i) => h('div.cp-sp' + (i === LAND_AT ? '.run' : ''), i === S.pos ? h('span.me.emo', '🛩️') : null,
+    return h('div.cp-track', [0, 1, 2, 3, 4, 5, 6].map((i) => h('div.cp-sp' + (i === LAND_AT ? '.run' : ''), i === S.pos ? h('span.me.emo', { 'data-k': 'plane' }, '🛩️') : null,
       i === 0 ? h('div.pl', '') : h('div.pl', Array.from({ length: S.planes[i] || 0 }, () => h('span.emo', '✈️'))), i === LAND_AT ? '🏁 runway' : i === 0 ? 'start' : String(i))));
   }
   function put(slot) { const d = S.dice.find((x) => x.i === S.sel); if (!d) return; api.toHost('place', { i: d.i, slot }); S.sel = null; render(); }

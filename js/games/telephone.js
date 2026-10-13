@@ -107,7 +107,7 @@ export function start(api) {
             h('div.tp-bub', h('div.by', nameOf(e.by) + (e.type === 'draw' ? ' drew' : e.s === 0 ? ' wrote' : ' guessed')), e.type === 'draw' ? h('img', { src: e.data, alt: 'drawing' }) : e.data, heart));
         })));
         if (api.isHost) parts.push(h('button.btn.primary.big.block', { onclick: () => api.toHost('next') }, icon('arrow_forward'), r.last ? 'Next story' : 'Next'));
-        else parts.push(h('div.kt-hint', 'The host moves the story along — tap ♥ on your favourites!'));
+        else parts.push(h('div.kt-hint', '♥ your favourites'));
       }
     }
     root.replaceChildren(...parts);

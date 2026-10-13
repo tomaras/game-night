@@ -184,8 +184,8 @@ export function start(api) {
     return h('div.im-card' + (r.imp ? '.imp' : ''), { onclick: () => { peek = !peek; render(); } }, [
       h('div.lbl', r.imp ? '🕵️ You are the IMPOSTER' : 'Your secret word'),
       peek || st.phase === 'intro' ? (r.imp ? h('div.big', 'Blend in!') : h('div.big', r.word.toUpperCase())) : h('div.big', '••••••'),
-      h('div.muted', { style: 'font-size:13px' }, r.imp ? `Category: ${r.cat} — figure out the word from the clues` : `Category: ${r.cat}`),
-      st.phase !== 'intro' ? h('div.muted', { style: 'font-size:11px;margin-top:4px' }, peek ? 'tap to hide' : 'tap to peek') : null,
+      h('div.muted', { style: 'font-size:13px' }, r.imp ? `Category: ${r.cat}` : `Category: ${r.cat}`),
+      st.phase !== 'intro' ? h('div.muted', { style: 'font-size:11px;margin-top:4px' }, peek ? 'hide' : 'peek') : null,
     ]);
   }
   function scoreRow() { return h('div.im-score', st.ids.map((id) => h('span', avatarEl(api.player(id), 'xs', { still: true }), `${nameOf(id)}: ${st.scores[id]}`))); }

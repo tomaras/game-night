@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock } from '../kit.js';
+import { flipDeep, bump } from '../motion.js';
 import { botLoop, thinkMs } from '../bots.js';
 
 const T = {
@@ -93,17 +94,17 @@ export function start(api) {
     const head = h('div.kt-row', { style: 'justify-content:center' }, h('span.chip.blue', `Round ${S.round}/3`), h('span.chip.yellow', `Pick ${S.turn}/${S.total}`), S.phase === 'pick' ? clock.el() : null);
     const others = h('div.sg-others', ids.filter((id) => id !== me).map((id) => h('div.sg-o' + (S.locked.has(id) && S.phase === 'pick' ? '.locked' : ''),
       h('div.hd', avatarEl(api.player(id), 'sm', { still: true }), nameOf(id).slice(0, 10), h('span.sc', `${S.scores[id] || 0}`)),
-      h('div.sg-tab', group(S.tabs[id] || []).map(([k, n]) => h('span.sg-mini.emo', { title: T[k][0] }, T[k][1], n > 1 ? h('b', n) : null))),
+      h('div.sg-tab', group(S.tabs[id] || []).map(([k, n]) => h('span.sg-mini.emo', { 'data-k': 'o:' + id + ':' + k + n, title: T[k][0] }, T[k][1], n > 1 ? h('b', n) : null))),
       h('small', { style: 'color:var(--on3)' }, `+${prev[id]?.pts || 0} this round${S.pud[id] ? ` · 🍮${S.pud[id]}` : ''}`))));
     const mine = h('div.sg-belt', h('div.kt-title', { style: 'text-align:center' }, `Your plate · +${prev[me]?.pts || 0} this round${S.pud[me] ? ` · 🍮${S.pud[me]}` : ''}`), h('div.sg-tabs', me_tab.length ? group(me_tab).map(([k, n]) => h('div.sg-tc', { title: T[k][3] }, h('span.emo', T[k][1]), T[k][0].split(' ')[0], n > 1 ? '×' + n : '')) : h('span.muted', 'Nothing yet')));
     const locked = S.locked.has(me);
     const hasChop = me_tab.includes('chop') && S.hand.length >= 2;
     const need = S.chop ? 2 : 1;
-    const hand = h('div.sg-hand', S.hand.map((c) => h('div.sg-c' + (S.sel.includes(c.id) ? '.sel' : '') + (locked ? '.locked' : ''), { style: `--cc:${T[c.t][2]}`, title: T[c.t][3], onclick: () => { if (locked || S.phase !== 'pick') return; if (S.sel.includes(c.id)) S.sel = S.sel.filter((x) => x !== c.id); else S.sel = S.sel.length >= need ? [...S.sel.slice(1), c.id] : [...S.sel, c.id]; render(); } }, h('span.em.emo', T[c.t][1]), T[c.t][0], h('small', T[c.t][3]))));
+    const hand = h('div.sg-hand', S.hand.map((c) => h('div.sg-c' + (S.sel.includes(c.id) ? '.sel' : '') + (locked ? '.locked' : ''), { 'data-k': c.id, style: `--cc:${T[c.t][2]}`, title: T[c.t][3], onclick: () => { if (locked || S.phase !== 'pick') return; if (S.sel.includes(c.id)) S.sel = S.sel.filter((x) => x !== c.id); else S.sel = S.sel.length >= need ? [...S.sel.slice(1), c.id] : [...S.sel, c.id]; render(); } }, h('span.em.emo', T[c.t][1]), T[c.t][0], h('small', T[c.t][3]))));
     const acts = h('div.kt-row', { style: 'justify-content:center' },
       hasChop && !locked ? h('button.btn.small' + (S.chop ? '.primary' : '.tonal'), { onclick: () => { S.chop = !S.chop; S.sel = S.sel.slice(0, S.chop ? 2 : 1); render(); } }, '🥢 Use chopsticks') : null,
       !locked ? h('button.btn.primary', { disabled: S.sel.length !== need || S.phase !== 'pick', onclick: () => { api.toHost('pick', { ids: S.sel, chop: S.chop }); api.sfx('card'); } }, icon('check'), 'Pick') : h('span.muted', S.phase === 'pick' ? 'Waiting for the others…' : ''));
-    root.replaceChildren(head, others, mine, h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, S.chop ? 'Chopsticks: choose 2 cards' : 'Pick a card — then the plate gets passed on!'), hand, acts);
+    flipDeep(root, () => root.replaceChildren(head, others, mine, S.chop ? h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, 'Chopsticks: choose 2 cards') : null, hand, acts), { sel: '.sg-c[data-k], .sg-mini[data-k]' });
   }
 
   if (api.isHost) {

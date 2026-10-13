@@ -825,3 +825,14 @@ main#view { view-transition-name: view; }
 .kt-choice:hover:not(:disabled) { transform: translateY(-2px); }
 .kt-choice.win { animation: choicewin 0.7s var(--spring); } @keyframes choicewin { 0% { transform: scale(1); } 35% { transform: scale(1.04); } 100% { transform: scale(1); } }
 .kt-card, .kt-pill { transition: transform 0.25s var(--spring), box-shadow 0.2s; }
+
+/* springy cards and tiles everywhere */
+.sg-c, .rl-card, .th-card, .rl2-c, .az-t, .rr-card, .wr-card, .bn-card, .tc-card { transition: transform 0.28s var(--spring), box-shadow 0.2s, opacity 0.2s, filter 0.2s; }
+.sg-c:not(.locked):hover, .th-card:not(.dead):hover, .rl2-c:not(.dead):hover { transform: translateY(-8px) rotate(-1.2deg); }
+.sg-c.sel, .rl2-c.sel, .th-card.sel { transform: translateY(-16px) scale(1.05); }
+.sg-c:active, .th-card:active, .rl2-c:active, .rl-card:active, .az-t:active { transform: scale(0.94); }
+.az-t:not(.noclick):not(.ghost):hover { transform: scale(1.12) rotate(-3deg); }
+.az-t.sel { transform: scale(1.14); }
+.dc[style*="--dc"] { background: linear-gradient(145deg, color-mix(in srgb, var(--dc) 35%, #fff) 0%, color-mix(in srgb, var(--dc) 18%, #ece6d4) 100%); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--dc) 40%, transparent), inset 0 2px 2px rgba(255, 255, 255, 0.9), 0 0 0 2px var(--dc), 0 3px 7px rgba(0, 0, 0, 0.3); }
+.dc.sel { transform: translateY(-10px) scale(1.1); box-shadow: 0 0 0 3px #ffc857, 0 8px 14px rgba(0, 0, 0, 0.3); }
+.dc { transition: transform 0.25s var(--spring); }

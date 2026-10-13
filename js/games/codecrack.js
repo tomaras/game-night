@@ -86,7 +86,7 @@ export function start(api) {
       else if (mine || interceptNow) {
         if (S.guessSent) parts.push(h('div.kt-hint', 'Guess locked in'), waiting(api, ids.filter((i) => !S.done.has(i) && i !== S.enc), 'Waiting for'));
         else parts.push(guessPad(mine ? 'Decode the code (3 different numbers 1–4, in order):' : 'Intercept! Guess THEIR code from the clue history:', null));
-      } else parts.push(h('div.kt-hint', 'No interception in round 1 — study the clues!'));
+      } else parts.push(h('div.kt-hint', 'No interceptions in round 1'));
     } else if (S.phase === 'reveal' && S.res) {
       const r = S.res;
       parts.push(h('div.kt-card', h('div.kt-title', `The ${TEAMS[t][0]} code was`), h('div.cc2-code', { style: style(t) }, r.code.map((n) => h('b', n))), h('div.kt-hint', { style: 'margin-top:10px;font-weight:700;color:var(--on)' }, r.msg)));

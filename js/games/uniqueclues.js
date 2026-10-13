@@ -60,7 +60,7 @@ export function start(api) {
       parts.push(promptCard(isG ? '???' : S.word, { label: isG ? 'Guesser — look away for a moment' : 'Check the clues', color: '#8e4de8' }));
       if (!isG) {
         parts.push(h('div.uc-clues', S.clues.map((c, i) => h('div.uc-clue' + (c.dead ? '.dead' : ''), c.text, h('small', c.dead ? c.why : 'by ' + nameOf(c.by)), !c.dead && c.by !== me ? h('button' + (S.myFlags.has(i) ? '.on' : ''), { onclick: () => { api.toHost('flag', { i }); S.myFlags.has(i) ? S.myFlags.delete(i) : S.myFlags.add(i); render(); } }, S.myFlags.has(i) ? 'Flagged' : 'Flag as illegal') : null))));
-        parts.push(h('div.kt-hint', 'Flag clues that contain the word, are made up, or are spelled the same in another language.'));
+        parts.push(h('div.kt-hint', 'Flag illegal clues'));
       } else parts.push(h('div.kt-center', h('div.spinner')));
     } else if (S.phase === 'guess') {
       parts.push(clock.el());

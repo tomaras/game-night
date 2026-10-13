@@ -28,7 +28,7 @@ export function start(api) {
   const hud = h('div.pg-hud');
   const banner = h('div.pg-banner');
   const wrap = h('div.pg-wrap', canvas, banner);
-  api.root.append(h('style', CSS), h('div.pg', hud, wrap, h('div.muted', { style: 'font-size:12px;padding-bottom:4px' }, 'Move: ← → ↑ ↓ / A D / W S — or drag on the arena')));
+  api.root.append(h('style', CSS), h('div.pg', hud, wrap));
   api.cleanup(fitCanvas(canvas, wrap, 1));
 
   // ------------------------------------------------------------ client

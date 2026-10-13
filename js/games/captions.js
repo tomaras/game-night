@@ -67,7 +67,7 @@ export function start(api) {
         parts.push(h('div.col', topIn, botIn, h('button.btn.primary.big.block', { onclick: () => { api.toHost('cap', { top: topIn.value.trim(), bottom: botIn.value.trim() }); S.submitted = true; render(); } }, icon('send'), 'Submit caption')));
       }
     } else if (S.phase === 'vote') {
-      parts.push(clock.el(), h('div.kt-hint', S.myVote !== null ? 'Vote cast!' : 'Tap the funniest caption — you can’t vote for your own.'));
+      parts.push(clock.el(), h('div.kt-hint', S.myVote !== null ? 'Vote cast!' : 'Pick the funniest'));
       parts.push(h('div.cc-grid', S.memes.map((m) => h('div.cc-card' + (S.myVote === m.i ? '.sel' : ''), { onclick: () => { if (m.mine) return api.toast('That one’s yours!'); S.myVote = m.i; api.toHost('vote', { i: m.i }); api.sfx('click'); render(); } }, meme(S.tpl, m.top, m.bottom), m.mine ? h('div.cc-by', h('span.chip', 'Your caption')) : null))));
       parts.push(waiting(api, ids.filter((i) => !S.done.has(i)), 'Waiting for votes from'));
     } else if (S.phase === 'result' && S.result) {

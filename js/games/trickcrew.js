@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs } from '../bots.js';
+import { flipDeep } from '../motion.js';
 
 const SUITS = { b: ['Blue', '#1a73e8'], g: ['Green', '#2e9e4f'], p: ['Pink', '#e5399b'], y: ['Yellow', '#f9ab00'], r: ['Rocket', '#37474f'] };
 const SUIT_ORDER = ['b', 'g', 'p', 'y', 'r'];
@@ -41,7 +42,7 @@ const CSS = `
 .tc-acts { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; min-height:44px; }
 `;
 
-const cardEl = (c, cls = '', extra = {}) => h('div.tc-card' + (suitOf(c) === 'r' ? '.r' : '') + (cls ? '.' + cls.split(' ').filter(Boolean).join('.') : ''), { style: `--cc:${SUITS[suitOf(c)][1]}`, 'data-s': SYM[suitOf(c)], ...extra }, h('span.n', numOf(c)));
+const cardEl = (c, cls = '', extra = {}) => h('div.tc-card' + (suitOf(c) === 'r' ? '.r' : '') + (cls ? '.' + cls.split(' ').filter(Boolean).join('.') : ''), { 'data-k': cls.includes('mini') || cls.includes('task') ? '' : 'c' + c, style: `--cc:${SUITS[suitOf(c)][1]}`, 'data-s': SYM[suitOf(c)], ...extra }, h('span.n', numOf(c)));
 
 export function start(api) {
   const ids = api.players.map((p) => p.id);
@@ -91,7 +92,7 @@ export function start(api) {
     }));
     const trick = h('div.tc-trick', S.trick.length ? S.trick.map((t) => h('div' + (S.winner === t.p ? '.win' : ''), cardEl(t.c), nameOf(t.p))) : h('span.muted', S.phase === 'play' ? `${nameOf(S.turn)} leads the trick` : ''));
     const sel = S.sel;
-    const hint = myTurn ? (S.trick.length ? `Follow ${SUITS[suitOf(S.trick[0].c)][0].toLowerCase()} if you can` : 'You lead — play any card') : S.phase === 'play' ? `${nameOf(S.turn)} to play…` : '';
+    const hint = myTurn ? (S.trick.length ? `Follow ${SUITS[suitOf(S.trick[0].c)][0].toLowerCase()} if you can` : 'You lead') : S.phase === 'play' ? `${nameOf(S.turn)} to play…` : '';
     const acts = h('div.tc-acts');
     if (sel) {
       if (myTurn) acts.append(h('button.btn.primary', { disabled: !legal(sel), onclick: () => { api.toHost('play', { c: sel }); S.sel = null; render(); } }, icon('play_arrow'), 'Play'));
@@ -99,7 +100,7 @@ export function start(api) {
       if (!cm.used && !S.trick.length && S.phase === 'play') for (const [k, label, sym] of sigOptions(sel)) acts.append(h('button.btn.tonal', { onclick: () => { api.toHost('signal', { c: sel, k }); S.sel = null; render(); } }, sym + ' Signal: ' + label));
     }
     const hand = h('div.tc-hand', sortHand(S.hand).map((c) => cardEl(c, 'hand ' + (S.sel === c ? 'sel ' : '') + (myTurn ? (legal(c) ? 'ok' : 'no') : ''), { onclick: () => { S.sel = S.sel === c ? null : c; render(); } })));
-    root.replaceChildren(top, tasks, players, trick, h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, hint), acts, hand);
+    flipDeep(root, () => root.replaceChildren(top, tasks, players, trick, hint ? h('div.kt-hint', { style: 'font-weight:700;color:var(--on)' }, hint) : null, acts, hand), { sel: '.tc-card[data-k]:not([data-k=""])', ms: 520 });
   }
   function taskEl(t) {
     return h('div.tc-t' + (t.done ? '.done' : ''), t.o ? h('span.o', ORD[t.o - 1]) : null, cardEl(t.c, 'mini'), avatarEl(api.player(t.owner), 'sm', { still: true }), nameOf(t.owner).slice(0, 9));
