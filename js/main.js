@@ -10,6 +10,7 @@ import { createAvUI } from './avui.js';
 import { Comms } from './comms.js';
 import { createCommsButtons, openCommsSheet, channelList, createMiniCall } from './commsui.js';
 import { chatView } from './chatview.js';
+import { createChatOverlay } from './chatoverlay.js';
 import { Recorder } from './recorder.js';
 import { openRecordings } from './recui.js';
 import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialog, openMenu, openPopover, switchEl, segmented, notice } from './ui.js';
@@ -60,6 +61,7 @@ const S = {
   loungeUI: null,
   sheetOpen: false,
   chatCollapsed: readPref('gn.chatCollapsed') === '1',
+  chatOverlayPref: readPref('gn.chatOv') !== '0', // show recent chat over the game
   resultsFor: 0,
   offs: [],
 };
@@ -695,7 +697,6 @@ function enterRoom(room) {
     roommain: null,
     matchBar: null,
     lobby: null,
-    float: h('div.chatfloat'),
     side: h('aside.chatside'),
     sheet: h('div.chatsheet'),
     sheetBack: h('div.sheetback', { onclick: () => toggleSheet(false) }),
@@ -717,7 +718,8 @@ function enterRoom(room) {
   S.dockStack = h('div.avstack');
   mount(S.dockStack, S.avUI.dock, S.loungeUI ? S.loungeUI.dock : null);
   document.body.append(ui.sheetBack, ui.sheet);
-  ui.roommain = h('div.roommain', ui.stage, ui.float, ui.bar);
+  S.chatOv = createChatOverlay({ send: (t) => sendScoped(t) });
+  ui.roommain = h('div.roommain', ui.stage, S.chatOv.el, ui.bar);
   mount(S.view, h('div.roomwrap', ui.roommain, S.dockStack, ui.side));
   const onMQ = () => applyChatLayout();
   wideMQ.addEventListener('change', onMQ);
@@ -766,6 +768,8 @@ function syncPresence() {
   const pub = !!room.state?.pub;
   if (plaza.me.room !== (pub ? room.number : null) || plaza.me.priv !== !pub) plaza.setPresence({ room: pub ? room.number : null, priv: !pub });
 }
+
+const sendScoped = (t) => { if (S.comms.scope.chat === 'global') plaza.sendChat(t); else S.room?.sendChat(t); };
 
 function createChat(room) {
   const norm = (m) => ({ id: m.id, mine: m.from === room.me, name: m.name, color: m.color, avatar: room.person(m.from)?.avatar, text: m.text, sys: m.sys, from: m.from });
@@ -816,7 +820,6 @@ function applyChatLayout() {
   ui.bar.classList.toggle('hide', wide || S.mode !== 'lobby');
   if (wide) {
     toggleSheet(false, true);
-    ui.float.replaceChildren();
     ui.side.classList.toggle('collapsed', S.chatCollapsed);
     const head = h('div.chathead', [
       S.chatCollapsed ? null : h('span', 'Chat'),
@@ -836,6 +839,7 @@ function applyChatLayout() {
     if (S.sheetOpen) mount(ui.sheet, h('div.grab'), h('div.chathead', [h('span', S.panel ? 'Room ' + S.room.number : 'Chat'), h('div.spacer'), iconBtn('close', 'Close', () => toggleSheet(false), 'sm')]), S.paneEl);
   }
   updateChatBadge();
+  refreshOverlay();
 }
 
 function openComms() {
@@ -873,7 +877,6 @@ function toggleSheet(force, silent) {
   ui.sheetBack.classList.toggle('open', S.sheetOpen);
   if (S.sheetOpen) {
     S.unread = 0;
-    ui.float.replaceChildren();
     applyChatLayout();
     S.chat.scroll();
     setTimeout(() => S.chat.focus(), 280);
@@ -881,6 +884,7 @@ function toggleSheet(force, silent) {
     setTimeout(() => { if (!S.sheetOpen && S.ui) S.ui.sheet.replaceChildren(); }, 280);
     updateChatBadge();
   }
+  refreshOverlay();
 }
 
 function updateChatBadge() {
@@ -905,14 +909,21 @@ function chatVisible(scope) {
   return open && (!S.panel || S.panel.active === 'chat') && S.comms.scope.chat === scope;
 }
 function floatMsg(m) {
-  if (wideMQ.matches || S.sheetOpen || !S.ui) return;
-  const who = m.avatar ? { avatar: m.avatar } : m.from ? S.room.person(m.from) : null;
-  const f = h('div.fm' + (m.sys ? '.sys' : ''), m.sys ? m.text : [who ? avatarEl(who, 'xs', { still: true }) : null, h('b', m.name), h('span', m.text)]);
-  S.ui.float.append(f);
-  while (S.ui.float.childNodes.length > 3) S.ui.float.firstChild.remove();
-  setTimeout(() => f.remove(), 7000);
+  if (!S.ui || !S.chatOv) return;
+  S.chatOv.push({ name: m.name, text: m.text, sys: m.sys, mine: m.mine ?? m.from === S.room.me, avatar: m.avatar || (m.from ? S.room.person(m.from)?.avatar : null) });
 }
 
+/** Chat floating over the game: how many messages, and where, depends on how much of the screen the game uses. */
+const CHAT_BY_CAT = { Arcade: { n: 1, at: 'top', life: 5000 }, Retro: { n: 1, at: 'top', life: 5000 }, Drawing: { n: 2, at: 'top' }, Board: { n: 3, at: 'bottom' }, Cards: { n: 4, at: 'bottom' }, Words: { n: 3, at: 'bottom' }, Party: { n: 4, at: 'bottom' }, Bluffing: { n: 4, at: 'bottom' }, Strategy: { n: 3, at: 'bottom' }, Hangout: { n: 5, at: 'bottom' } };
+const CHAT_BY_GAME = { pool: { n: 2, at: 'top' }, blocks: { n: 1, at: 'bottom' }, movie: { n: 3, at: 'top' } };
+const chatLayoutFor = (def) => ({ n: 3, at: 'bottom', life: 9000, ...(CHAT_BY_CAT[def?.cat] || {}), ...(CHAT_BY_GAME[def?.id] || {}) });
+function refreshOverlay() {
+  const ov = S.chatOv;
+  if (!ov || !S.room) return;
+  const panelOpen = wideMQ.matches ? !S.chatCollapsed : S.sheetOpen;
+  ov.setEnabled(S.chatOverlayPref && (S.mode === 'game' || S.mode === 'wait') && !panelOpen);
+  if (S.mode === 'game') ov.configure(chatLayoutFor(currentDef()));
+}
 function onChatMsg(m) {
   if (!S.ui) return;
   S.chat.add(m);
@@ -948,7 +959,7 @@ function teardownRoom() {
   S.ui?.sheetBack.remove();
   S.avUI?.destroy(); S.comms.detachRoom();
   plaza.unhostRoom(); plaza.setPresence({ room: null, priv: false });
-  S.avUI = null; S.av = null; S.dockStack = null; S.chatBtn = null; S.peopleBtn = null; S.panel = null; S.paneEl = null;
+  S.avUI = null; S.av = null; S.dockStack = null; S.chatOv = null; S.chatBtn = null; S.peopleBtn = null; S.panel = null; S.paneEl = null;
   S.ui = null;
   S.chat = null;
   S.match = null;
@@ -1447,6 +1458,7 @@ function boot() {
   S.headerEl = h('header.top');
   S.view = h('main#view');
   S.chrome = createChrome({
+    getOverlay: () => S.chatOverlayPref, setOverlay: (v) => { S.chatOverlayPref = v; writePref('gn.chatOv', v ? '1' : '0'); refreshOverlay(); },
     S, switchChannel: async (to) => { if (S.room) { toast('Leave the room first', 'bad'); return false; } const ok = await switchChannel(to); if (!ok) toast(channelLabel(to) + ' isn’t available right now', 'bad'); return ok; }, go: (hash) => { if ((location.hash || '#/') === hash) route(); else location.hash = hash; }, editProfile, openAbout, openRecordings: () => openRecordings(S.rec, { toast }),
     versionText: (CFG.env === 'prod' ? '' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO,
   });

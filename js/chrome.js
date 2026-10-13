@@ -70,6 +70,7 @@ export function createChrome(ctx) {
       h('div.dtheme', segmented(THEMES.map(([v, label, ic]) => ({ value: v, label, icon: ic })), getThemePref(), (v) => setThemePref(v))),
       h('div.dsec', 'Preferences'),
       h('div.drow', icon('volume_up'), h('span', 'Sound effects'), h('span.spacer'), switchEl(!isMuted(), (on) => setMuted(!on))),
+      h('div.drow', icon('chat_bubble'), h('span', 'Chat on the game screen'), h('span.spacer'), switchEl(ctx.getOverlay(), (on) => ctx.setOverlay(on))),
       ...channelRows(),
       h('div.dsec', 'More'),
       item('fiber_manual_record', 'Recordings', ctx.openRecordings),
