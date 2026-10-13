@@ -11,7 +11,7 @@ const SCOPES = [{ value: 'room', label: 'Room', icon: 'meeting_room' }, { value:
 /** The two header buttons. They stay in sync with `comms` by themselves. */
 export function createCommsButtons(comms, { toast, openTray }) {
   const mk = (kind, title) => {
-    const badge = h('span.sbadge'); // just a label (R = room, G = global): a tap on the button ALWAYS turns it on/off
+    const badge = h('span.sbadge.g', icon('public')); // shown only when sending to the Lounge: a tap on the button ALWAYS turns it on/off
     let timer = 0, held = false;
     const btn = h('button.iconbtn.cbtn', { title: title + ' — hold for more options', 'aria-label': title,
       onclick: () => { if (held) { held = false; return; } if (!comms.supported) return toast('Voice & video need a secure (https) page and a browser with WebRTC support.', 'bad'); comms.toggle(kind); },
@@ -29,9 +29,7 @@ export function createCommsButtons(comms, { toast, openTray }) {
       x.btn.classList.toggle('live', on);
       x.btn.classList.toggle('muted', !on && inCall && x.kind === 'mic');
       const name = x.kind === 'mic' ? (on ? 'mic' : inCall ? 'mic_off' : 'mic') : on ? 'videocam' : 'videocam_off';
-      x.btn.replaceChildren(icon(name), x.badge);
-      x.badge.textContent = scope === 'room' ? 'R' : 'G';
-      x.badge.classList.toggle('g', scope === 'global');
+      x.btn.replaceChildren(icon(name), scope === 'global' ? x.badge : '');
       x.btn.setAttribute('aria-label', `${x.kind === 'mic' ? 'Microphone' : 'Camera'} ${on ? 'on' : 'off'}, sending to ${scope === 'room' ? 'room' : 'global'}`);
     }
   }

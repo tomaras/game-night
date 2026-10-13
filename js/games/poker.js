@@ -54,7 +54,7 @@ const CSS = `
 .pk-board { display:flex; gap:5px; min-height:70px; }
 .pk-pot { background:rgba(0,0,0,.4); color:#ffe9a8; border-radius:999px; padding:3px 14px; font-weight:900; font-size:15px; }
 .pk-seat { position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px; z-index:3; width:96px; }
-.pk-box { background:#fff; color:var(--on); box-shadow:var(--e1); border:2px solid transparent; border-radius:12px; padding:3px 8px; text-align:center; width:100%; position:relative; }
+.pk-box { background:#fff; color:#1d1b20; box-shadow:var(--e1); border:2px solid transparent; border-radius:12px; padding:3px 8px; text-align:center; width:100%; position:relative; }
 .pk-seat.turn .pk-box { border-color:var(--yellow); box-shadow:0 0 0 3px rgba(251,188,4,.45), var(--e2); }
 .pk-seat.fold { opacity:.45; }
 .pk-seat.win .pk-box { border-color:var(--green); box-shadow:0 0 0 3px rgba(30,158,75,.4), var(--e2); }
@@ -430,7 +430,7 @@ export function start(api) {
     st.ids.forEach((id, i) => {
       const rel = (i - myIdx + n) % n;
       const ang = Math.PI / 2 + (rel * 2 * Math.PI) / n;
-      const x = 50 + (narrow ? 33 : 44) * Math.cos(ang), y = 50 + (narrow ? 42 : 41) * Math.sin(ang);
+      const x = 50 + (narrow ? 33 : 44) * Math.cos(ang), y = 50 + (narrow ? 38 : 41) * Math.sin(ang);
       const p = api.player(id);
       const folded = st.folded[id] || !st.dealt.includes(id);
       const showCards = st.reveal[id] || null;

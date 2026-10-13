@@ -26,7 +26,7 @@ const CSS = `
 .tc-card { width:50px; height:72px; border-radius:11px; background:#fff; border:3px solid var(--cc); color:var(--cc); display:flex; flex-direction:column; align-items:center; justify-content:center; font:800 24px var(--font); box-shadow:0 3px 8px rgba(0,0,0,.15); position:relative; flex:none; user-select:none; }
 .tc-card::before { content:attr(data-s); font-size:13px; position:absolute; top:2px; left:5px; } .tc-card.r { background:var(--cc); color:#fff; } .tc-card.r .n { font-size:24px; }
 .tc-card small { font-size:15px; line-height:1; } .tc-card.mini { width:36px; height:52px; font-size:17px; border-width:2px; border-radius:8px; } .tc-card.mini::before { font-size:10px; top:1px; left:3px; }
-.tc-card.hand { width:clamp(46px, 14vw, 64px); height:clamp(66px, 20vw, 92px); font-size:clamp(22px,7vw,30px); cursor:pointer; transition:transform .15s; }
+.tc-card.hand { width:100%; height:auto; aspect-ratio:.7; font-size:clamp(20px,6vw,30px); cursor:pointer; transition:transform .15s; }
 .tc-card.hand.ok { box-shadow:0 0 0 3px color-mix(in srgb, var(--green) 70%, transparent), 0 4px 10px rgba(0,0,0,.2); } .tc-card.hand.no { opacity:.4; } .tc-card.hand.sel { transform:translateY(-16px); }
 .tc-tasks { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 .tc-t { display:flex; flex-direction:column; align-items:center; gap:3px; background:var(--surface); box-shadow:var(--e1); border-radius:16px; padding:6px 8px; position:relative; font:700 11px var(--font); }
@@ -38,7 +38,7 @@ const CSS = `
 .tc-p .cm { font:600 11px var(--font); color:var(--on3); }
 .tc-trick { display:flex; gap:12px; justify-content:center; align-items:flex-end; min-height:112px; flex-wrap:wrap; background:radial-gradient(circle at 50% 50%, #e8eaf6, #c5cae9); border-radius:26px; padding:14px; box-shadow:inset 0 2px 10px rgba(0,0,0,.08); }
 .tc-trick > div { display:flex; flex-direction:column; align-items:center; gap:4px; font:700 11px var(--font); color:var(--on2); } .tc-trick .win .tc-card { box-shadow:0 0 0 4px var(--yellow); }
-.tc-hand { display:flex; gap:6px; justify-content:safe center; flex-wrap:wrap; padding:18px 4px 6px; }
+.tc-hand { display:grid; grid-template-columns:repeat(7, minmax(0, 64px)); gap:6px; justify-content:center; padding:18px 4px 6px; }
 .tc-acts { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; min-height:44px; }
 `;
 

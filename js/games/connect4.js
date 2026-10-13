@@ -24,10 +24,11 @@ const CSS = `
 .c4-board::after { content:''; position:absolute; left:6%; right:6%; bottom:-14px; height:14px; border-radius:0 0 12px 12px; background:linear-gradient(#0f3f84,#0b2f63); z-index:-1; }
 .c4-col { display:grid; grid-template-rows:repeat(${R},1fr); gap:8px; cursor:pointer; border-radius:12px; transition:background .12s; }
 .c4-col.can:hover { background:rgba(255,255,255,.1); }
-.c4-cell { aspect-ratio:1; border-radius:50%; background:#dfe9fb; box-shadow:inset 0 5px 9px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.3); position:relative; }
+.c4-cell { aspect-ratio:1; border-radius:50%; background:var(--c4hole, #dfe9fb); box-shadow:inset 0 5px 9px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.3); position:relative; }
 .c4-d { position:absolute; inset:0; border-radius:50%; z-index:1; box-shadow:inset 0 -5px 0 rgba(0,0,0,.25), inset 0 4px 6px rgba(255,255,255,.4), 0 2px 3px rgba(0,0,0,.25); }
 .c4-d::before { content:''; position:absolute; inset:17%; border-radius:50%; box-shadow:inset 0 3px 5px rgba(0,0,0,.2), 0 1px 0 rgba(255,255,255,.28); }
 .c4-d.p1 { background:radial-gradient(circle at 35% 30%, #ff7a6c, #ea4335 55%, #c62a1f); } .c4-d.p2 { background:radial-gradient(circle at 35% 30%, #ffe27a, #fbbc04 55%, #e09a00); }
+:root[data-theme=dark] .c4-cell { --c4hole:#16233d; }
 .c4-cell.lastm::before { content:''; position:absolute; left:50%; top:50%; width:22%; height:22%; margin:-11% 0 0 -11%; border-radius:50%; background:rgba(255,255,255,.85); z-index:3; box-shadow:0 0 4px rgba(0,0,0,.3); }
 .c4-cell[data-falling]::before { display:none; }
 .c4-cell.win::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:4px solid #fff; animation:pulse .8s infinite; z-index:2; box-shadow:0 0 14px #fff; }

@@ -20,9 +20,9 @@ const CARDS = {
 const CSS = `
 .rl { gap:10px; }
 .rl-hand { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; padding:6px 0; }
-.rl-card { width:clamp(120px, 38vw, 160px); border-radius:22px; padding:12px; background:linear-gradient(160deg, color-mix(in srgb, var(--cc) 26%, #fff), #fff 70%); box-shadow:0 6px 18px color-mix(in srgb, var(--cc) 28%, transparent); border:3px solid var(--cc); display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; cursor:pointer; transition:transform .12s; }
+.rl-card { width:clamp(120px, 38vw, 160px); border-radius:22px; padding:12px; background:linear-gradient(160deg, color-mix(in srgb, var(--cc) 26%, #fff), #fff 70%); box-shadow:0 6px 18px color-mix(in srgb, var(--cc) 28%, transparent); border:3px solid var(--cc); display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; cursor:pointer; transition:transform .12s; color:#1d1b20; }
 .rl-card:hover { transform:translateY(-6px); } .rl-card.dim { opacity:.5; cursor:not-allowed; }
-.rl-card .n { font:800 30px var(--font); color:var(--cc); } .rl-card .em { font-size:42px; line-height:1; } .rl-card b { font:800 17px var(--font); } .rl-card small { font:500 12px/1.3 var(--font); color:var(--on2); }
+.rl-card .n { font:800 30px var(--font); color:var(--cc); } .rl-card .em { font-size:42px; line-height:1; } .rl-card b { font:800 17px var(--font); } .rl-card small { font:500 12px/1.3 var(--font); color:#55525c; }
 .rl-card.mini { width:46px; padding:4px 0; border-radius:12px; border-width:2px; gap:0; cursor:default; } .rl-card.mini .n { font-size:17px; } .rl-card.mini .em { font-size:16px; }
 .rl-pl { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
 .rl-p { background:var(--surface); box-shadow:var(--e1); border-radius:22px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px; border:3px solid transparent; position:relative; }

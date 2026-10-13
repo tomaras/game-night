@@ -242,7 +242,7 @@ export function start(api) {
   api.on('rom', (r) => { romName = r.name; renderInfo(); });
   function renderInfo() {
     const role = myIdx === 0 ? 'You are Player 1' : myIdx === 1 ? 'You are Player 2' : 'You are watching (only the first two players get a controller)';
-    info.textContent = `${romName ? '▶ ' + romName + ' · ' : ''}${role}. Controls: arrows = D-pad · X = A · Z = B · Enter = Start · C/Shift = Select${api.isHost ? ' · Keep this tab visible — it runs the game for everyone.' : ''}`;
+    info.textContent = `${romName ? '▶ ' + romName + ' · ' : ''}${role} · Arrows move · X / Z buttons · Enter start · Shift select${api.isHost ? ' · keep this tab open' : ''}`;
     bar.replaceChildren(
       api.isHost && romName ? h('button.btn.small', { onclick: () => host.reset() }, icon('refresh'), 'Reset') : null,
       api.isHost ? h('button.btn.small', { onclick: () => { host.stop(); host.msg(['🕹️ Retro Console', 'Pick a game…']); romName = ''; renderInfo(); picker.style.display = ''; } }, icon('swap_horiz'), 'Change game') : null,
@@ -255,7 +255,7 @@ export function start(api) {
     const fileIn = h('input', { type: 'file', accept: '.nes', style: 'display:none', onchange: async () => { const f = fileIn.files?.[0]; if (f) pickFile(f); fileIn.value = ''; } });
     picker.replaceChildren(
       ...DEMOS.map((d) => h('button.rt-rom', { onclick: async () => { try { const r = await fetch(d.file); const b = new Uint8Array(await r.arrayBuffer()); picker.style.display = 'none'; await host.load(d.name, b); } catch (e) { api.toast('Could not load ' + d.name); } } }, h('b', '🎮 ' + d.name), h('span', d.desc), h('span', { style: 'display:block;margin-top:4px;font-size:11px' }, 'by ' + d.by))),
-      h('button.rt-rom', { onclick: () => fileIn.click() }, h('b', '📂 Load your own .nes ROM'), h('span', 'Pick a ROM file you own (or drag & drop it here). It stays on your computer — only the picture and sound are streamed to your friends.')),
+      h('button.rt-rom', { onclick: () => fileIn.click() }, h('b', '📂 Load your own .nes ROM'), h('span', 'A file you own. It stays on this computer.')),
       fileIn
     );
   }

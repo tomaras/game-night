@@ -66,7 +66,12 @@ export function countTo(el, to, { ms = 600, from = Number(el.textContent) || 0, 
 /** Run a screen change inside a View Transition (a soft cross-fade of the main area) where the browser supports it. */
 export function swap(fn) {
   if (reduced() || !document.startViewTransition) return fn();
-  try { return document.startViewTransition(() => fn()).updateCallbackDone; } catch { return fn(); }
+  // A newer transition (or a hidden tab) aborts the old one; its promises reject, so swallow them.
+  try {
+    const vt = document.startViewTransition(() => fn());
+    vt.ready.catch(() => {}); vt.finished.catch(() => {});
+    return vt.updateCallbackDone.catch(() => {});
+  } catch { return fn(); }
 }
 
 /** FLIP: remember where the keyed children are, change the DOM, then slide every child that moved from its old spot. New ones pop in. */

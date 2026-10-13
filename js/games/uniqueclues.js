@@ -49,7 +49,7 @@ export function start(api) {
     const parts = [h('div.kt-card', { style: 'text-align:center;padding:10px' }, h('b', `Card ${Math.min(S.n, cards)}/${cards}`), ' · guesser: ', h('b', nameOf(S.guesser))), h('div.uc-score', Array.from({ length: cards }, (_, i) => h('i' + (S.log[i] === 'ok' ? '.ok' : S.log[i] === 'bad' ? '.bad' : S.log[i] === 'skip' ? '.skip' : ''))))];
     if (S.phase === 'clue') {
       parts.push(clock.el());
-      if (isG) parts.push(h('div.kt-center', h('div', [h('div.spinner'), h('div.kt-hint', 'Your friends are writing clues.\nLook away if you’re near their screens!'), waiting(api, ids.filter((i) => i !== me && !S.done.has(i)), 'Still writing:')])));
+      if (isG) parts.push(h('div.kt-center', h('div', [h('div.spinner'), h('div.kt-hint', 'Look away — clues are being written'), waiting(api, ids.filter((i) => i !== me && !S.done.has(i)), 'Still writing:')])));
       else {
         parts.push(promptCard(S.word, { label: 'The secret word is', color: '#34a853' }));
         if (S.sent) parts.push(h('div.kt-hint', 'Clue sent!'), waiting(api, ids.filter((i) => i !== S.guesser && !S.done.has(i)), 'Still writing:'));

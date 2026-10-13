@@ -37,7 +37,7 @@ const CSS = `
 .bt-op .hd .ct { margin-left:auto; display:flex; gap:8px; font-size:13px; color:var(--muted); }
 .bt-fields { display:flex; gap:8px; }
 .bt-field { position:relative; flex:1; min-height:92px; min-width:0; border-radius:12px; background:var(--bg2); border:2px dashed var(--line2); padding:6px 6px 22px; display:flex; align-items:flex-start; justify-content:center; }
-.bt-field.empty::before { content:'empty'; color:var(--muted); font-size:12px; margin-top:26px; }
+
 .bt-field .lbl { position:absolute; bottom:3px; left:0; right:0; text-align:center; font-size:11px; font-weight:700; color:var(--on2); }
 .bt-field.hl { border-color:#38d996; border-style:solid; cursor:pointer; animation:pulse 1s infinite; }
 .bt-field.locked { opacity:.55; }
@@ -363,10 +363,10 @@ export function start(api) {
     const me = isMyTurn();
     if (st.over) return 'Game over — counting coins…';
     switch (st.phase) {
-      case 'plant1': return me ? '🌱 Your turn: plant the first card of your hand (click a field).' : `🌱 ${t} is planting…`;
+      case 'plant1': return me ? '🌱 Plant your front card' : `🌱 ${t} is planting…`;
       case 'plant2': return me ? '🌱 Plant your next card too — or skip.' : `🌱 ${t} is planting…`;
       case 'trade': return me ? '🤝 Trade! Offer cards, accept offers — then press “Done trading”.' : `🤝 ${t} is trading. Make an offer for the face-up cards or swap from your hand!`;
-      case 'plantTraded': return myPending().length ? '🌱 Plant the beans you received (click a field). Harvest first if you have no room.' : '⏳ Waiting for others to plant…';
+      case 'plantTraded': return myPending().length ? '🌱 Plant what you received' : '⏳ Waiting for others to plant…';
       default: return '';
     }
   }

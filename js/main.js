@@ -282,7 +282,7 @@ function touchRecent(id) {
 /** "1–10" (or "1" …): a computer opponent makes any bot game playable alone, so those start at 1 with a tiny robot on the 1. */
 const playerRange = (def) => { const lo = def.bots || def.solo ? 1 : def.min; return { lo, hi: def.max, robot: !!def.bots }; };
 const rangeText = (def) => { const r = playerRange(def); return r.lo === r.hi ? String(r.lo) : `${r.lo}–${r.hi}`; };
-const rangeEl = (def) => { const r = playerRange(def); return h('span.rng', h('span.n1', r.lo, r.robot ? h('span.rbt', { title: 'Can be played against the computer' }, icon('smart_toy')) : null), r.lo === r.hi ? null : '–' + r.hi); };
+const rangeEl = (def) => { const r = playerRange(def); return h('span.rng', r.lo === r.hi ? String(r.lo) : r.lo + '–' + r.hi, r.robot ? h('span.rbt', { title: 'Can be played against the computer' }, icon('smart_toy')) : null); };
 
 function gameCard(def, onPick, { onCat, onPlayers } = {}) {
   const fav = h('button.fav' + (S.favs.has(def.id) ? '.on' : ''), {
@@ -415,8 +415,8 @@ function installChip() {
 
 function openGameSheet(def) {
   const sheet = openSheet(h('div.help.gsheet', { style: { '--gc': def.color } }, [
-    h('h2', def.name),
-    h('div.hd', [h('div.tile.emo', def.emoji), h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))])])]),
+    h('div.gsel', [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)])]),
+    h('div.row.wrap.gchips', [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))]),
     videoCard(def),
     h('div.sticky.gacts', [
       h('button.btn.primary.big.block', { onclick: () => { sheet.close(); createRoom(def.id); } }, icon('add'), 'Create a room'),
@@ -1109,9 +1109,9 @@ function updateLobby() {
       h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)]),
     ]),
     h('div.row.wrap', { style: 'margin-top:12px;gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 3).map((t) => h('span.chip', t))]),
-    h('div.row.wrap', { style: 'margin-top:14px' }, [
+    h('div.lbacts', [
       h('button.btn.tonal', { onclick: () => openRules(def) }, icon('menu_book'), 'How to play'),
-      room.isHost ? h('button.btn.outline', { onclick: openPicker }, icon('swap_horiz'), 'Change game') : null,
+      room.isHost ? h('button.btn.tonal', { onclick: openPicker }, icon('swap_horiz'), 'Change game') : null,
     ]),
     def.options && def.options.length
       ? h('div.opts', def.options.map((op) => {
@@ -1382,7 +1382,7 @@ function renderRoomsTab() {
       h('span.chip' + (plaza.connected ? '.green' : '.yellow'), icon(plaza.connected ? 'public' : 'sync', 'sm'), plaza.connected ? `${online} online` : 'Connecting…'),
       h('span.muted', rooms.length ? `${rooms.length} open room${rooms.length === 1 ? '' : 's'}` : ''));
     mount(list, rooms.length ? rooms.map(roomCard) : h('div.empty', h('div', { style: 'font-size:54px' }, '🏜️'),
-      h('p', plaza.connected ? 'No public rooms right now. Start one and friends can find it here.' : 'Looking for rooms…'),
+      h('p', plaza.connected ? 'No public rooms right now' : 'Looking for rooms…'),
       h('button.btn.primary', { onclick: () => pickGame({ title: 'Create a room', onPick: (d) => createRoom(d.id) }) }, icon('add'), 'Create a room')));
   };
   const el = h('div.home', status, list);

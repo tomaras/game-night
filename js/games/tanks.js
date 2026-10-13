@@ -125,11 +125,29 @@ export function start(api) {
     ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 3;
     ctx.strokeText(info.name, x, y - 24); ctx.fillText(info.name, x, y - 24);
   }
+  // Packed-earth battlefield, painted once: warm gradient, grit, tyre scuffs and faint tile seams.
+  let ground = null;
+  function paintGround() {
+    const c = document.createElement('canvas'); c.width = W; c.height = HH; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(W / 2, HH / 2, 20, W / 2, HH / 2, Math.max(W, HH) * 0.75);
+    gr.addColorStop(0, '#6f6a4a'); gr.addColorStop(1, '#4b4733'); g.fillStyle = gr; g.fillRect(0, 0, W, HH);
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < W * HH / 60; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,.10)' : 'rgba(255,240,200,.07)'; const r = rnd() * 1.6 + 0.4; g.fillRect(rnd() * W, rnd() * HH, r, r); }
+    g.strokeStyle = 'rgba(0,0,0,.07)'; g.lineWidth = 2;
+    for (let i = 0; i < 14; i++) { const x = rnd() * W, y = rnd() * HH, a = rnd() * Math.PI, l = 40 + rnd() * 90; for (const o of [-5, 5]) { g.beginPath(); g.moveTo(x + Math.cos(a) * -l / 2 + Math.sin(a) * o, y + Math.sin(a) * -l / 2 - Math.cos(a) * o); g.lineTo(x + Math.cos(a) * l / 2 + Math.sin(a) * o, y + Math.sin(a) * l / 2 - Math.cos(a) * o); g.stroke(); } }
+    g.strokeStyle = 'rgba(0,0,0,.06)'; g.lineWidth = 1;
+    for (let x = TILE; x < W; x += TILE) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, HH); g.stroke(); }
+    for (let y = TILE; y < HH; y += TILE) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
+    const vg = g.createRadialGradient(W / 2, HH / 2, Math.min(W, HH) * 0.35, W / 2, HH / 2, Math.max(W, HH) * 0.72);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.28)'); g.fillStyle = vg; g.fillRect(0, 0, W, HH);
+    return c;
+  }
   function draw(now) {
-    ctx.fillStyle = '#eef1f7'; ctx.fillRect(0, 0, W, HH);
+    ground ||= paintGround();
+    ctx.drawImage(ground, 0, 0, W, HH);
     ctx.save(); fx.begin(ctx);
-    ctx.fillStyle = 'rgba(31,41,55,.045)';
-    for (let y = 0; y < TY; y++) for (let x = 0; x < TX; x++) if ((x + y) % 2) ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+    ctx.fillStyle = 'rgba(0,0,0,.30)'; // walls stand up off the ground: a soft drop shadow down-right
+    for (let y = 0; y < CHc; y++) for (let x = 0; x < CWc; x++) if (cells[y * CWc + x]) ctx.fillRect(x * CELL + 4, y * CELL + 5, CELL, CELL);
     for (let y = 0; y < CHc; y++) for (let x = 0; x < CWc; x++) { const c = cells[y * CWc + x]; if (c === 1) drawBrickCell(x, y); else if (c === 2) drawSteelCell(x, y); }
     if (!snap) { ctx.restore(); return; }
     for (const t of snap.t) { const v = vis[t[0]]; drawTank(t[0], v.x, v.y, v.ang, t[5], t[4], now, v.kick, v.kd); }

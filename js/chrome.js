@@ -46,7 +46,7 @@ export function createChrome(ctx) {
   function toggleFab(v) { fabOpen = v ?? !fabOpen; paintFab(); }
 
   // ---------------------------------------------------------------- the die: menu button that rolls into a red cross and back
-  const xMark = () => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'xm'); s.innerHTML = '<path d="M5 5l14 14M19 5L5 19" fill="none" stroke="#ea4335" stroke-width="3.6" stroke-linecap="round"/>'; return s; };
+  const xMark = () => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'xm'); s.innerHTML = '<circle cx="12" cy="12" r="11" fill="var(--field)"/><path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="var(--on)" stroke-width="2.2" stroke-linecap="round"/>'; return s; };
   const die = h('button.diebtn', { 'aria-label': 'Menu', 'aria-expanded': 'false', onclick: () => toggleDrawer() },
     h('span.dieface', logoMark()), h('span.diex', xMark()), CFG.env === 'nightly' ? h('span.moon', { 'aria-hidden': 'true' }, '🌙') : null);
   const setDie = (open) => { die.classList.toggle('open', open); die.classList.remove('rolling'); void die.offsetWidth; die.classList.add('rolling'); die.setAttribute('aria-expanded', String(open)); };
@@ -73,7 +73,7 @@ export function createChrome(ctx) {
       h('div.drow', icon('chat_bubble'), h('span', 'Chat on the game screen'), h('span.spacer'), switchEl(ctx.getOverlay(), (on) => ctx.setOverlay(on))),
       ...channelRows(),
       h('div.dsec', 'More'),
-      item('fiber_manual_record', 'Recordings', ctx.openRecordings),
+      item('videocam', 'Recordings', ctx.openRecordings),
       item('help_outline', 'How it works & app info', ctx.openAbout),
       h('div.dfoot', ctx.versionText));
     const back = h('div.drawerback', { onclick: close });

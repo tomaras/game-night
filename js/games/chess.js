@@ -23,7 +23,7 @@ const loadPrefs = () => { try { return { theme: 'classic', coords: true, sound: 
 const fmt = (ms) => { if (ms < 10000) return (Math.max(0, ms) / 1000).toFixed(1); const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
 const CSS = `
-.ch { flex:1; min-height:0; display:flex; gap:16px; padding:6px 8px 8px; justify-content:center; align-items:center; overflow-y:auto; --bs:min(calc(100cqw - 40px), calc(100cqh - 262px), 660px); --sqL:#f0d9b5; --sqD:#b58863; --frame:#6b4a2b; }
+.ch { flex:1; min-height:0; display:flex; gap:16px; padding:6px 8px 8px; justify-content:center; align-items:center; overflow-y:auto; --bs:min(calc(100cqw - 28px), calc(100cqh - 262px), 660px); --sqL:#f0d9b5; --sqD:#b58863; --frame:#6b4a2b; }
 .ch-main { display:flex; flex-direction:column; gap:6px; align-items:center; }
 .ch-pl { display:flex; align-items:center; gap:8px; width:calc(var(--bs) + 20px); padding:0 2px; min-height:46px; }
 .ch-pl.rot { transform:rotate(180deg); }

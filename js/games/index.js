@@ -108,7 +108,7 @@ export const GAMES = [
     ],
     options: [
       { key: 'chips', label: 'Starting chips', choices: [500, 1000, 2000], default: 1000 },
-      { key: 'hands', label: 'Length', choices: [{ value: 0, label: 'Until one player is left' }, { value: 10, label: '10 hands' }, { value: 20, label: '20 hands' }, { value: 40, label: '40 hands' }], default: 0 },
+      { key: 'hands', label: 'Length', choices: [{ value: 0, label: 'Last one standing' }, { value: 10, label: '10 hands' }, { value: 20, label: '20 hands' }, { value: 40, label: '40 hands' }], default: 0 },
       { key: 'blinds', label: 'Blinds', choices: [{ value: 'fixed', label: 'Fixed' }, { value: 'rising', label: 'Double every 5 hands' }], default: 'rising' },
     ],
     load: () => import('./poker.js'),
@@ -317,8 +317,8 @@ export const GAMES = [
     options: [
       { key: 'rounds', label: 'Rounds', choices: [3, 5, 7], default: 3 },
       { key: 'clues', label: 'Clue rounds', choices: [1, 2], default: 1 },
-      { key: 'imposters', label: 'Imposters (7+ players)', choices: [{ value: '1', label: 'One' }, { value: '2', label: 'Two' }], default: '1' },
-      { key: 'hint', label: 'Imposter sees category', choices: [{ value: 'on', label: 'Yes' }, { value: 'off', label: 'No (hard mode)' }], default: 'on' },
+      { key: 'imposters', label: 'Imposters (7+)', choices: [{ value: '1', label: 'One' }, { value: '2', label: 'Two' }], default: '1' },
+      { key: 'hint', label: 'Imposter sees category', choices: [{ value: 'on', label: 'Yes' }, { value: 'off', label: 'No (hard)' }], default: 'on' },
     ],
     load: () => import('./imposter.js'),
   },
@@ -402,7 +402,7 @@ export const GAMES = [
       tips: ['Draw fast and simple — you only get one minute.', 'Describe what you see, not what you think it should be.'],
     },
     options: [
-      { key: 'steps', label: 'Story length', choices: [{ value: 'full', label: 'Full (everyone plays every story)' }, { value: 'short', label: 'Short (4 steps)' }], default: 'full' },
+      { key: 'steps', label: 'Story length', choices: [{ value: 'full', label: 'Full' }, { value: 'short', label: 'Short (4)' }], default: 'full' },
       { key: 'drawTime', label: 'Drawing time', choices: [{ value: 40, label: '40 sec' }, { value: 60, label: '60 sec' }, { value: 90, label: '90 sec' }], default: 60 },
     ],
     load: () => import('./telephone.js'),
@@ -460,7 +460,7 @@ export const GAMES = [
     tagline: 'Get on the same wavelength.',
     desc: 'One player is the psychic: they see a secret spot on a spectrum like “Cold ↔ Hot” and give a clue. Everyone else slides the dial to where they think it is. The closer you are, the more points you earn!',
     help: { steps: ['The psychic sees the target zone on the dial and types a clue (no numbers or direct hints!).', 'Everyone else drags the slider to where they think the target is and locks it in.', 'Reveal: bullseye +4, close +3, nearby +2.', 'The psychic earns the average of everyone’s points. Everybody takes a turn as psychic.'], tips: ['Debate the clue out loud — is a microwave “extraordinary”?', 'Clue about the spot on the line, not just the ends.'] },
-    options: [{ key: 'laps', label: 'Laps (rounds per player)', choices: [1, 2], default: 1 }],
+    options: [{ key: 'laps', label: 'Laps', choices: [1, 2], default: 1 }],
     load: () => import('./dialitin.js'),
   },
   {

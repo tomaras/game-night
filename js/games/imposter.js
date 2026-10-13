@@ -22,6 +22,7 @@ const CSS = `
 .im-card { color:#fff; background:linear-gradient(145deg,#6a4ce0,#3b2aa8); box-shadow:var(--e2); border-radius:28px; padding:16px; text-align:center; cursor:pointer; user-select:none; }
 .im-card .lbl { color:rgba(255,255,255,.8); font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:1px; }
 .im-card .big { font-size:clamp(26px,6vw,40px); font-weight:900; margin:4px 0; }
+.im-card .muted { color:rgba(255,255,255,.82); }
 .im-card.imp { background:linear-gradient(145deg,#ea4335,#a3201a); }
 .im-status { text-align:center; font-weight:800; font-size:18px; }
 .im-timer { height:6px; background:linear-gradient(90deg,var(--blue),var(--pink)); border-radius:3px; transition:width .25s linear; }
@@ -184,8 +185,8 @@ export function start(api) {
     return h('div.im-card' + (r.imp ? '.imp' : ''), { onclick: () => { peek = !peek; render(); } }, [
       h('div.lbl', r.imp ? '🕵️ You are the IMPOSTER' : 'Your secret word'),
       peek || st.phase === 'intro' ? (r.imp ? h('div.big', 'Blend in!') : h('div.big', r.word.toUpperCase())) : h('div.big', '••••••'),
-      h('div.muted', { style: 'font-size:13px' }, r.imp ? `Category: ${r.cat}` : `Category: ${r.cat}`),
-      st.phase !== 'intro' ? h('div.muted', { style: 'font-size:11px;margin-top:4px' }, peek ? 'hide' : 'peek') : null,
+      h('div.muted', { style: 'font-size:13px' }, `Category: ${r.cat}`),
+      st.phase !== 'intro' ? h('div.muted', { style: 'font-size:11px;margin-top:4px' }, peek ? 'Tap to hide' : 'Tap to peek') : null,
     ]);
   }
   function scoreRow() { return h('div.im-score', st.ids.map((id) => h('span', avatarEl(api.player(id), 'xs', { still: true }), `${nameOf(id)}: ${st.scores[id]}`))); }

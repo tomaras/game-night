@@ -6,10 +6,10 @@ import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 
 const QUALITY = {
-  smooth: { label: '🎬 Movie — smooth 720p / 30 fps', w: 1280, h: 720, fps: 30, hint: 'motion', kbps: 2800 },
-  hd: { label: '🍿 Movie HD — 1080p / 30 fps', w: 1920, h: 1080, fps: 30, hint: 'motion', kbps: 4500 },
-  game: { label: '🎮 Gaming — 720p / 60 fps', w: 1280, h: 720, fps: 60, hint: 'motion', kbps: 4500 },
-  sharp: { label: '🖥️ Slides & text — sharp 1080p / 10 fps', w: 1920, h: 1080, fps: 10, hint: 'detail', kbps: 2500 },
+  smooth: { label: 'Movie · 720p', w: 1280, h: 720, fps: 30, hint: 'motion', kbps: 2800 },
+  hd: { label: 'Movie · 1080p', w: 1920, h: 1080, fps: 30, hint: 'motion', kbps: 4500 },
+  game: { label: 'Gaming · 60 fps', w: 1280, h: 720, fps: 60, hint: 'motion', kbps: 4500 },
+  sharp: { label: 'Slides & text', w: 1920, h: 1080, fps: 10, hint: 'detail', kbps: 2500 },
 };
 
 const CSS = `
@@ -184,22 +184,20 @@ export function start(api) {
         ? [
           h('div', { style: 'display:grid;place-items:center' }, avatarEl(p, 'xl bounce')),
           h('h2', `${nameOf(pres)} is starting the show…`),
-          h('div.muted', 'Connecting to their screen — this can take a few seconds.'),
+          h('div.muted', 'Connecting…'),
           h('div.spinner'),
         ]
         : iPresent ? [] : [
           h('div', { style: 'font-size:64px' }, '🍿'),
           h('h2', 'Movie Night'),
-          h('div.muted', pres ? '' : 'Nobody is sharing yet. Be the first — pick what to show and press the button!'),
           canShare
             ? h('div.mv-opts', [
-              h('label', h('input', { type: 'checkbox', checked: S.wantAudio, onchange: (e) => { S.wantAudio = e.target.checked; } }), '🔊 Share sound too (tab / system audio)'),
-              h('label', '🎞️ Quality', h('select.txt', { onchange: (e) => { S.quality = e.target.value; } }, Object.entries(QUALITY).map(([k, q]) => h('option', { value: k, selected: k === S.quality }, q.label)))),
-              h('div.muted', { style: 'font-size:12px;line-height:1.5' }, 'Chrome/Edge: pick a Tab and tick “Also share tab audio” for the best sound. Wear headphones so your friends don’t hear an echo. Firefox/Safari can share video only.'),
+              h('label', h('input', { type: 'checkbox', checked: S.wantAudio, onchange: (e) => { S.wantAudio = e.target.checked; } }), 'Share sound'),
+              h('label', 'Quality', h('select.txt', { onchange: (e) => { S.quality = e.target.value; } }, Object.entries(QUALITY).map(([k, q]) => h('option', { value: k, selected: k === S.quality }, q.label)))),
+              h('div.muted', { style: 'font-size:12px;line-height:1.5' }, 'Share a browser tab to include its sound. Headphones stop echo.'),
             ])
-            : h('div.warnbox', 'Screen sharing isn’t supported on this device (most phones). You can still watch and chat — and join the voice/video call with 🎤 / 📹.'),
+            : h('div.warnbox', 'This device can’t share its screen, but you can watch and talk.'),
           canShare ? h('button.btn.primary.big', { onclick: startShare }, icon('screen_share'), 'Share my screen') : null,
-          h('div.muted', { style: 'font-size:12.5px' }, 'Everyone can talk and show their face with the 🎤 and 📹 buttons at the top.'),
         ]));
       stage.append(idle);
     }
@@ -208,7 +206,6 @@ export function start(api) {
     const kids = [];
     kids.push(h('div.who', pres ? [avatarEl(api.player(pres), 'sm', { still: true }), iPresent ? `You are sharing${S.hasAudio ? ' (with sound 🔊)' : ' (no sound 🔇)'}` : `${nameOf(pres)} is sharing`] : [h('span.muted', 'No one is sharing')]));
     if (iPresent) kids.push(h('button.btn.bad', { onclick: () => stopShare() }, icon('stop_screen_share'), 'Stop sharing'));
-    else if (!pres && canShare) kids.push(h('button.btn.primary', { onclick: startShare }, icon('screen_share'), 'Share screen'));
     if (api.isHost && pres && pres !== me) kids.push(h('button.btn.small', { onclick: () => api.toHost('present', { on: false }) }, icon('stop'), 'Stop their share'));
     if (watching) kids.push(h('label.row', { style: 'gap:6px;font-size:13px' }, '🔊', h('input', { type: 'range', min: 0, max: 100, value: volume * 100, oninput: (e) => { volume = e.target.value / 100; video.volume = volume; video.muted = volume === 0; } })));
     kids.push(fsBtn());

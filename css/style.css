@@ -630,7 +630,7 @@ body:has(.matchbar) #toasts { bottom: calc(118px + var(--sab, 0px)); }
 body:has(.matchbar) .minicall { display: none; }
 
 .lounge { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 0; }
-.lounge .seg { align-self: center; }
+.lounge .seg { align-self: center; margin-top: 10px; }
 .lpane { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .lpane .chat { background: var(--surface); border-radius: 24px; padding: 12px; box-shadow: var(--e1); flex: 1; min-height: 320px; }
 .lpeople { display: flex; flex-direction: column; gap: 4px; background: var(--surface); border-radius: 24px; padding: 10px; box-shadow: var(--e1); }
@@ -703,9 +703,8 @@ body:not([data-tab="games"]) .envpill { display: none; }
 .gcard .fav { top: 5px; right: 4px; width: 32px; height: 32px; } .gcard .fav .ic { width: 20px; height: 20px; }
 .gcard .cchip { border: 0; cursor: pointer; font-family: var(--font); height: 26px; padding: 0 10px; transition: background 0.15s, transform 0.1s; }
 .gcard .cchip:hover { background: var(--blue-c); color: var(--blue-d); } .gcard .cchip:active { transform: scale(0.94); }
-.rng { display: inline-flex; align-items: flex-start; font-variant-numeric: tabular-nums; }
-.rng .n1 { display: inline-flex; align-items: flex-start; }
-.rng .rbt { display: inline-block; margin: -4px 0 0 1px; } .rng .rbt .ic { width: 10px; height: 10px; color: var(--green); }
+.rng { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.rng .rbt { display: inline-flex; padding-left: 6px; border-left: 1.5px solid var(--line2); } .rng .rbt .ic { width: 15px; height: 15px; color: var(--on2); }
 @media (max-width: 899px) { .grid { gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); } .gcard { min-height: 0; padding: 11px 10px 10px; border-radius: 20px; } .gcard .tile { width: 40px; height: 40px; font-size: 22px; } .gcard h3 { font-size: 15px; } .gcard p { font-size: 12px; } }
 
 /* ---------- the round + button ---------- */
@@ -845,3 +844,15 @@ main#view { view-transition-name: view; }
 :root[data-theme="dark"] .tt-c { background: rgba(255, 255, 255, 0.05); }
 .pk-table { margin-top: 26px; }
 @media (max-width: 640px) { .cr-mid .cr-card { width: 78px; height: 116px; font-size: 36px; } }
+
+/* ---- polish pass 2 ---- */
+.sbadge { display: grid; place-items: center; padding: 0; width: 17px; }
+.sbadge svg { width: 12px; height: 12px; }
+.sheet label.opt > .seg { display: flex; width: 100%; }
+.sheet label.opt > .seg button { flex: 1; justify-content: center; }
+.lbacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.lbacts .btn { width: 100%; justify-content: center; }
+.empty p { margin: 10px 0 18px; }
+.opt select { text-overflow: ellipsis; }
+.gsheet .gchips { gap: 6px; margin: 14px 0 4px; }
+.gsheet .gsel { padding-right: 36px; }

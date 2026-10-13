@@ -65,7 +65,7 @@ export function start(api) {
   function render() {
     const me = api.me;
     const t = S.team;
-    const parts = [h('div.kt-card', { style: 'display:flex;flex-direction:column;gap:6px;padding:10px' }, h('div.row', { style: 'justify-content:space-between;flex-wrap:wrap' }, tokens(0), tokens(1)), h('div.kt-hint', { style: 'font-size:12px' }, 'White tokens = interceptions (2 wins) · Black tokens = miscommunications (2 loses)'))];
+    const parts = [h('div.kt-card', { style: 'display:flex;flex-direction:column;gap:6px;padding:10px' }, h('div.row', { style: 'justify-content:space-between;flex-wrap:wrap' }, tokens(0), tokens(1)), h('div.kt-hint', { style: 'font-size:12px' }, '⚪ 2 intercepts win · ⚫ 2 misreads lose'))];
     // my team's words
     parts.push(h('div.kt-title', `Your secret words — ${TEAMS[myTeam][0]} team`), h('div.cc2-words', S.words.map((w, i) => h('div.cc2-w', { style: style(myTeam) }, h('i', i + 1), w))));
     if (S.phase === 'clue') {

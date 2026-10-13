@@ -10,7 +10,7 @@ const CSS = `
 .ws { flex:1; display:flex; gap:12px; padding:10px; min-height:0; overflow-y:auto; justify-content:center; flex-wrap:wrap; align-content:flex-start; }
 .ws-main { display:flex; flex-direction:column; gap:10px; width:min(100%, 720px); }
 .ws-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
-.ws-card { position:relative; min-height:clamp(52px, 11vw, 82px); border-radius:10px; background:#efe3c8; color:#2b2113; font-weight:900; display:grid; place-items:center; text-align:center; padding:4px; font-size:clamp(11px, 2.6vw, 17px); text-transform:uppercase; cursor:pointer; border:3px solid transparent; box-shadow:0 3px 0 #b9a77c; word-break:break-word; }
+.ws-card { position:relative; min-height:clamp(52px, 11vw, 82px); border-radius:10px; background:#efe3c8; color:#2b2113; font-weight:900; display:grid; place-items:center; text-align:center; padding:4px; font-size:clamp(11px, 2.6vw, 17px); text-transform:uppercase; cursor:pointer; border:3px solid transparent; box-shadow:0 3px 0 #b9a77c; overflow-wrap:anywhere; letter-spacing:-.2px; }
 .ws-card:hover:not(.rev) { transform:translateY(-2px); }
 .ws-card.k-r { box-shadow:0 3px 0 #b9a77c, inset 0 0 0 3px #e5383b; } .ws-card.k-b { box-shadow:0 3px 0 #b9a77c, inset 0 0 0 3px #2f6fed; }
 .ws-card.k-n { box-shadow:0 3px 0 #b9a77c, inset 0 0 0 3px #8a8575; } .ws-card.k-a { box-shadow:0 3px 0 #000, inset 0 0 0 3px #000; background:#c9bb98; }
@@ -138,7 +138,7 @@ export function start(api) {
       if (rv) cls.push('rev', rv);
       else if (st.key) cls.push('k-' + st.key[i]);
       if (st.sel === i && !rv) cls.push('sel');
-      return h('div.' + cls.join('.'), { style: w.length > 9 ? { fontSize: 'clamp(9px, 2vw, 13px)' } : '', onclick: () => { if (st.phase === 'guess' && myTurn && !amSpy && !rv) { api.sfx('click'); api.toHost('pick', { i }); } } },
+      return h('div.' + cls.join('.'), { style: w.length > 9 ? { fontSize: 'clamp(9px, 2vw, 13px)' } : w.length > 6 ? { fontSize: 'clamp(10px, 2.25vw, 15px)' } : '', onclick: () => { if (st.phase === 'guess' && myTurn && !amSpy && !rv) { api.sfx('click'); api.toHost('pick', { i }); } } },
         h('span', w), st.sel === i && !rv ? h('span.tag', 'tap again') : null, rv && st.key && rv === 'a' ? h('span.x', ' ☠') : null);
     }));
     const teamBox = (t) => h('div.ws-team.' + t + (st.turn === t && st.phase !== 'over' ? '.turn' : ''), [
