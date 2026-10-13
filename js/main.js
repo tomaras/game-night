@@ -212,7 +212,7 @@ function renderHeader() {
   const ids = st.game ? st.game.playerIds : st.players.map((p) => p.id);
   mount(S.headerEl,
     iconBtn('arrow_back', 'Leave room', () => requestLeave()),
-    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Watching · Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
+    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
     h('div.tb-players', ids.map((id) => room.player(id)).filter(Boolean).slice(0, 10).map((p) => avatarEl(p, 'sm', { still: true }))),
     h('div.spacer'),
     S.rec?.active ? h('button.recpill', { onclick: () => openRecordings(S.rec, { toast }), title: 'Recording — tap to save a clip' }, icon('fiber_manual_record', 'sm'), 'REC') : null,
@@ -658,9 +658,9 @@ function enterRoom(room) {
     sheet: h('div.chatsheet'),
     sheetBack: h('div.sheetback', { onclick: () => toggleSheet(false) }),
   });
-  S.chatBtn = iconBtn('chat_bubble', 'Chat', () => openPanel('chat'), 'chat-btn');
+  S.chatBtn = iconBtn('chat_bubble', 'Chat & people', () => openPanel(room.isHost && room.requests.length ? 'people' : 'chat'), 'chat-btn');
   S.chatBtn.classList.add('hide-wide');
-  S.peopleBtn = room.local ? null : iconBtn('group', 'People & room', () => openPanel('people'), 'people-btn');
+  S.peopleBtn = room.local ? null : iconBtn('group', 'People & room', () => openPanel('people'), 'people-btn hide-narrow');
   ui.barInput = h('input.txt', { placeholder: S.comms.scope.chat === 'global' ? 'Say something to everyone…' : 'Say something…', maxlength: 300, autocomplete: 'off', enterkeyhint: 'send' });
   ui.bar = h('form.chatbar', {
     onsubmit: (e) => {
@@ -844,7 +844,7 @@ function toggleSheet(force, silent) {
 function updateChatBadge() {
   if (chatVisible('room')) S.unread = 0;
   if (chatVisible('global')) S.unreadG = 0;
-  const n = S.unread + S.unreadG;
+  const n = S.unread + S.unreadG + (S.room?.isHost ? S.room.requests.length : 0); // join requests count too (the People button is folded into this one on phones)
   if (S.chatBtn) {
     S.chatBtn.querySelector('.dot')?.remove();
     if (n > 0 && !wideMQ.matches) S.chatBtn.append(h('span.dot', n > 9 ? '9+' : n));

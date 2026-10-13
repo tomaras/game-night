@@ -15,6 +15,7 @@ export class LocalRoom extends Emitter {
     this.me = me || 'p1';
     this.number = 0;
     this.chat = [];
+    this.requests = []; // nobody can ask to join an offline room
     this.rtt = 0;
     this.connected = true;
     this.peer = null;
