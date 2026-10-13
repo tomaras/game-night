@@ -100,12 +100,11 @@ jobs:
         working-directory: release
         run: |
           BUILD=$(jq -r .build dist/build.json)
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${{ github.token }}" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTH" tag -f "prod-live" HEAD
-          git -c "http.https://github.com/.extraheader=$AUTH" push -f origin "refs/tags/prod-live"
+          git tag -f "prod-live" HEAD
+          git push -f origin "refs/tags/prod-live"
           if ! git ls-remote --exit-code --tags origin "refs/tags/prod-$BUILD" >/dev/null 2>&1; then
             git tag "prod-$BUILD" HEAD
-            git -c "http.https://github.com/.extraheader=$AUTH" push origin "refs/tags/prod-$BUILD"
+            git push origin "refs/tags/prod-$BUILD"
           fi
 
       - name: Restore the previous Stable (the release failed)
