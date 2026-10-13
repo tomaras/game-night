@@ -5,6 +5,7 @@ import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs } from '../bots.js';
 import { dieEl } from '../dice.js';
+import { bump, jolt, popOut } from '../motion.js';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const TURN_MS = 45000;
@@ -209,7 +210,30 @@ export function start(api) {
     for (let q = prev.q; q <= st.total; q++) for (let f = 1; f <= 6; f++) if (validBid(prev, { q, f }, wild)) return { q, f };
     return { q: prev.q, f: prev.f };
   }
-  let rolledRound = 0;
+  let rolledRound = 0, shown = null;
+  // dice tumble in one after another, a lost die's cup flies off, a new bid pops
+  function motion(prev) {
+    if (!prev) return;
+    const newRound = prev.round !== st.round;
+    let k = 0;
+    for (const d of root.querySelectorAll('.ld-me .dc.roll')) d.style.setProperty('--dd', 0.07 * k++ + 's');
+    if (newRound) for (const c of root.querySelectorAll('.ld-opp .ld-cups')) jolt(c, { px: 5, ms: 520 });
+    if (prev.phase !== 'reveal' && st.phase === 'reveal') {
+      k = 0;
+      for (const row of root.querySelectorAll('.ld-rv .r')) for (const d of row.querySelectorAll('.dc')) { d.classList.add('roll'); d.style.setProperty('--dd', 0.06 * k++ + 's'); }
+    }
+    if (st.bid && (!prev.bid || prev.bid.q !== st.bid.q || prev.bid.f !== st.bid.f)) { const b = root.querySelector('.ld-bid'); if (b) bump(b, { to: 1.14, ms: 420 }); }
+    st.ids.forEach((id) => {
+      if ((prev.counts[id] || 0) > (st.counts[id] || 0) && id !== api.me) {
+        const wrap = [...root.querySelectorAll('.ld-opp')].find((e) => e.querySelector('.nm')?.textContent === nameOf(id))?.querySelector('.ld-cups');
+        if (!wrap) return;
+        wrap.style.position = 'relative';
+        const ghost = h('div.ld-cup', { style: `position:absolute;top:0;left:${wrap.lastElementChild ? wrap.lastElementChild.offsetLeft + 28 : 0}px;z-index:5` });
+        wrap.append(ghost);
+        ghost.animate([{ translate: '0 0', opacity: 1, rotate: '0deg' }, { translate: '10px -34px', opacity: 0, rotate: '38deg' }], { duration: 700, delay: 500, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'both' }).finished.catch(() => {}).then(() => ghost.remove());
+      }
+    });
+  }
   const die = (v, cls = '', roll = false) => dieEl(v, { cls, wild, roll });
 
   function render() {
@@ -257,6 +281,8 @@ export function start(api) {
     ]);
     root.replaceChildren(opps, mid, logEl, meEl);
     rolledRound = st.round;
+    motion(shown);
+    shown = st;
   }
 
   function bidControls() {

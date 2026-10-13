@@ -2,6 +2,7 @@
 import { h } from './util.js';
 import { avatarEl } from './avatar.js';
 import { icon } from './ui.js';
+import { EASE, countTo, bump } from './motion.js';
 
 /** A countdown that every client can sync from a "ms remaining" number sent by the host. */
 export function makeClock(api) {
@@ -18,8 +19,11 @@ export function makeClock(api) {
       const upd = () => {
         const l = clock.left();
         bar.style.width = clock.frac() * 100 + '%';
-        sec.textContent = Math.ceil(l / 1000);
-        el.classList.toggle('low', l < 6000 && l > 0);
+        const s = String(Math.ceil(l / 1000));
+        const low = l < 6000 && l > 0;
+        if (sec.textContent !== s && low) bump(sec, { to: 1.35, ms: 300 });
+        sec.textContent = s;
+        el.classList.toggle('low', low);
       };
       upd();
       api.interval(() => { if (el.isConnected) upd(); }, 250);
@@ -29,11 +33,27 @@ export function makeClock(api) {
   return clock;
 }
 
-/** Row of player pills with scores (sorted high→low). opts.done: Set of ids who already acted. */
+const pillMemo = new WeakMap(); // api -> { rects: Map(id -> DOMRect), scores: Map(id -> number) }
+/** Row of player pills with scores (sorted high→low). opts.done: Set of ids who already acted.
+ *  When the same scoreboard is drawn again, pills glide to their new places and changed scores count up. */
 export function scorePills(api, scores, { done, sort = true, extra } = {}) {
   let list = api.players.slice();
   if (sort) list.sort((a, b) => (scores?.[b.id] || 0) - (scores?.[a.id] || 0));
-  return h('div.kt-score', list.map((p) => h('div.kt-pill' + (done?.has(p.id) ? '.done' : '') + (p.left ? '.dim' : ''), avatarEl({ ...p, online: p.online && !p.left }, 'sm', { still: true }), p.name + (p.id === api.me ? ' (you)' : ''), scores ? h('b', scores[p.id] || 0) : null, extra ? extra(p) : null)));
+  const el = h('div.kt-score', list.map((p) => h('div.kt-pill' + (done?.has(p.id) ? '.done' : '') + (p.left ? '.dim' : ''), { 'data-k': p.id }, avatarEl({ ...p, online: p.online && !p.left }, 'sm', { still: true }), p.name + (p.id === api.me ? ' (you)' : ''), scores ? h('b', scores[p.id] || 0) : null, extra ? extra(p) : null)));
+  requestAnimationFrame(() => {
+    if (!el.isConnected) return;
+    const memo = pillMemo.get(api), rects = new Map(), now = new Map();
+    for (const pill of el.children) {
+      const id = pill.dataset.k, r = pill.getBoundingClientRect(), sc = pill.querySelector('b');
+      rects.set(id, r); if (sc) now.set(id, +sc.textContent || 0);
+      const was = memo?.rects.get(id);
+      if (was) { const dx = was.left - r.left, dy = was.top - r.top; if (Math.abs(dx) > 2 || Math.abs(dy) > 2) pill.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], { duration: 520, easing: EASE.out }); }
+      const before = memo?.scores.get(id);
+      if (sc && before !== undefined && now.get(id) !== before) { countTo(sc, now.get(id), { from: before, ms: 650 }); bump(pill, { to: 1.12, ms: 420 }); }
+    }
+    pillMemo.set(api, { rects, scores: now });
+  });
+  return el;
 }
 
 /** "Waiting for A, B…" line. */

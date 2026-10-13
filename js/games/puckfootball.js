@@ -2,6 +2,7 @@
 // Host runs the physics; everyone steers with arrows/WASD, the pointer, or the on-screen pad. Space/⚽ kicks.
 import { h, trackKeys, dpad, clamp } from '../util.js';
 import { drawAvatar } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const W = 800, H = 440, GH = 74, D = 38, PAD = 46, PR = 22, BR = 12, CY = H / 2;
 const TEAM = ['#e53935', '#1e88e5'];
@@ -61,9 +62,20 @@ export function start(api) {
   let snap = null;
   const vis = {}, ball = { x: W / 2, y: CY };
   let score = [0, 0], timeLeft = matchSec, flashes = {};
+  const fx = new Fx();
+  const trail = []; let spin = 0;
   api.on('snap', (s) => {
+    const old = snap, oldScore = score;
     snap = s;
     score = s.sc; timeLeft = s.t;
+    if (old) {
+      for (const p of s.p) { const v = vis[p[0]]; if (p[5] && !(flashes[p[0]] && performance.now() - flashes[p[0]] < 120) && v) { const [sx, sy] = scr(v.x, v.y); fx.burst(sx, sy, { n: 9, colors: ['#fff', '#ffeb3b'], speed: 240, life: 0.35 }); fx.ring(sx, sy, { r: 46, life: 0.28, width: 3 }); } }
+      if (s.sc[0] + s.sc[1] > oldScore[0] + oldScore[1]) { // GOAL: confetti from the goal mouth in the scoring team's colours
+        const t = s.sc[0] > oldScore[0] ? 0 : 1, [gx, gy] = scr(t === 0 ? W + D / 2 : -D / 2, CY);
+        fx.burst(gx, gy, { n: 70, colors: [TEAM[t], '#fff', '#ffeb3b'], speed: 520, life: 1.2, size: 4.5, gravity: 220, angle: portrait ? (t === 0 ? Math.PI : 0) + Math.PI / 2 : (t === 0 ? Math.PI : 0), spread: 2.2 });
+        fx.ring(gx, gy, { r: 160, color: TEAM[t], life: 0.7, width: 7 }); fx.shake(12, 0.5); fx.flash(TEAM[t], 0.22);
+      }
+    }
     for (const p of s.p) { const v = vis[p[0]] || (vis[p[0]] = { x: p[1], y: p[2] }); if (Math.abs(v.x - p[1]) + Math.abs(v.y - p[2]) > 150) { v.x = p[1]; v.y = p[2]; } if (p[5]) flashes[p[0]] = performance.now(); }
     if (Math.abs(ball.x - s.b[0]) + Math.abs(ball.y - s.b[1]) > 200) { ball.x = s.b[0]; ball.y = s.b[1]; }
     s.ev?.forEach((e) => api.sfx(e));
@@ -104,6 +116,8 @@ export function start(api) {
     for (const p of snap.p) { const v = vis[p[0]]; ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.arc(v.x + 3, v.y + 5, PR, 0, 7); ctx.fill(); }
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(ball.x + 3, ball.y + 4, BR, 0, 7); ctx.fill();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // the ball's wake
+    for (let i = 0; i < trail.length; i++) { const [tx, ty] = scr(trail[i][0], trail[i][1]); ctx.fillStyle = `rgba(255,255,255,${(i / trail.length) * 0.22})`; ctx.beginPath(); ctx.arc(tx, ty, BR * (0.4 + 0.6 * i / trail.length), 0, 7); ctx.fill(); }
     // players
     for (const p of snap.p) {
       const id = p[0], v = vis[id], t = team[id];
@@ -117,15 +131,26 @@ export function start(api) {
     }
     // ball
     const [bx, by] = scr(ball.x, ball.y);
-    ctx.beginPath(); ctx.arc(bx, by, BR, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#263238'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(bx, by, 4.5, 0, 7); ctx.fillStyle = '#263238'; ctx.fill();
+    ctx.save(); ctx.translate(bx, by);
+    ctx.beginPath(); ctx.arc(0, 0, BR, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.clip(); ctx.rotate(spin); ctx.fillStyle = '#263238'; // the panels turn as the ball rolls
+    for (let i = 0; i < 5; i++) { ctx.rotate(Math.PI * 2 / 5); ctx.beginPath(); ctx.arc(0, -BR * 0.95, 4.2, 0, 7); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, 7); ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(bx, by, BR, 0, 7); ctx.lineWidth = 3; ctx.strokeStyle = '#263238'; ctx.stroke();
+    fx.draw(ctx); fx.overlay(ctx, canvas.width, canvas.height);
   }
   api.raf((dt, now) => {
     if (snap) {
       const k = Math.min(1, dt * 26);
       for (const p of snap.p) { const v = vis[p[0]]; v.x += (p[1] + p[3] * 0.03 - v.x) * k; v.y += (p[2] + p[4] * 0.03 - v.y) * k; }
+      const ox = ball.x, oy = ball.y;
       ball.x += (snap.b[0] + snap.b[2] * 0.03 - ball.x) * k; ball.y += (snap.b[1] + snap.b[3] * 0.03 - ball.y) * k;
+      const mv = Math.hypot(ball.x - ox, ball.y - oy); spin += mv / BR * (snap.b[2] > 0 ? 1 : -1) * 0.9;
+      if (mv > 2) { trail.push([ball.x, ball.y]); if (trail.length > 9) trail.shift(); } else if (trail.length) trail.shift();
     }
+    fx.update(dt);
+    const sh = fx.offset(); canvas.style.translate = sh.x || sh.y ? `${sh.x}px ${sh.y}px` : '';
     draw(now);
   });
 

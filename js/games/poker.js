@@ -4,6 +4,7 @@ import { h, clamp } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs } from '../bots.js';
 import { playingCard, cardBack, emptySlot } from '../cards.js';
+import { fly, dealIn, countTo, bump, burst } from '../motion.js';
 
 const RANKS = '23456789TJQKA';
 const SUITS = { s: '♠', h: '♥', d: '♦', c: '♣' };
@@ -62,6 +63,9 @@ const CSS = `
 .pk-tag { position:absolute; top:-9px; right:-6px; background:#e63946; color:#fff; font-size:10px; font-weight:900; padding:1px 6px; border-radius:8px; }
 .pk-d { position:absolute; width:22px; height:22px; border-radius:50%; background:#fff; color:#111; font-weight:900; font-size:12px; display:grid; place-items:center; box-shadow:0 1px 4px rgba(31,41,55,.22); z-index:4; }
 .pk-hole { display:flex; gap:2px; margin-top:-2px; }
+.pk-chip { width:22px; height:22px; border-radius:50%; background:radial-gradient(circle, #e63946 0 38%, #fff 39% 46%, #e63946 47%); box-shadow:0 0 0 2px #fff inset, 0 2px 4px rgba(0,0,0,.45); }
+.pk-chip.g { background:radial-gradient(circle, #1e9e4b 0 38%, #fff 39% 46%, #1e9e4b 47%); } .pk-chip.b { background:radial-gradient(circle, #1a73e8 0 38%, #fff 39% 46%, #1a73e8 47%); }
+.pk-bet::before { content:''; display:inline-block; width:11px; height:11px; border-radius:50%; margin:0 5px -1px -4px; background:radial-gradient(circle, #e63946 0 36%, #fff 38% 50%, #e63946 52%); }
 .pk-bet { position:absolute; background:rgba(0,0,0,.55); color:#fff; border-radius:999px; font-weight:900; font-size:12px; padding:1px 9px; z-index:3; transform:translate(-50%,-50%); white-space:nowrap; }
 .pk-bar { height:4px; border-radius:2px; background:#ffc857; margin-top:2px; transition:width .25s linear; }
 .pk-me { display:flex; flex-direction:column; align-items:center; gap:8px; }
@@ -331,10 +335,11 @@ export function start(api) {
   const msgEl = h('div.pk-msg');
   const meEl = h('div.pk-me');
   const actEl = h('div.pk-act');
-  api.root.append(h('style', CSS), h('div.pk', h('div.pk-hn', 'No-limit Texas Hold’em'), tableEl, msgEl, meEl, actEl, logEl));
+  api.root.append(h('style', CSS), h('div.pk', tableEl, msgEl, meEl, actEl, logEl));
 
   api.on('state', (s) => {
     const prev = st;
+    const olds = snapshotTable();
     st = s;
     deadline = performance.now() + (s.ms || 0);
     if (!prev || prev.turn !== s.turn) { raiseTo = 0; if (s.turn === api.me) api.sfx('turn'); }
@@ -344,6 +349,8 @@ export function start(api) {
       api.sfx(won ? 'win' : 'coin');
     }
     render();
+    if (prev) animateTable(prev, s, olds);
+    else animateDeal(true);
   });
   api.on('log', (t) => { logEl.textContent = t; });
   api.onPlayersChanged(() => st && render());
@@ -351,6 +358,64 @@ export function start(api) {
     const bar = tableEl.querySelector('.pk-bar');
     if (bar && st) bar.style.width = clamp(((deadline - performance.now()) / ACT_MS) * 100, 0, 100) + '%';
   }, 250);
+
+
+  // ---------------------------------------------------------------- motion: cards are dealt, chips fly to the pot and to the winner
+  const centerOf = (el, box) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2 - box.left, y: r.top + r.height / 2 - box.top }; };
+  function snapshotTable() {
+    const box = tableEl.getBoundingClientRect();
+    const bets = {};
+    for (const e of tableEl.querySelectorAll('.pk-bet')) bets[e.dataset.id] = { ...centerOf(e, box), amt: +e.textContent };
+    const folds = {};
+    for (const e of tableEl.querySelectorAll('.pk-seat')) { const hole = e.querySelector('.pk-hole'); if (hole) folds[e.dataset.id] = centerOf(hole, box); }
+    return { bets, folds, pot: tableEl.querySelector('.pk-pn') ? +tableEl.querySelector('.pk-pn').textContent : 0 };
+  }
+  function animateDeal(all) {
+    const box = tableEl.getBoundingClientRect();
+    const deck = { x: box.width / 2 - 60, y: box.height * 0.3 };
+    let k = 0;
+    const seatsEls = [...tableEl.querySelectorAll('.pk-seat .pk-hole .pc')];
+    const mine = [...meEl.querySelectorAll('.pc')];
+    const sc = (el) => { const r = el.getBoundingClientRect(); return { x: deck.x - (r.left - box.left), y: deck.y - (r.top - box.top) }; };
+    for (const el of [...mine, ...seatsEls]) { dealIn(el, sc(el), { delay: 120 + (k++) * 70, flipOver: mine.includes(el) }); }
+    api.sfx('card');
+  }
+  function animateTable(prev, s, olds) {
+    const box = tableEl.getBoundingClientRect();
+    const pot = tableEl.querySelector('.pk-pot');
+    const potPos = centerOf(pot, box);
+    if (s.handNo !== prev.handNo) { animateDeal(); return; }
+    // new community cards
+    if (s.board.length > prev.board.length) {
+      const cards = tableEl.querySelectorAll('.pk-board .pc:not(.empty)');
+      for (let i = prev.board.length; i < s.board.length; i++) if (cards[i]) dealIn(cards[i], { x: 0, y: -70 }, { delay: (i - prev.board.length) * 170, ms: 560 });
+    }
+    // bets sweep into the pot when the round of betting ends
+    for (const id of Object.keys(olds.bets)) {
+      const was = olds.bets[id], now = s.bet[id] || 0;
+      if (now < was.amt) for (let i = 0; i < Math.min(4, 1 + Math.floor(was.amt / (s.bb * 3))); i++) fly(tableEl, h('div.pk-chip' + (i % 2 ? '.g' : '')), was, potPos, { ms: 520, delay: i * 60, arc: 18, scale: [1, 0.8], opacity: [1, 0.2] });
+    }
+    // a folded hand is tossed towards the middle
+    for (const id of s.ids) {
+      if (s.folded[id] && !prev.folded[id] && olds.folds[id] && id !== api.me) {
+        const c = h('div', { style: 'display:flex;gap:2px' }, [cardBack({ cls: 'sm' }), cardBack({ cls: 'sm' })]);
+        c.style.setProperty('--w', '28px');
+        fly(tableEl, c, olds.folds[id], potPos, { ms: 480, scale: [1, 0.7], opacity: [1, 0], rotate: [0, 40], arc: 10 });
+      }
+    }
+    // the pot is pushed to the winners
+    if (s.phase === 'showdown' && prev.phase !== 'showdown') {
+      const won = (s.result?.pots || []).flatMap((p) => p.winners.map((w) => [w, p.amt / p.winners.length]));
+      for (const [w, amt] of won) {
+        const seat = tableEl.querySelector(`.pk-seat[data-id="${w}"] .pk-box`);
+        if (!seat) continue;
+        const to = centerOf(seat, box);
+        for (let i = 0; i < 6; i++) fly(tableEl, h('div.pk-chip' + (i % 3 === 1 ? '.g' : i % 3 === 2 ? '.b' : '')), potPos, to, { ms: 640, delay: 350 + i * 70, arc: -26 + i * 8, scale: [0.9, 1], opacity: [1, 0.15] });
+        setTimeout(() => { burst(tableEl, to.x, to.y, { n: 16, size: 6, spread: 56 }); bump(seat, { to: 1.12 }); }, 900);
+      }
+    }
+    if (s.pot !== prev.pot) { const pn = tableEl.querySelector('.pk-pn'); if (pn) countTo(pn, s.pot, { from: olds.pot || prev.pot, ms: 500 }); }
+  }
 
   const cardEl = (c, cls = '') => (c ? playingCard(c[0], c[1], { cls: cls.replace(/\bsm\b/, '').trim() }) : cardBack({ cls: cls.replace(/\bsm\b/, '').trim() }));
 
@@ -371,7 +436,7 @@ export function start(api) {
       const showCards = st.reveal[id] || null;
       const inHandNow = st.dealt.includes(id) && !st.folded[id];
       const cards = id === api.me ? null : inHandNow ? h('div.pk-hole', showCards ? showCards.map((c) => cardEl(c, 'sm')) : [cardEl(null, 'sm'), cardEl(null, 'sm')]) : null;
-      seats.push(h('div.pk-seat' + (st.turn === id ? '.turn' : '') + (folded && st.phase !== 'wait' ? '.fold' : '') + (st.phase === 'showdown' && winners.has(id) ? '.win' : ''), { style: { left: x + '%', top: y + '%' } }, [
+      seats.push(h('div.pk-seat' + (st.turn === id ? '.turn' : '') + (folded && st.phase !== 'wait' ? '.fold' : '') + (st.phase === 'showdown' && winners.has(id) ? '.win' : ''), { 'data-id': id, style: { left: x + '%', top: y + '%' } }, [
         avatarEl({ ...p, online: p.online && !p.left }, 'sm' + (st.turn === id ? ' bounce' : '')),
         h('div.pk-box', [
           h('div.pk-nm', p.name + (id === api.me ? ' (you)' : '')),
@@ -388,14 +453,14 @@ export function start(api) {
       }
       if (st.bet[id]) {
         const bx = 50 + (narrow ? 19 : 27) * Math.cos(ang), by = 50 + 25 * Math.sin(ang);
-        seats.push(h('div.pk-bet', { style: { left: bx + '%', top: by + '%' } }, st.bet[id]));
+        seats.push(h('div.pk-bet', { 'data-id': id, style: { left: bx + '%', top: by + '%' } }, st.bet[id]));
       }
     });
     tableEl.replaceChildren(
       h('div.pk-felt'),
       h('div.pk-center', [
         h('div.pk-board', Array.from({ length: 5 }, (_, i) => (st.board[i] ? cardEl(st.board[i]) : emptySlot()))),
-        h('div.pk-pot', `Pot ${st.pot}`),
+        h('div.pk-pot', 'Pot ', h('span.pk-pn', String(st.pot))),
         h('div.pk-hn', { style: 'color:rgba(255,255,255,.85)' }, `Hand ${st.handNo} · blinds ${st.sb}/${st.bb}`),
       ]),
       ...seats

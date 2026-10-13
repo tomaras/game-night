@@ -2,6 +2,7 @@
 // sends garbage to a random opponent via the host. Last board standing wins.
 import { h, dpad, makeRng } from '../util.js';
 import { avatarEl } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const COLS = 10, ROWS = 22, VIS = 20; // 2 hidden rows on top
 const PIECES = {
@@ -54,6 +55,8 @@ export function start(api) {
   const CELL = Math.max(12, Math.min(30, Math.floor(Math.min(availH / VIS, availW / COLS))));
   const bcv = h('canvas', { width: COLS * CELL, height: VIS * CELL });
   const bctx = bcv.getContext('2d');
+  const fx = new Fx();
+  const sweeps = [], locks = [], trails = []; // line-clear flashes, lock flashes, hard-drop streaks
   const holdCv = h('canvas', { width: 80, height: 56 });
   const nextCv = h('canvas', { width: 80, height: 3 * 52 });
   const garbEl = h('div.bk-garb', { style: 'height:0' });
@@ -90,7 +93,7 @@ export function start(api) {
   function spawn(type) {
     const m = PIECES[type].m.map((r) => r.slice());
     B.cur = { t: type, m, x: Math.floor((COLS - m[0].length) / 2), y: type === 'I' ? -1 : 0 };
-    B.canHold = true; B.lock = 0; B.resets = 0;
+    B.canHold = true; B.lock = 0; B.resets = 0; B.dx = B.cur.x; B.dy = B.cur.y;
     if (!fits(m, B.cur.x, B.cur.y)) die();
   }
   function nextPiece() {
@@ -110,7 +113,15 @@ export function start(api) {
     }
   }
   function softDrop() { if (B.cur && fits(B.cur.m, B.cur.x, B.cur.y + 1)) { B.cur.y++; B.score += 1; return true; } return false; }
-  function hardDrop() { if (!B.cur) return; const y = ghostY(); B.score += (y - B.cur.y) * 2; B.cur.y = y; lockPiece(); api.sfx('drop'); }
+  function hardDrop() {
+    if (!B.cur) return;
+    const y = ghostY();
+    if (y > B.cur.y) trails.push({ m: B.cur.m, x: B.cur.x, y0: B.cur.y, y1: y, c: PIECES[B.cur.t].c, t0: performance.now() });
+    B.score += (y - B.cur.y) * 2; B.cur.y = y;
+    B.cur.m.forEach((row, r) => row.forEach((v, q) => { if (v && !B.cur.m[r + 1]?.[q]) fx.burst((B.cur.x + q + 0.5) * CELL, (y + r - 2 + 1) * CELL, { n: 3, color: 'rgba(255,255,255,.7)', speed: 90, life: 0.35, size: 2.2, angle: -Math.PI / 2, spread: 2.6, glow: false }); }));
+    fx.shake(Math.min(4, 1 + (y - B.cur.y + 1) * 0.15), 0.12);
+    lockPiece(); api.sfx('drop');
+  }
   function doHold() {
     if (!B.cur || !B.canHold) return;
     const t = B.cur.t;
@@ -121,21 +132,25 @@ export function start(api) {
     const { m, x, y, t } = B.cur;
     let over = true;
     for (let r = 0; r < m.length; r++) for (let c = 0; c < m[r].length; c++) if (m[r][c]) {
-      if (y + r >= 0) B.grid[y + r][x + c] = PIECES[t].c;
+      if (y + r >= 0) { B.grid[y + r][x + c] = PIECES[t].c; locks.push({ x: x + c, y: y + r, t0: performance.now() }); }
       if (y + r >= 2) over = false;
     }
     B.cur = null;
     // clear lines
     let cleared = 0;
     for (let r = ROWS - 1; r >= 0; r--) {
-      if (B.grid[r].every(Boolean)) { B.grid.splice(r, 1); B.grid.unshift(new Array(COLS).fill(0)); cleared++; r++; }
+      if (B.grid[r].every(Boolean)) {
+        sweeps.push({ y: r - 2, t0: performance.now() });
+        for (let q = 0; q < COLS; q++) fx.burst((q + 0.5) * CELL, (r - 2 + 0.5) * CELL, { n: 3, color: COLORS[B.grid[r][q]] || '#fff', speed: 230, life: 0.7, size: CELL * 0.14, gravity: 340 });
+        B.grid.splice(r, 1); B.grid.unshift(new Array(COLS).fill(0)); cleared++; r++;
+      }
     }
     if (cleared) {
       B.combo++;
       B.lines += cleared;
       B.score += [0, 100, 300, 500, 800][cleared] * (1 + Math.floor(B.lines / 10));
       let atk = ATTACK[cleared] + (B.combo >= 2 ? 1 : 0);
-      if (cleared === 4) api.sfx('win'); else api.sfx('line');
+      if (cleared === 4) { api.sfx('win'); fx.text(COLS * CELL / 2, VIS * CELL * 0.45, 'TETRIS!', { color: '#facc15', size: CELL * 1.1, life: 1.1 }); fx.shake(8, 0.35); fx.flash('#fff', 0.25); } else { api.sfx('line'); fx.shake(2 + cleared * 1.5, 0.2); if (B.combo >= 2) fx.text(COLS * CELL / 2, VIS * CELL * 0.45, `combo ×${B.combo}`, { color: '#22d3ee', size: CELL * 0.8 }); }
       // cancel incoming garbage first
       const cancel = Math.min(B.pending, atk);
       B.pending -= cancel; atk -= cancel;
@@ -160,12 +175,12 @@ export function start(api) {
       B.grid.push(Array.from({ length: COLS }, (_, c) => (c === hole ? 0 : 8)));
     }
     if (B.grid.slice(0, 2).some((r) => r.some(Boolean))) die();
-    api.sfx('bump');
+    api.sfx('bump'); fx.shake(5, 0.25); fx.flash('#ef4444', 0.18);
   }
   function die() {
     if (!B.alive) return;
     B.alive = false; B.cur = null;
-    api.sfx('lose');
+    api.sfx('lose'); fx.shake(10, 0.5); fx.burst(COLS * CELL / 2, VIS * CELL / 2, { n: 40, colors: ['#ef4444', '#fff', '#fb923c'], speed: 420, life: 1, size: 4, gravity: 200 });
     banner.textContent = '💀';
     api.toHost('dead', { lines: B.lines, score: B.score });
     sendBoard(true);
@@ -186,11 +201,18 @@ export function start(api) {
     for (let x = 1; x < COLS; x++) { c.beginPath(); c.moveTo(x * CELL, 0); c.lineTo(x * CELL, VIS * CELL); c.stroke(); }
     for (let y = 1; y < VIS; y++) { c.beginPath(); c.moveTo(0, y * CELL); c.lineTo(COLS * CELL, y * CELL); c.stroke(); }
     for (let r = 2; r < ROWS; r++) for (let q = 0; q < COLS; q++) if (B.grid[r][q]) cell(c, q * CELL, (r - 2) * CELL, CELL, COLORS[B.grid[r][q]], B.alive ? 1 : 0.5);
+    const nowT = performance.now();
+    for (const t of trails) { const u = (nowT - t.t0) / 180; if (u >= 1) continue; for (let k = 0; k < 4; k++) { const yy = t.y0 + (t.y1 - t.y0) * (k / 4); t.m.forEach((row, r) => row.forEach((v, q) => { if (v && yy + r >= 2) cell(c, (t.x + q) * CELL, (yy + r - 2) * CELL, CELL, COLORS[t.c], (1 - u) * 0.14 * (k + 1) / 2); })); } }
     if (B.cur) {
       const gy = ghostY();
       B.cur.m.forEach((row, r) => row.forEach((v, q) => { if (v) { if (gy + r >= 2) cell(c, (B.cur.x + q) * CELL, (gy + r - 2) * CELL, CELL, COLORS[PIECES[B.cur.t].c], 0.22); } }));
-      B.cur.m.forEach((row, r) => row.forEach((v, q) => { if (v && B.cur.y + r >= 2) cell(c, (B.cur.x + q) * CELL, (B.cur.y + r - 2) * CELL, CELL, COLORS[PIECES[B.cur.t].c]); }));
+      const px = B.dx ?? B.cur.x, py = B.dy ?? B.cur.y; // drawn a little behind the real position so moves glide
+      B.cur.m.forEach((row, r) => row.forEach((v, q) => { if (v && py + r >= 1.5) cell(c, (px + q) * CELL, (py + r - 2) * CELL, CELL, COLORS[PIECES[B.cur.t].c]); }));
     }
+    for (const l of locks) { const u = (nowT - l.t0) / 140; if (u < 1 && l.y >= 2) { c.globalAlpha = (1 - u) * 0.7; c.fillStyle = '#fff'; c.fillRect(l.x * CELL, (l.y - 2) * CELL, CELL, CELL); c.globalAlpha = 1; } }
+    for (const w of sweeps) { const u = (nowT - w.t0) / 320; if (u < 1) { c.globalAlpha = (1 - u) * 0.9; c.fillStyle = '#fff'; c.fillRect(0, w.y * CELL + CELL * 0.5 * u, COLS * CELL, CELL * (1 - u)); c.globalAlpha = 1; } }
+    fx.draw(c); fx.overlay(c, bcv.width, bcv.height);
+    const sh = fx.offset(); bcv.style.translate = sh.x || sh.y ? `${sh.x}px ${sh.y}px` : '';
   }
   function miniPiece(ctx, t, ox, oy, s) {
     const m = PIECES[t].m;
@@ -277,6 +299,11 @@ export function start(api) {
       } else B.lock = 0;
       sendBoard(false);
     }
+    if (B.cur) { const k = Math.min(1, dt * 30); B.dx += (B.cur.x - B.dx) * k; B.dy += (B.cur.y - B.dy) * Math.min(1, dt * 36); }
+    for (let i = locks.length - 1; i >= 0; i--) if (performance.now() - locks[i].t0 > 200) locks.splice(i, 1);
+    for (let i = sweeps.length - 1; i >= 0; i--) if (performance.now() - sweeps[i].t0 > 400) sweeps.splice(i, 1);
+    for (let i = trails.length - 1; i >= 0; i--) if (performance.now() - trails[i].t0 > 220) trails.splice(i, 1);
+    fx.update(dt);
     stats.score.textContent = B.score;
     drawBoard(); drawOpps();
   });

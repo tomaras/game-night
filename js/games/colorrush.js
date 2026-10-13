@@ -3,6 +3,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs, chance } from '../bots.js';
+import { from, bump } from '../motion.js';
 
 const COLS = { r: '#e5383b', y: '#f6b400', g: '#2b9348', b: '#2f6fed', w: '#23233a' };
 const COLNAME = { r: 'Red', y: 'Yellow', g: 'Green', b: 'Blue' };
@@ -35,9 +36,9 @@ const CSS = `
 .cr-card.pile { cursor:pointer; }
 .cr-card.pile.can { box-shadow:0 0 0 4px #ffc857, 0 3px 8px rgba(0,0,0,.5); animation:pulse 1s infinite; }
 .cr-hand { display:flex; gap:0; padding:20px 10px 8px; overflow-x:auto; min-height:140px; align-items:flex-end; justify-content:safe center; }
-.cr-hand .cr-card { margin-left:-22px; transition:transform .12s; cursor:pointer; }
+.cr-hand .cr-card { margin-left:-22px; transition:transform .22s cubic-bezier(.34,1.5,.5,1); cursor:pointer; transform:rotate(var(--r, 0deg)) translateY(var(--y, 0px)); transform-origin:50% 120%; }
 .cr-hand .cr-card:first-child { margin-left:0; }
-.cr-hand .cr-card.ok:hover, .cr-hand .cr-card.ok.sel { transform:translateY(-16px); z-index:2; }
+.cr-hand .cr-card.ok:hover, .cr-hand .cr-card.ok.sel { transform:translateY(-22px) rotate(0deg) scale(1.06); z-index:2; }
 .cr-hand .cr-card.no { filter:brightness(.5) saturate(.6); cursor:not-allowed; }
 .cr-msg { text-align:center; font-weight:800; min-height:22px; }
 .cr-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
@@ -47,7 +48,7 @@ const CSS = `
 .cr-pick .opts { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .cr-pick button { width:110px; height:84px; border-radius:16px; border:4px solid #fff; color:#fff; font-weight:900; font-size:17px; cursor:pointer; text-shadow:0 2px 3px rgba(0,0,0,.4); }
 .cr-log { font-size:12px; color:var(--muted); text-align:center; min-height:16px; }
-@media (max-width:640px) { .cr-mid { flex:0 1 300px !important; min-height:200px !important; } .cr-hand .cr-card { width:66px; height:98px; font-size:30px; margin-left:-30px; } .cr-card { width:58px; height:86px; font-size:28px; } .cr-hand .cr-card { margin-left:-26px; } .cr-mid { gap:16px; min-height:120px; } .cr-opp { min-width:0; padding:5px 8px; } .cr-opp .nm { max-width:60px; } }
+@media (max-width:640px) { .cr-mid { flex:1 1 240px !important; min-height:200px !important; max-height:460px; } .cr-hand .cr-card { width:66px; height:98px; font-size:30px; margin-left:-30px; } .cr-card { width:58px; height:86px; font-size:28px; } .cr-hand .cr-card { margin-left:-26px; } .cr-mid { gap:16px; min-height:120px; } .cr-opp { min-width:0; padding:5px 8px; } .cr-opp .nm { max-width:60px; } }
 `;
 
 export function start(api) {
@@ -239,21 +240,41 @@ export function start(api) {
   const root = h('div.cr');
   api.root.append(h('style', CSS), root);
 
+  const rectsOf = (sel, key) => { const m = new Map(); for (const e of root.querySelectorAll(sel)) m.set(e.dataset[key], e.getBoundingClientRect()); return m; };
   api.on('state', (s) => {
     const was = st;
+    const snap = was ? { hand: rectsOf('.cr-hand .cr-card', 'id'), opp: rectsOf('.cr-opp', 'pid'), pile: root.querySelector('.cr-card.pile')?.getBoundingClientRect(), top: root.querySelector('.cr-mid > .cr-card:not(.pile)')?.getBoundingClientRect() } : null;
     st = s;
     if (was && was.top && s.top && was.top.id !== s.top.id) api.sfx('card');
     if (s.turn === api.me && (!was || was.turn !== api.me) && !s.between) api.sfx('turn');
     pendingWild = null;
     render();
+    if (was && snap) animate(was, s, snap);
   });
+  // cards travel: from my hand or an opponent to the pile, and from the draw pile into hands
+  function animate(was, s, snap) {
+    const topEl = root.querySelector('.cr-mid > .cr-card:not(.pile)');
+    if (topEl && was.top && s.top && was.top.id !== s.top.id) {
+      let src = null;
+      if (was.turn === api.me) { const gone = was.hand.find((c) => !s.hand.some((x) => x.id === c.id)); src = gone && snap.hand.get(String(gone.id)); }
+      else src = snap.opp.get(String(was.turn));
+      if (src) from(topEl, src, { ms: 560, rotate: (Math.random() - 0.5) * 50, scale: 0.8, easing: 'cubic-bezier(.2,.8,.25,1.05)' });
+      topEl.style.setProperty('--tilt', (Math.random() - 0.5) * 10 + 'deg');
+      bump(topEl, { to: 1.06, ms: 260 });
+    }
+    if (snap.pile) {
+      let k = 0;
+      for (const e of root.querySelectorAll('.cr-hand .cr-card')) if (!snap.hand.has(e.dataset.id)) from(e, snap.pile, { ms: 560, delay: 80 * k++, rotate: -20, scale: 0.8, easing: 'cubic-bezier(.2,.8,.25,1.05)' });
+      for (const id of s.order) if (id !== api.me && s.counts[id] > (was.counts[id] || 0)) { const e = root.querySelector(`.cr-opp[data-pid="${id}"] .ct`); if (e) { from(e, snap.pile, { ms: 480, scale: 0.6 }); bump(e, { to: 1.3, ms: 340 }); } }
+    }
+  }
   api.on('log', (t) => { logEl.textContent = t; });
   api.on('err', (t) => { api.toast(t); api.sfx('bad'); });
   api.onPlayersChanged(() => st && render());
 
   const cardEl = (c, opts = {}) => {
     const sym = SYM[c.v] || c.v;
-    return h('div.cr-card' + (c.c === 'w' ? '.w' : '') + (opts.cls ? '.' + opts.cls : ''), { style: { '--cc': COLS[c.c] }, onclick: opts.onclick, title: c.c === 'w' ? 'Wild' : COLNAME[c.c] + ' ' + sym }, h('i.tl', sym), h('span', sym), h('i.br', sym));
+    return h('div.cr-card' + (c.c === 'w' ? '.w' : '') + (opts.cls ? '.' + opts.cls : ''), { 'data-id': c.id, style: { '--cc': COLS[c.c] }, onclick: opts.onclick, title: c.c === 'w' ? 'Wild' : COLNAME[c.c] + ' ' + sym }, h('i.tl', sym), h('span', sym), h('i.br', sym));
   };
   const playableLocal = (c) => c.c === 'w' || c.c === st.color || c.v === st.top.v;
 
@@ -272,7 +293,7 @@ export function start(api) {
     const others = st.order.filter((id) => id !== me);
     const opps = h('div.cr-opps', others.map((id) => {
       const p = api.player(id);
-      return h('div.cr-opp' + (st.turn === id && !st.between ? '.turn' : ''), [
+      return h('div.cr-opp' + (st.turn === id && !st.between ? '.turn' : ''), { 'data-pid': id }, [
         avatarEl({ ...p, online: p.online && !p.left }, 'sm' + (st.turn === id ? ' bounce' : '')),
         h('div', [h('div.nm', p.name), st.target ? h('div.sc', `${st.scores[id]} pts`) : null]),
         h('div.ct', st.counts[id]),
@@ -294,8 +315,8 @@ export function start(api) {
     ]);
 
     const hand = st.hand.slice().sort((a, b) => (a.c === b.c ? (a.v < b.v ? -1 : 1) : a.c < b.c ? -1 : 1));
-    const handEl = h('div.cr-hand', hand.map((c) => cardEl(c, { cls: myTurn && playableLocal(c) && (st.drawn === null || st.drawn === c.id) ? 'ok' : 'no', onclick: () => playCard(c) })));
-    const msg = st.between ? '🏁 Round over — next round starting…' : myTurn ? (st.drawn !== null ? 'You drew a playable card — play it or pass.' : '👉 Your turn! Play a card or tap the pile to draw.') : `${nameOf(st.turn)}'s turn`;
+    const handEl = h('div.cr-hand', hand.map((c, i) => { const el = cardEl(c, { cls: myTurn && playableLocal(c) && (st.drawn === null || st.drawn === c.id) ? 'ok' : 'no', onclick: () => playCard(c) }); const k = i - (hand.length - 1) / 2; el.style.setProperty('--r', k * 3.2 + 'deg'); el.style.setProperty('--y', Math.abs(k) * Math.abs(k) * 0.9 + 'px'); return el; }));
+    const msg = st.between ? '🏁 Round over — next round starting…' : myTurn ? (st.drawn !== null ? 'Play it, or pass' : 'Your turn') : `${nameOf(st.turn)}'s turn`;
     const showUno = st.hand.length <= 2 && st.hand.length > 0;
     const actions = h('div.cr-actions', [
       st.drawn !== null && myTurn ? h('button.btn', { onclick: () => api.toHost('pass') }, 'Pass') : null,

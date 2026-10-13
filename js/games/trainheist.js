@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock } from '../kit.js';
+import { flipDeep, bump } from '../motion.js';
 
 const CARDS = {
   move: ['Move', '➡️', '#1e88e5', 'Walk to a neighbouring car (up to 3 cars on the roof).'],
@@ -61,7 +62,7 @@ export function start(api) {
     const trainEl = h('div.th-train', Array.from({ length: C }, (_, i) => {
       const loco = i === C - 1;
       const lootRow = (items) => items.length ? h('div.th-loot', ['purse', 'jewel', 'box'].map((t) => { const n = items.filter((x) => x === t).length; return n ? h('span', h('span.emo', LOOT[t]), n > 1 ? '×' + n : '') : null; })) : null;
-      const here = (roof) => ids.filter((id) => S.pos[id] && S.pos[id].car === i && S.pos[id].roof === roof).map((id) => h('div.th-b' + (S.acting === id ? '.acting' : '') + (id === me ? '.me' : ''), avatarEl(api.player(id), 'xs', { still: S.acting !== id })));
+      const here = (roof) => ids.filter((id) => S.pos[id] && S.pos[id].car === i && S.pos[id].roof === roof).map((id) => h('div.th-b' + (S.acting === id ? '.acting' : '') + (id === me ? '.me' : ''), { 'data-k': id }, avatarEl(api.player(id), 'xs', { still: S.acting !== id })));
       return h('div.th-car' + (loco ? '.loco' : ''), h('div.th-roof', here(true), lootRow(S.cars[i]?.roof || []), h('span.th-lbl', 'roof')),
         h('div.th-in', here(false), S.marshal === i ? h('span.th-m.emo', { title: 'Marshal' }, '👮') : null, lootRow(S.cars[i]?.in || []), h('span.th-lbl', loco ? 'engine 🚂' : 'car ' + (i + 1))), h('div.th-wheels'));
     }));
@@ -91,7 +92,7 @@ export function start(api) {
         return h('div.th-card' + (S.sel === c.id ? '.sel' : '') + (c.k === 'bullet' || locked ? '.dead' : ''), { style: `--cc:${col}`, title: CARDS[c.k][3], onclick: () => { if (locked || c.k === 'bullet') return; S.sel = S.sel === c.id ? null : c.id; S.opt = {}; render(); } }, h('span.em.emo', em), nm);
       })));
     } else parts.push(h('div.th-log', S.log || ''));
-    root.replaceChildren(...parts);
+    flipDeep(root, () => root.replaceChildren(...parts), { ms: 620, enter: false });
     const mc = S.pos[me];
     if (mc) requestAnimationFrame(() => { const tr = root.querySelector('.th-train'); if (tr) tr.scrollLeft = Math.max(0, mc.car * 109 - tr.clientWidth / 2 + 52); });
   }

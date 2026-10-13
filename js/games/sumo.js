@@ -2,6 +2,7 @@
 // Move with arrows/WASD or by holding the pointer/finger on the arena; dash with Space or the 💨 button.
 import { h, fitCanvas, trackKeys, dpad, clamp } from '../util.js';
 import { drawAvatar, avatarEl } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const S = 760, CX = S / 2, CY = S / 2, R0 = 330, RMIN = 120, PR = 25;
 
@@ -29,16 +30,39 @@ export function start(api) {
   api.cleanup(fitCanvas(canvas, wrap, 1));
 
   // ------------------------------------------------------------ client
-  let snap = null;
+  let snap = null, prevSnap = null;
+  const fx = new Fx();
   const vis = {};
   const wins = {};
   ids.forEach((id) => (wins[id] = 0));
   api.on('snap', (s) => {
+    prevSnap = snap;
     snap = s;
     for (const p of s.p) { const v = vis[p[0]] || (vis[p[0]] = { x: p[1], y: p[2] }); if (Math.abs(v.x - p[1]) + Math.abs(v.y - p[2]) > 120) { v.x = p[1]; v.y = p[2]; } }
     s.ev?.forEach((e) => api.sfx(e));
+    effects(prevSnap, s);
     renderHud();
   });
+  // sparks where players collide, a shockwave on every dash, embers and a splash when someone goes over the edge
+  function effects(a, b) {
+    if (!a) return;
+    const at = (id) => vis[id] || { x: CX, y: CY };
+    for (const p of b.p) {
+      const was = a.p.find((q) => q[0] === p[0]);
+      if (!was) continue;
+      const v = at(p[0]), col = api.player(p[0]).color;
+      if (p[7] > 0.95 && was[7] < 0.95) { fx.ring(v.x, v.y, { r: 70, color: '#fff', life: 0.35, width: 4 }); fx.burst(v.x, v.y, { n: 12, colors: [col, '#fff'], speed: 320, life: 0.4, angle: Math.atan2(-p[4], -p[3]), spread: 1.2 }); }
+      if (was[5] && !p[5]) { fx.burst(v.x, v.y, { n: 34, colors: ['#ff7a29', '#ffb454', '#ff3d00', col], speed: 380, life: 0.9, size: 4, gravity: 260 }); fx.ring(v.x, v.y, { r: 90, color: '#ff7a29', life: 0.55, width: 5 }); fx.shake(p[0] === api.me ? 12 : 7, 0.35); fx.text(v.x, v.y - 20, 'OUT!', { color: '#ffb454', size: 22 }); }
+    }
+    if (b.ev?.includes('bump')) {
+      const live = b.p.filter((p) => p[5] && !p[6]);
+      for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+        const A = at(live[i][0]), B = at(live[j][0]);
+        if (Math.hypot(A.x - B.x, A.y - B.y) < PR * 2 + 10) { const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2; fx.burst(mx, my, { n: 14, colors: ['#fff', '#ffd23f'], speed: 300, life: 0.4 }); fx.ring(mx, my, { r: 40, life: 0.25, width: 3 }); fx.shake(4.5, 0.18); }
+      }
+    }
+    if (a.pr - b.pr > 0.01 && Math.random() < 0.6) { const ang = Math.random() * 7; fx.burst(CX + Math.cos(ang) * b.pr, CY + Math.sin(ang) * b.pr, { n: 2, colors: ['#ff7a29', '#ffb454'], speed: 70, life: 0.7, gravity: 90, size: 2.6 }); }
+  }
   api.on('msg', (m) => {
     Object.assign(wins, m.wins || {});
     banner.style.display = m.text ? '' : 'none';
@@ -50,14 +74,15 @@ export function start(api) {
     hud.replaceChildren(...snap.p.map((p) => { const info = api.player(p[0]); return h('div.su-p' + (p[5] ? '' : '.dead'), avatarEl({ ...info, online: info.online && !info.left }, 'sm', { still: true }), info.name, h('span', { style: 'color:var(--muted);font-size:12px' }, '🏆' + (wins[p[0]] || 0))); }));
   }
   function draw(now) {
-    ctx.clearRect(0, 0, S, S);
+    ctx.save(); fx.begin(ctx);
+    ctx.clearRect(-20, -20, S + 40, S + 40);
     const bg = ctx.createRadialGradient(CX, CY, 60, CX, CY, S * 0.75);
     bg.addColorStop(0, '#2a1b4d'); bg.addColorStop(1, '#0d0a1c');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, S, S);
+    ctx.fillStyle = bg; ctx.fillRect(-20, -20, S + 40, S + 40);
     // lava shimmer
     ctx.fillStyle = 'rgba(255,90,40,.10)';
     for (let i = 0; i < 14; i++) { const a = i * 0.9 + now / 3000; ctx.beginPath(); ctx.arc(CX + Math.cos(a) * 360, CY + Math.sin(a * 1.3) * 360, 70 + (i % 3) * 20, 0, 7); ctx.fill(); }
-    if (!snap) return;
+    if (!snap) { ctx.restore(); return; }
     const pr = snap.pr;
     ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(CX, CY + 10, pr + 6, 0, 7); ctx.fill();
     const g = ctx.createRadialGradient(CX, CY, 20, CX, CY, pr);
@@ -72,7 +97,9 @@ export function start(api) {
       if (!alive && !fall) continue;
       const info = api.player(id);
       const sc = fall ? Math.max(0.1, 1 - fall) : 1;
+      const vxx = p[3], vyy = p[4], spd = Math.hypot(vxx, vyy), stretch = Math.min(0.2, spd / 2600);
       ctx.save(); ctx.translate(v.x, v.y); ctx.scale(sc, sc); ctx.globalAlpha = fall ? 1 - fall * 0.8 : 1;
+      if (spd > 30) { ctx.rotate(Math.atan2(vyy, vxx)); ctx.scale(1 + stretch, 1 - stretch * 0.7); ctx.rotate(-Math.atan2(vyy, vxx)); if (!fall && spd > 230 && Math.random() < 0.5) fx.burst(v.x - vxx * 0.03, v.y - vyy * 0.03 + 8, { n: 1, color: 'rgba(230,200,150,.7)', speed: 25, life: 0.45, size: 4, glow: false, drag: 3 }); }
       ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 8, PR, PR * 0.55, 0, 0, 7); ctx.fill();
       ctx.strokeStyle = info.color; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, PR + 2, 0, 7); ctx.stroke();
       if (!drawAvatar(ctx, info.avatar, 0, 0, PR * 2.1)) { ctx.fillStyle = info.color; ctx.beginPath(); ctx.arc(0, 0, PR, 0, 7); ctx.fill(); }
@@ -81,12 +108,15 @@ export function start(api) {
       if (alive) {
         ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 3;
         ctx.strokeText(info.name, v.x, v.y - PR - 10); ctx.fillText(info.name, v.x, v.y - PR - 10);
-        if (id === api.me) { ctx.fillStyle = '#ffd23f'; ctx.fillText('▼', v.x, v.y - PR - 26); }
+        if (id === api.me) { ctx.fillStyle = '#ffd23f'; ctx.fillText('▼', v.x, v.y - PR - 26 + Math.sin(now / 200) * 3); }
       }
     }
+    fx.draw(ctx);
+    ctx.restore(); fx.overlay(ctx, S, S);
   }
   api.raf((dt, now) => {
     if (snap) for (const p of snap.p) { const v = vis[p[0]]; const k = Math.min(1, dt * 24); v.x += (p[1] - v.x) * k; v.y += (p[2] - v.y) * k; }
+    fx.update(dt);
     draw(now);
   });
 

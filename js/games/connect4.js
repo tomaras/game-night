@@ -25,13 +25,16 @@ const CSS = `
 .c4-col { display:grid; grid-template-rows:repeat(${R},1fr); gap:8px; cursor:pointer; border-radius:12px; transition:background .12s; }
 .c4-col.can:hover { background:rgba(255,255,255,.1); }
 .c4-cell { aspect-ratio:1; border-radius:50%; background:#dfe9fb; box-shadow:inset 0 5px 9px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.3); position:relative; }
-.c4-cell.p1::after, .c4-cell.p2::after { content:''; position:absolute; inset:0; border-radius:50%; box-shadow:inset 0 -5px 0 rgba(0,0,0,.25), inset 0 4px 6px rgba(255,255,255,.4); animation:c4drop .45s cubic-bezier(.5,0,.8,.4); }
-.c4-cell.p1::after { background:radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,.14) 50% 62%, transparent 64%), #ea4335; } .c4-cell.p2::after { background:radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,.14) 50% 62%, transparent 64%), #fbbc04; }
+.c4-d { position:absolute; inset:0; border-radius:50%; z-index:1; box-shadow:inset 0 -5px 0 rgba(0,0,0,.25), inset 0 4px 6px rgba(255,255,255,.4), 0 2px 3px rgba(0,0,0,.25); }
+.c4-d::before { content:''; position:absolute; inset:17%; border-radius:50%; box-shadow:inset 0 3px 5px rgba(0,0,0,.2), 0 1px 0 rgba(255,255,255,.28); }
+.c4-d.p1 { background:radial-gradient(circle at 35% 30%, #ff7a6c, #ea4335 55%, #c62a1f); } .c4-d.p2 { background:radial-gradient(circle at 35% 30%, #ffe27a, #fbbc04 55%, #e09a00); }
 .c4-cell.lastm::before { content:''; position:absolute; left:50%; top:50%; width:22%; height:22%; margin:-11% 0 0 -11%; border-radius:50%; background:rgba(255,255,255,.85); z-index:3; box-shadow:0 0 4px rgba(0,0,0,.3); }
+.c4-cell[data-falling]::before { display:none; }
 .c4-cell.win::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:4px solid #fff; animation:pulse .8s infinite; z-index:2; box-shadow:0 0 14px #fff; }
 .c4-ctl { display:flex; gap:8px; }
 .c4-ctl button { height:42px; padding:0 16px; border:0; border-radius:14px; background:var(--s2); color:var(--on); font:700 13px var(--font); display:flex; align-items:center; gap:6px; cursor:pointer; } .c4-ctl button:disabled { opacity:.4; } .c4-ctl .ic { width:19px; height:19px; }
-@keyframes c4drop { from { transform:translateY(-380%); } }
+@keyframes c4hop { 0%, 55%, 100% { transform:none; } 25% { transform:translateY(-16%) scale(1.06); } }
+.c4-cell.win .c4-d { animation:c4hop 1s ease-in-out infinite; animation-delay:calc(var(--k, 0) * .12s); }
 `;
 
 export function start(api) {
@@ -70,8 +73,25 @@ export function start(api) {
     api.toHost('drop', { c });
   }
 
+  const dropMs = (r) => (0.3 + 0.1 * Math.sqrt(r + 1.6)) * 1000;
+  // a disc falls the height of the column above it, hits the slot, squashes and bounces twice
+  function dropDisc(d, r) {
+    const dist = (r + 1.7) * 108, T = dropMs(r);
+    d.animate([
+      { transform: `translateY(${-dist}%)`, easing: 'cubic-bezier(.5,0,.9,.55)', offset: 0 },
+      { transform: 'translateY(0) scale(1,1)', easing: 'ease-out', offset: 0.62 },
+      { transform: 'translateY(0) scale(1.08,.88)', easing: 'ease-out', offset: 0.67 },
+      { transform: 'translateY(-13%) scale(1,1)', easing: 'cubic-bezier(.45,0,.9,.6)', offset: 0.79 },
+      { transform: 'translateY(0)', easing: 'ease-out', offset: 0.9 },
+      { transform: 'translateY(-3.5%)', easing: 'cubic-bezier(.45,0,.9,.6)', offset: 0.95 },
+      { transform: 'translateY(0)', offset: 1 },
+    ], { duration: T });
+    const cell = d.parentElement; cell.style.zIndex = 2; cell.dataset.falling = '1';
+    setTimeout(() => { cell.style.zIndex = ''; delete cell.dataset.falling; }, T);
+  }
   function render(prevBoard) {
     const mine = order.indexOf(api.me);
+    const newDiscs = prevBoard ? st.board.filter((v, i) => v && !prevBoard[i]).length : 0;
     for (let c = 0; c < C; c++) {
       cols[c].col.classList.toggle('can', st.winner < 0 && !st.draw && order[st.turn] === api.me && st.board[c] === 0);
       for (let r = 0; r < R; r++) {
@@ -79,9 +99,16 @@ export function start(api) {
         const cell = cols[c].cells[r];
         const was = prevBoard ? prevBoard[r * C + c] : -1;
         if (was !== v) {
-          cell.className = 'c4-cell' + (v ? ' p' + v : '');
+          cell.className = 'c4-cell';
+          cell.replaceChildren();
+          if (v) {
+            const d = h('div.c4-d.p' + v); cell.append(d);
+            if (prevBoard && was === 0 && newDiscs === 1) dropDisc(d, r);
+          }
         }
-        cell.classList.toggle('win', st.line.includes(r * C + c));
+        const li = st.line.indexOf(r * C + c);
+        cell.classList.toggle('win', li >= 0);
+        if (li >= 0) cell.style.setProperty('--k', li); else cell.style.removeProperty('--k');
       }
     }
     // players
@@ -114,7 +141,7 @@ export function start(api) {
   api.on('state', (s) => {
     Object.assign(st, s);
     const placed = st.board.some((v, i) => v && v !== shown[i]);
-    if (placed) { api.sfx('drop'); lastIdx = st.board.findIndex((v, i) => v && v !== shown[i]); }
+    if (placed) { lastIdx = st.board.findIndex((v, i) => v && v !== shown[i]); const T = dropMs(Math.floor(lastIdx / C)); api.timeout(() => api.sfx('thud', 0.8), T * 0.62); api.timeout(() => api.sfx('thud', 0.35), T * 0.79); }
     if (!st.board.some(Boolean)) lastIdx = -1;
     render(shown);
     shown.splice(0, shown.length, ...st.board);

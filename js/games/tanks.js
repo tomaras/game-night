@@ -2,6 +2,7 @@
 // Map is generated from the shared seed on every client; the host simulates and streams tanks/bullets.
 import { h, fitCanvas, trackKeys, dpad, makeRng } from '../util.js';
 import { drawAvatar, avatarEl } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const CELL = 16, TX = 19, TY = 19, TILE = 32;
 const CWc = TX * 2, CHc = TY * 2;
@@ -53,19 +54,30 @@ export function start(api) {
   api.cleanup(fitCanvas(canvas, wrap, W / HH));
 
   // ------------------------------------------------------------ client
-  let snap = null;
+  let snap = null, prevB = [];
+  const fx = new Fx();
   const vis = {};
   const scores = {};
   ids.forEach((id) => (scores[id] = 0));
   api.on('snap', (s) => {
     snap = s;
-    for (const t of s.t) { const v = vis[t[0]] || (vis[t[0]] = { x: t[1], y: t[2] }); if (Math.abs(v.x - t[1]) + Math.abs(v.y - t[2]) > 80) { v.x = t[1]; v.y = t[2]; } }
-    if (s.d) for (const i of s.d) cells[i] = 0;
+    for (const t of s.t) { const v = vis[t[0]] || (vis[t[0]] = { x: t[1], y: t[2], ang: t[3] * Math.PI / 2, kick: 0, kd: 0 }); if (Math.abs(v.x - t[1]) + Math.abs(v.y - t[2]) > 80) { v.x = t[1]; v.y = t[2]; } }
+    if (s.d) for (const i of s.d) { cells[i] = 0; fx.burst((i % CWc) * CELL + CELL / 2, Math.floor(i / CWc) * CELL + CELL / 2, { n: 6, colors: ['#d9692f', '#b5461d', '#6b2a10'], speed: 150, gravity: 220, life: 0.6, size: 3, glow: false }); }
+    // muzzle flash + recoil where a new shell appears next to a tank; blast particles for fresh explosions
+    for (const b of s.b) {
+      if (prevB.some((q) => Math.hypot(q[0] - b[0], q[1] - b[1]) < 26)) continue;
+      const t = s.t.find((q) => q[4] && Math.hypot(q[1] - b[0], q[2] - b[1]) < 34);
+      if (t) { fx.burst(b[0], b[1], { n: 7, colors: ['#fff', '#ffd23f', '#ff9a3c'], speed: 240, life: 0.22, size: 3, angle: t[3] * Math.PI / 2 - Math.PI / 2, spread: 0.9 }); const v = vis[t[0]]; if (v) { v.kick = 1; v.kd = t[3]; } if (t[0] === api.me) fx.shake(1.6, 0.08); }
+    }
+    prevB = s.b;
+    for (const [x, y, k] of s.x || []) if (k > 0.92) { fx.burst(x, y, { n: 18, colors: ['#ff7a29', '#ffd23f', '#fff', '#444'], speed: 260, life: 0.7, size: 4, gravity: 40 }); fx.ring(x, y, { r: 40, color: '#ffb454', life: 0.35, width: 4 }); fx.shake(5, 0.2); }
     if (s.sc) { Object.assign(scores, s.sc); renderHud(); }
     if (s.ev) s.ev.forEach((e) => api.sfx(e));
   });
   api.on('full', (f) => { cells.fill(0); const c = f.cells; for (let i = 0; i < c.length; i++) cells[i] = +c[i]; });
   api.on('kill', (k) => {
+    const v = vis[k.who];
+    if (v) { fx.burst(v.x, v.y, { n: 30, colors: [api.player(k.who)?.color || '#fff', '#fff', '#ffb454'], speed: 320, life: 0.9, size: 4, gravity: 60 }); fx.ring(v.x, v.y, { r: 80, color: '#ff7a29', life: 0.5, width: 5 }); fx.shake(k.who === api.me ? 11 : 6, 0.3); fx.text(v.x, v.y - 22, '💥', { size: 26 }); }
     const el = h('div', `${api.player(k.by)?.name || '?'} 💥 ${api.player(k.who)?.name || '?'}`);
     logEl.append(el);
     setTimeout(() => el.remove(), 3500);
@@ -90,12 +102,13 @@ export function start(api) {
     ctx.fillStyle = '#5b6470'; ctx.fillRect(px, py + CELL - 3, CELL, 3); ctx.fillRect(px + CELL - 3, py, 3, CELL);
     ctx.fillStyle = '#bfc7d0'; ctx.fillRect(px + 5, py + 5, 6, 6);
   }
-  function drawTank(id, x, y, dir, inv, alive, now) {
+  function drawTank(id, x, y, ang, inv, alive, now, kick = 0, kd = 0) {
     if (!alive) return;
+    x -= Math.sin(kd * Math.PI / 2) * -kick * 3; y -= Math.cos(kd * Math.PI / 2) * kick * 3; // recoil against the barrel direction
     const info = api.player(id);
     ctx.save(); ctx.translate(x, y);
     if (inv && Math.floor(now / 90) % 2) ctx.globalAlpha = 0.45;
-    ctx.rotate(dir * Math.PI / 2);
+    ctx.rotate(ang);
     // treads
     ctx.fillStyle = '#20232b'; ctx.fillRect(-14, -14, 7, 28); ctx.fillRect(7, -14, 7, 28);
     ctx.fillStyle = '#4b5060'; for (let i = -12; i < 14; i += 4) { ctx.fillRect(-14, i, 7, 1.5); ctx.fillRect(7, i, 7, 1.5); }
@@ -114,17 +127,29 @@ export function start(api) {
   }
   function draw(now) {
     ctx.fillStyle = '#eef1f7'; ctx.fillRect(0, 0, W, HH);
+    ctx.save(); fx.begin(ctx);
     ctx.fillStyle = 'rgba(31,41,55,.045)';
     for (let y = 0; y < TY; y++) for (let x = 0; x < TX; x++) if ((x + y) % 2) ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
     for (let y = 0; y < CHc; y++) for (let x = 0; x < CWc; x++) { const c = cells[y * CWc + x]; if (c === 1) drawBrickCell(x, y); else if (c === 2) drawSteelCell(x, y); }
-    if (!snap) return;
-    for (const t of snap.t) { const v = vis[t[0]]; drawTank(t[0], v.x, v.y, t[3], t[5], t[4], now); }
-    ctx.fillStyle = '#ea4335';
-    for (const [x, y] of snap.b) { ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill(); }
+    if (!snap) { ctx.restore(); return; }
+    for (const t of snap.t) { const v = vis[t[0]]; drawTank(t[0], v.x, v.y, v.ang, t[5], t[4], now, v.kick, v.kd); }
+    for (const [x, y] of snap.b) { // shells glow and leave a short smoky streak
+      ctx.shadowColor = '#ff6a3d'; ctx.shadowBlur = 10; ctx.fillStyle = '#ea4335'; ctx.beginPath(); ctx.arc(x, y, 4.2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x - 0.8, y - 0.8, 1.5, 0, 7); ctx.fill();
+      if (Math.random() < 0.6) fx.burst(x, y, { n: 1, color: 'rgba(255,140,60,.85)', speed: 20, life: 0.3, size: 3, glow: false });
+    }
     for (const [x, y, k] of snap.x || []) { ctx.fillStyle = `rgba(255,${120 + k * 100},40,${k})`; ctx.beginPath(); ctx.arc(x, y, 8 + (1 - k) * 22, 0, 7); ctx.fill(); }
+    fx.draw(ctx);
+    ctx.restore(); fx.overlay(ctx, W, HH);
   }
   api.raf((dt, now) => {
-    if (snap) for (const t of snap.t) { const v = vis[t[0]]; const k = Math.min(1, dt * 20); v.x += (t[1] - v.x) * k; v.y += (t[2] - v.y) * k; }
+    if (snap) for (const t of snap.t) {
+      const v = vis[t[0]], k = Math.min(1, dt * 20); v.x += (t[1] - v.x) * k; v.y += (t[2] - v.y) * k;
+      let da = t[3] * Math.PI / 2 - v.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); v.ang += da * Math.min(1, dt * 16); // turn smoothly instead of snapping
+      v.kick = Math.max(0, v.kick - dt * 9);
+      if (t[4] && Math.hypot(t[1] - v.x, t[2] - v.y) > 3 && Math.random() < 0.5) fx.burst(v.x, v.y, { n: 1, color: 'rgba(120,110,100,.5)', speed: 12, life: 0.4, size: 3, glow: false });
+    }
+    fx.update(dt);
     draw(now);
   });
 

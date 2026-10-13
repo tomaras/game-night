@@ -10,8 +10,8 @@ const CSS = `
 .dc.one b { margin:12%; }
 .dc.hit { box-shadow:inset 0 -3px 0 rgba(0,0,0,.12), 0 0 0 3px #ffc857, 0 0 16px rgba(255,200,87,.8); transform:translateY(-3px); }
 .dc.dim { opacity:.4; }
-.dc.roll { animation:dcroll .65s cubic-bezier(.3,.9,.4,1) both; }
-@keyframes dcroll { 0% { transform:translateY(-34px) rotate(-200deg) scale(.6); opacity:0; } 60% { transform:translateY(4px) rotate(14deg) scale(1.04); opacity:1; } 100% { transform:none; } }
+.dc.roll { animation:dcroll .7s cubic-bezier(.3,.9,.4,1) var(--dd, 0s) both; }
+@keyframes dcroll { 0% { transform:translateY(-44px) rotate(-260deg) scale(.55); opacity:0; } 45% { transform:translateY(0) rotate(40deg) scale(1.08); opacity:1; } 62% { transform:translateY(-14px) rotate(-18deg) scale(1.02); } 78% { transform:translateY(0) rotate(7deg) scale(1); } 90% { transform:translateY(-3px) rotate(-2deg); } 100% { transform:none; } }
 `;
 let injected = false;
 export function dieEl(v, { w, cls = '', roll = false, wild = false } = {}) {

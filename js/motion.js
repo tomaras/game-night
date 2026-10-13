@@ -112,3 +112,48 @@ export function celebrate(host, { n = 110, colors = ['#ea4335', '#fbbc04', '#34a
     p.animate(frames, { duration: T * 1000, delay: Math.random() * 350, easing: 'linear', fill: 'both' }).finished.catch(() => {}).then(() => p.remove());
   }
 }
+
+/** Fly an element (a chip, a card) between two points inside `host`, optionally along an arc, then remove it. */
+export function fly(host, node, from, to, { ms = 600, delay = 0, scale = [1, 1], arc = 0, easing = EASE.out, opacity = [1, 1], keep = false, rotate = [0, 0] } = {}) {
+  node.style.cssText += ';position:absolute;left:0;top:0;pointer-events:none;z-index:40;will-change:transform';
+  host.append(node);
+  const at = (p, s, o, r) => ({ transform: `translate(${p.x}px,${p.y}px) translate(-50%,-50%) scale(${s}) rotate(${r}deg)`, opacity: o });
+  const frames = [at(from, scale[0], opacity[0], rotate[0])];
+  if (arc) frames.push({ ...at({ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - arc }, (scale[0] + scale[1]) / 2 + 0.08, 1, (rotate[0] + rotate[1]) / 2), offset: 0.5 });
+  frames.push(at(to, scale[1], opacity[1], rotate[1]));
+  const a = node.animate(frames, { duration: dur(ms), delay, easing, fill: 'both' });
+  if (!keep) a.finished.catch(() => {}).then(() => node.remove());
+  return a;
+}
+
+/** A card being dealt: slides in from `from` (px offset), turning over as it lands. */
+export function dealIn(el, from = { x: 0, y: -80 }, { delay = 0, ms = 520, flipOver = true } = {}) {
+  const frames = [
+    { translate: `${from.x}px ${from.y}px`, scale: 0.55, opacity: 0, transform: `perspective(500px) rotateY(${flipOver ? 100 : 0}deg) rotate(-12deg)` },
+    { translate: '0 0', scale: 1, opacity: 1, transform: 'perspective(500px) rotateY(0deg) rotate(0deg)' },
+  ];
+  return el.animate(frames, { duration: dur(ms), delay, easing: EASE.out, fill: 'backwards' });
+}
+
+/** Make an element appear to travel from where it used to be (a DOMRect, or any {left, top, width, height}) to where it is now. */
+export function from(el, rect, { ms = 520, delay = 0, rotate = 0, scale = 1, easing = EASE.out, opacity = 1 } = {}) {
+  const r = el.getBoundingClientRect();
+  const dx = rect.left + rect.width / 2 - (r.left + r.width / 2), dy = rect.top + rect.height / 2 - (r.top + r.height / 2);
+  return el.animate([{ translate: `${dx}px ${dy}px`, rotate: `${rotate}deg`, scale, opacity }, { translate: '0 0', rotate: '0deg', scale: 1, opacity: 1 }], { duration: dur(ms), delay, easing, fill: 'backwards' });
+}
+
+/** FLIP for elements anywhere inside `root` that carry a unique data-k: whatever moved slides from its old place, new ones pop in. */
+export function flipDeep(root, mutate, { sel = '[data-k]', ms = 460, enter = true, easing = EASE.out } = {}) {
+  const before = new Map();
+  for (const el of root.querySelectorAll(sel)) before.set(el.dataset.k, el.getBoundingClientRect());
+  mutate();
+  if (!before.size && !enter) return;
+  let n = 0;
+  for (const el of root.querySelectorAll(sel)) {
+    const was = before.get(el.dataset.k);
+    if (!was) { if (enter && before.size) popIn(el, { ms: 320, delay: Math.min(n++, 10) * 30, from: 0.6 }); continue; }
+    const now = el.getBoundingClientRect();
+    const dx = was.left - now.left, dy = was.top - now.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) el.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], { duration: dur(ms), easing });
+  }
+}

@@ -1,6 +1,7 @@
 // Bomber Arena — 2–4 players, Bomberman-style. Host simulates at 30 Hz; clients send input and render snapshots.
 import { h, fitCanvas, trackKeys, dpad, clamp } from '../util.js';
 import { drawAvatar, avatarEl } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const COLS = 15, ROWS = 15, TS = 40;
 const CW = COLS * TS, CH = ROWS * TS;
@@ -33,15 +34,29 @@ export function start(api) {
   api.cleanup(fitCanvas(canvas, wrap, CW / CH));
 
   // ---------------------------------------------------------------- client state & rendering
-  let snap = null;
+  let snap = null, prevSnap = null;
+  const fx = new Fx();
   let grid = new Array(COLS * ROWS).fill(0);
   const vis = {}; // smoothed positions
   const wins = {};
   ids.forEach((id) => (wins[id] = 0));
 
+  const cx = (x) => x * TS + TS / 2;
   api.on('snap', (s) => {
+    const oldGrid = grid;
     if (s.g) grid = s.g.split('').map(Number);
+    prevSnap = snap;
     snap = s;
+    if (prevSnap) {
+      // crates burst into splinters, new flames spit sparks, a collected power-up pops, a dead player explodes
+      for (let i = 0; i < grid.length; i++) if (oldGrid[i] === 2 && grid[i] === 0) fx.burst(cx(i % COLS), cx(Math.floor(i / COLS)), { n: 10, colors: ['#ca8a04', '#a16207', '#713f12'], speed: 200, life: 0.7, gravity: 260, size: 3.4, glow: false });
+      const had = new Set(prevSnap.f.map((f) => f[0] + ',' + f[1]));
+      let fresh = 0;
+      for (const [x, y] of s.f) if (!had.has(x + ',' + y)) { fresh++; fx.burst(cx(x), cx(y), { n: 6, colors: ['#fff7ae', '#ff9f1c', '#e63946'], speed: 160, life: 0.55, size: 3.6, gravity: -40 }); }
+      if (fresh > 2) fx.shake(Math.min(9, 2 + fresh * 0.6), 0.28);
+      for (const [x, y, t] of prevSnap.u) if (!s.u.some((q) => q[0] === x && q[1] === y)) { fx.ring(cx(x), cx(y), { r: 34, color: '#ffd23f', life: 0.4, width: 3 }); fx.burst(cx(x), cx(y), { n: 10, colors: ['#ffd23f', '#fff'], speed: 180, life: 0.5 }); }
+      for (const p of s.p) { const was = prevSnap.p.find((q) => q[0] === p[0]); if (was && was[3] && !p[3]) { const v = vis[p[0]]; if (v) { fx.burst(cx(v.x - 0.5), cx(v.y - 0.5), { n: 28, colors: [api.player(p[0]).color, '#fff', '#ffb454'], speed: 320, life: 0.9, size: 4, gravity: 120 }); fx.ring(cx(v.x - 0.5), cx(v.y - 0.5), { r: 70, color: '#ff7a29', life: 0.5, width: 5 }); fx.shake(p[0] === api.me ? 12 : 6, 0.4); if (p[0] === api.me) fx.flash('#ff3d4a', 0.2); } } }
+    }
     for (const p of s.p) {
       const v = vis[p[0]] || (vis[p[0]] = { x: p[1], y: p[2] });
       if (Math.abs(v.x - p[1]) + Math.abs(v.y - p[2]) > 2.5) { v.x = p[1]; v.y = p[2]; }
@@ -65,12 +80,13 @@ export function start(api) {
 
   function draw() {
     ctx.clearRect(0, 0, CW, CH);
+    ctx.save(); fx.begin(ctx);
     // floor
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       ctx.fillStyle = (x + y) % 2 ? '#2f7d3a' : '#378a43';
       ctx.fillRect(x * TS, y * TS, TS, TS);
     }
-    if (!snap) return;
+    if (!snap) { ctx.restore(); return; }
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       const c = grid[y * COLS + x];
       if (c === 1) {
@@ -98,24 +114,35 @@ export function start(api) {
     for (const [x, y, k] of snap.f) {
       const g = ctx.createRadialGradient(x * TS + TS / 2, y * TS + TS / 2, 2, x * TS + TS / 2, y * TS + TS / 2, TS * 0.65);
       g.addColorStop(0, '#fff7ae'); g.addColorStop(0.5, '#ff9f1c'); g.addColorStop(1, 'rgba(230,57,70,.85)');
-      ctx.fillStyle = g; ctx.globalAlpha = 0.55 + k * 0.45;
-      ctx.fillRect(x * TS + 2, y * TS + 2, TS - 4, TS - 4); ctx.globalAlpha = 1;
+      ctx.fillStyle = g; ctx.globalAlpha = (0.55 + k * 0.45) * (0.85 + Math.random() * 0.15);
+      ctx.shadowColor = '#ff9f1c'; ctx.shadowBlur = 14;
+      ctx.fillRect(x * TS + 2 + (1 - k) * 4, y * TS + 2 + (1 - k) * 4, TS - 4 - (1 - k) * 8, TS - 4 - (1 - k) * 8); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     }
     // players
     for (const [id, , , alive] of snap.p) {
       const v = vis[id];
       if (!alive) continue;
       const info = api.player(id);
-      const x = v.x * TS, y = v.y * TS;
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + 14, 13, 6, 0, 0, 7); ctx.fill();
+      const x = v.x * TS, y = v.y * TS - Math.abs(Math.sin(v.walk || 0)) * 2.2;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, v.y * TS + 14, 13 - Math.abs(Math.sin(v.walk || 0)) * 1.4, 6, 0, 0, 7); ctx.fill();
       ctx.strokeStyle = info.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 17, 0, 7); ctx.stroke();
       if (!drawAvatar(ctx, info.avatar, x, y, 32)) { ctx.fillStyle = info.color; ctx.beginPath(); ctx.arc(x, y, 15, 0, 7); ctx.fill(); }
       ctx.font = 'bold 11px sans-serif'; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 3;
       ctx.strokeText(info.name, x, y - 24); ctx.fillText(info.name, x, y - 24);
     }
+    fx.draw(ctx);
+    ctx.restore(); fx.overlay(ctx, CW, CH);
   }
   api.raf((dt) => {
-    if (snap) for (const p of snap.p) { const v = vis[p[0]]; const k = Math.min(1, dt * 22); v.x += (p[1] - v.x) * k; v.y += (p[2] - v.y) * k; }
+    if (snap) for (const p of snap.p) {
+      const v = vis[p[0]], k = Math.min(1, dt * 22), ox = v.x, oy = v.y;
+      v.x += (p[1] - v.x) * k; v.y += (p[2] - v.y) * k;
+      const mv = Math.hypot(v.x - ox, v.y - oy); v.walk = (v.walk || 0) + mv * 26; // bob while walking
+      if (mv > 0.012 && p[3] && Math.random() < 0.18) fx.burst(v.x * TS, v.y * TS + 12, { n: 1, color: 'rgba(210,230,200,.5)', speed: 14, life: 0.35, size: 3, glow: false });
+    }
+    // fuse sparks on the bombs
+    if (snap) for (const [x, y] of snap.b) if (Math.random() < 0.5) fx.burst(cx(x) + 8, y * TS + 4, { n: 1, colors: ['#fde047', '#fff'], speed: 60, life: 0.3, size: 2, gravity: 80 });
+    fx.update(dt);
     draw();
   });
 

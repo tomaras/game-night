@@ -2,6 +2,7 @@
 // gets past you; eliminated sides turn into walls. Last paddle standing wins. Host simulates the ball.
 import { h, fitCanvas, trackKeys, clamp } from '../util.js';
 import { drawAvatar, avatarEl } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const S = 700, PLEN = 120, PT = 14, PM = 10, BR = 9;
 const SIDES = ['L', 'R', 'T', 'B'];
@@ -32,15 +33,26 @@ export function start(api) {
 
   // ------------------------------------------------------------ client
   let snap = null;
-  const vis = { ball: null, pad: {} };
+  const fx = new Fx();
+  const vis = { ball: null, pad: {}, hit: {} };
   api.on('snap', (s) => {
     snap = s;
     if (!vis.ball) vis.ball = { x: s.b[0], y: s.b[1] };
     for (const p of s.p) if (!(p[0] in vis.pad)) vis.pad[p[0]] = p[1];
-    s.ev?.forEach((e) => api.sfx(e));
+    s.ev?.forEach((e) => { api.sfx(e); react(e, s); });
     banner.textContent = s.msg || '';
     renderHud();
   });
+  // sparks, shockwaves and a little screen shake on every touch of the ball
+  function react(e, s) {
+    const [bx, by] = s.b;
+    if (e === 'clack') { fx.burst(bx, by, { n: 10, color: '#fff', speed: 280, life: 0.4 }); fx.ring(bx, by, { r: 30, life: 0.28, width: 2 }); fx.shake(2.2, 0.12); }
+    else if (e === 'bump') fx.burst(bx, by, { n: 6, color: '#8f98b8', speed: 170, life: 0.3, size: 2.5 });
+    else if (e === 'lose') { fx.shake(13, 0.4); fx.flash('#ff3d4a', 0.28); fx.ring(bx, by, { r: 150, color: '#ff5a64', life: 0.55, width: 6 }); fx.burst(bx, by, { n: 22, color: '#ff5a64', speed: 380, life: 0.7 }); fx.text(bx, by - 10, '−1 life', { color: '#ff8a93', size: 22 }); }
+    else if (e === 'boom') { fx.shake(20, 0.6); fx.flash('#fff', 0.5); fx.burst(S / 2, S / 2, { n: 60, colors: ['#ffd23f', '#ff5a64', '#fff', '#4285f4'], speed: 520, life: 1, size: 4 }); }
+    // light up the paddle that got it
+    for (const p of s.p) { const sd = sideOf[p[0]], d = sd === 'L' ? bx : sd === 'R' ? S - bx : sd === 'T' ? by : S - by; if (e === 'clack' && d < PM + PT + BR * 2.5) vis.hit[p[0]] = performance.now(); }
+  }
   function renderHud() {
     if (!snap) return;
     hud.replaceChildren(...snap.p.map((p) => { const info = api.player(p[0]); return h('div.pg-p' + (p[2] > 0 ? '' : '.dead'), avatarEl({ ...info, online: info.online && !info.left }, 'sm', { still: true }), info.name, h('span', { style: { color: info.color } }, '❤'.repeat(Math.max(0, p[2])) || '💀')); }));
@@ -58,6 +70,7 @@ export function start(api) {
     ctx.beginPath(); ctx.moveTo(S / 2, 0); ctx.lineTo(S / 2, S); ctx.moveTo(0, S / 2); ctx.lineTo(S, S / 2); ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.beginPath(); ctx.arc(S / 2, S / 2, 90, 0, 7); ctx.stroke();
     if (!snap) return;
+    ctx.save(); fx.begin(ctx);
     const owned = {};
     for (const p of snap.p) owned[sideOf[p[0]]] = p;
     // walls for sides without an alive player
@@ -72,7 +85,8 @@ export function start(api) {
       const info = api.player(p[0]);
       const side = sideOf[p[0]];
       const [x, y, w, hh] = padRect(side, vis.pad[p[0]]);
-      ctx.shadowColor = info.color; ctx.shadowBlur = p[0] === api.me ? 18 : 8;
+      const hot = Math.max(0, 1 - (performance.now() - (vis.hit[p[0]] || 0)) / 220);
+      ctx.shadowColor = info.color; ctx.shadowBlur = (p[0] === api.me ? 18 : 8) + hot * 22;
       ctx.fillStyle = info.color; ctx.beginPath(); ctx.roundRect(x, y, w, hh, 7); ctx.fill();
       ctx.shadowBlur = 0;
       const cx = x + w / 2, cy = y + hh / 2;
@@ -85,8 +99,13 @@ export function start(api) {
       trail.push([vis.ball.x, vis.ball.y]);
       if (trail.length > 14) trail.shift();
       trail.forEach(([tx, ty], i) => { ctx.fillStyle = `rgba(255,255,255,${(i / trail.length) * 0.25})`; ctx.beginPath(); ctx.arc(tx, ty, BR * (i / trail.length), 0, 7); ctx.fill(); });
-      ctx.shadowColor = '#fff'; ctx.shadowBlur = 16; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(vis.ball.x, vis.ball.y, BR, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+      // the ball stretches along its direction of travel
+      const bvx = snap.b[0] - vis.ball.x, bvy = snap.b[1] - vis.ball.y, bsp = Math.min(1, Math.hypot(bvx, bvy) / 28);
+      ctx.save(); ctx.translate(vis.ball.x, vis.ball.y); ctx.rotate(Math.atan2(bvy, bvx) || 0); ctx.scale(1 + bsp * 0.55, 1 - bsp * 0.18);
+      ctx.shadowColor = '#fff'; ctx.shadowBlur = 16; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, BR, 0, 7); ctx.fill(); ctx.shadowBlur = 0; ctx.restore();
     }
+    fx.draw(ctx);
+    ctx.restore(); fx.overlay(ctx, S, S);
   }
   api.raf((dt) => {
     if (snap) {
@@ -94,6 +113,7 @@ export function start(api) {
       vis.ball.x += (snap.b[0] - vis.ball.x) * k; vis.ball.y += (snap.b[1] - vis.ball.y) * k;
       for (const p of snap.p) vis.pad[p[0]] += (p[1] - vis.pad[p[0]]) * Math.min(1, dt * 26);
     }
+    fx.update(dt);
     draw();
   });
 

@@ -819,3 +819,9 @@ main#view { view-transition-name: view; }
 ::view-transition-new(view) { animation: stagein 0.4s var(--out) both; }
 ::view-transition-group(root) { animation-duration: 0.01s; }
 @media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+.kt-timer.low .sec { display: inline-block; }
+.kt-timer.low .bar i { animation: pulse 0.5s infinite; }
+.kt-choice { transition: transform 0.2s var(--spring), border-color 0.15s, background 0.15s, opacity 0.2s; }
+.kt-choice:hover:not(:disabled) { transform: translateY(-2px); }
+.kt-choice.win { animation: choicewin 0.7s var(--spring); } @keyframes choicewin { 0% { transform: scale(1); } 35% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.kt-card, .kt-pill { transition: transform 0.25s var(--spring), box-shadow 0.2s; }

@@ -49,6 +49,20 @@ export function start(api) {
   api.onPlayersChanged(render);
 
   const cornersAhead = (d, speed) => CORNERS.flatMap(([p, lim]) => { const out = []; for (let lap = 0; lap < laps + 1; lap++) { const ap = p + lap * L; if (ap > d && ap <= d + speed) out.push([ap, lim]); } return out; });
+  // cars glide along the track to wherever the last turn put them
+  const disp = {}, cars = {};
+  const carPos = (id, d, slot = 0) => {
+    const [x, y, a] = pt(d);
+    return `translate(${x - Math.sin(a) * (slot % 2 ? 11 : -11) * 0.9} ${y + Math.cos(a) * (slot % 2 ? 11 : -11) * 0.9})`;
+  };
+  api.raf((dt) => {
+    for (const id of ids) {
+      const to = Math.min(S.pl[id]?.dist || 0, total);
+      if (disp[id] === undefined) disp[id] = to;
+      const diff = to - disp[id];
+      if (Math.abs(diff) > 0.002) { disp[id] += Math.sign(diff) * Math.min(Math.abs(diff), Math.max(2.2, Math.abs(diff) * 2.4) * dt); cars[id]?.setAttribute('transform', carPos(id, disp[id], cars[id]._slot)); }
+    }
+  });
   function drawTrack() {
     const svg = sv('svg', { class: 'rl2-svg', viewBox: '0 0 400 240' });
     svg.append(sv('ellipse', { cx: 200, cy: 118, rx: 150, ry: 90, fill: 'none', stroke: '#546e7a', 'stroke-width': 34 }), sv('ellipse', { cx: 200, cy: 118, rx: 150, ry: 90, fill: 'none', stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '6 8', opacity: 0.6 }));
@@ -61,11 +75,10 @@ export function start(api) {
     svg.append(sv('text', { x: 200, y: 108, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: '#2e7d32', opacity: 0.35 }, 'REDLINE'), sv('text', { x: 200, y: 134, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: '#2e7d32', opacity: 0.5 }, `Turn ${S.turn} · ${laps} laps`));
     const byPos = {};
     ids.forEach((id, i) => {
-      const d = Math.min(S.pl[id]?.dist || 0, total);
+      const d = disp[id] ?? Math.min(S.pl[id]?.dist || 0, total);
       const slot = (byPos[Math.round(d)] = (byPos[Math.round(d)] || 0) + 1) - 1;
-      const [x, y, a] = pt(d);
-      const ox = -Math.sin(a) * (slot % 2 ? 11 : -11) * 0.9, oy = Math.cos(a) * (slot % 2 ? 11 : -11) * 0.9;
-      const g = sv('g', { transform: `translate(${x + ox} ${y + oy})` });
+      const g = sv('g', { transform: carPos(id, d, slot) });
+      g._slot = slot; cars[id] = g;
       g.append(sv('circle', { r: 11, fill: '#fff', stroke: PCOL[i], 'stroke-width': 4 }), sv('text', { y: 5, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 800, fill: PCOL[i] }, nameOf(id)[0].toUpperCase()));
       if (S.acting === id) g.append(sv('circle', { r: 16, fill: 'none', stroke: '#fbc02d', 'stroke-width': 3 }));
       svg.append(g);

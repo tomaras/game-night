@@ -2,6 +2,7 @@
 // Host ticks the game; clients interpolate between ticks. Keys, on-screen pad or swipe to steer.
 import { h, fitCanvas, trackKeys, dpad } from '../util.js';
 import { drawAvatar, avatarEl } from '../avatar.js';
+import { Fx } from '../fx.js';
 
 const COLS = 26, ROWS = 26, S = 22;
 const W = COLS * S, HH = ROWS * S;
@@ -34,12 +35,15 @@ export function start(api) {
 
   // ------------------------------------------------------------ client
   let cur = null, prev = null, tRecv = 0;
+  const fx = new Fx();
+  const foodBorn = new Map(); // food key -> when it appeared (for the pop-in)
   const wins = {};
   ids.forEach((id) => (wins[id] = 0));
   api.on('snap', (s) => {
     prev = cur || s;
     cur = s;
     tRecv = performance.now();
+    effects(prev, s);
     if (s.ev) s.ev.forEach((e) => api.sfx(e));
     renderHud();
   });
@@ -49,20 +53,48 @@ export function start(api) {
     banner.replaceChildren(...(m.text ? m.text.split('\n').map((t) => h('div', t)) : []));
     renderHud();
   });
+  const px = (v) => v * S + S / 2;
+  function effects(a, b) {
+    const key = (f) => f[0] + ',' + f[1] + ',' + f[2];
+    const nowKeys = new Set(b.f.map(key));
+    for (const f of a.f) if (!nowKeys.has(key(f))) { // an apple was eaten: sparks in the colour of whoever is standing there
+      const eater = b.s.find((sn) => sn.a && sn.c[0] === f[0] && sn.c[1] === f[1]);
+      const col = eater ? api.player(eater.id).color : '#fff';
+      fx.burst(px(f[0]), px(f[1]), { n: f[2] === 1 ? 12 : 18, colors: [col, '#fff', f[2] === 1 ? '#e7433a' : '#fbbc04'], speed: 190, life: 0.5, size: 3 });
+      fx.ring(px(f[0]), px(f[1]), { r: 26, color: '#fff', life: 0.3, width: 2 });
+      if (f[2] !== 1) fx.text(px(f[0]), px(f[1]) - 6, '+3', { color: '#fff', size: 16 });
+    }
+    for (const f of b.f) if (!foodBorn.has(key(f))) foodBorn.set(key(f), performance.now());
+    for (const sn of b.s) {
+      const was = a.s.find((q) => q.id === sn.id);
+      if (was && was.a && !sn.a) { // crashed: the whole snake bursts into its own colour
+        const col = api.player(sn.id).color;
+        for (let i = 0; i < was.c.length; i += 2) fx.burst(px(was.c[i]), px(was.c[i + 1]), { n: 3, colors: [col, '#fff'], speed: 220, life: 0.8, size: 3.4, gravity: 120 });
+        fx.shake(sn.id === api.me ? 14 : 6, 0.4); if (sn.id === api.me) fx.flash('#ff3d4a', 0.22);
+        fx.ring(px(was.c[0]), px(was.c[1]), { r: 70, color: col, life: 0.5, width: 5 });
+      }
+    }
+  }
   function renderHud() {
     if (!cur) return;
     hud.replaceChildren(...cur.s.map((sn) => { const p = api.player(sn.id); return h('div.sn-p' + (sn.a ? '' : '.dead'), avatarEl({ ...p, online: p.online && !p.left }, 'sm', { still: true }), p.name, h('span.l', `🏆${wins[sn.id] || 0} · ${sn.c.length / 2}`)); }));
   }
   function draw(now) {
+    ctx.save();
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) { ctx.fillStyle = (x + y) % 2 ? '#a2d149' : '#aad751'; ctx.fillRect(x * S, y * S, S, S); }
-    if (!cur) return;
+    if (!cur) { ctx.restore(); return; }
+    fx.begin(ctx);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const [x, y, k] of cur.f) {
-      const cx = x * S + S / 2, cy = y * S + S / 2 + 1;
-      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(cx, cy + 6, 6, 3, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = k === 1 ? '#e7433a' : '#fbbc04'; ctx.beginPath(); ctx.arc(cx, cy, 7.5, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(cx - 2.5, cy - 3, 2.2, 0, 7); ctx.fill();
-      ctx.strokeStyle = '#3e7d1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy - 7); ctx.lineTo(cx + 3, cy - 11); ctx.stroke();
+      const born = foodBorn.get(x + ',' + y + ',' + k) || 0, u = Math.min(1, (now - born) / 320);
+      const sc = u >= 1 ? 1 : 1 + 2.2 * Math.pow(u - 1, 3) + 1.2 * Math.pow(u - 1, 2); // overshoots a little, then settles
+      const cx = x * S + S / 2, cy = y * S + S / 2 + 1 + Math.sin(now / 380 + x * 1.7 + y) * 0.9;
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(0, 6, 6, 3, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = k === 1 ? '#e7433a' : '#fbbc04'; ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(-2.5, -3, 2.2, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#3e7d1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(3, -11); ctx.stroke();
+      ctx.restore();
     }
     const alpha = Math.min(1, (now - tRecv) / tickMs);
     for (const sn of cur.s) {
@@ -77,12 +109,19 @@ export function start(api) {
       const blink = !sn.a && Math.floor(now / 120) % 2;
       if (!sn.a && !blink) continue;
       ctx.globalAlpha = sn.a ? 1 : 0.55;
-      for (let i = segs.length - 1; i >= 0; i--) {
-        const [x, y] = segs[i];
-        const r = i === 0 ? S * 0.48 : S * (0.42 - Math.min(0.12, i * 0.004));
-        ctx.fillStyle = i % 2 ? p.color : shadeHex(p.color);
-        ctx.beginPath(); ctx.arc(x * S + S / 2, y * S + S / 2, r, 0, 7); ctx.fill();
-      }
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const tube = (wf, col, dx = 0, dy = 0) => { // thicker near the head, tapering to the tail
+        for (let i = segs.length - 1; i > 0; i--) {
+          const wd = S * wf * (0.62 + 0.38 * (1 - i / Math.max(segs.length, 4)));
+          ctx.strokeStyle = col; ctx.lineWidth = wd;
+          ctx.beginPath(); ctx.moveTo(segs[i][0] * S + S / 2 + dx, segs[i][1] * S + S / 2 + dy); ctx.lineTo(segs[i - 1][0] * S + S / 2 + dx, segs[i - 1][1] * S + S / 2 + dy); ctx.stroke();
+        }
+      };
+      tube(0.92, 'rgba(0,0,0,.2)', 0, 3);
+      tube(0.86, shadeHex(p.color));
+      tube(0.66, p.color);
+      tube(0.2, 'rgba(255,255,255,.28)', -2, -2.5);
+      ctx.fillStyle = shadeHex(p.color); ctx.beginPath(); ctx.arc(segs[0][0] * S + S / 2, segs[0][1] * S + S / 2, S * 0.5, 0, 7); ctx.fill();
       const [hx, hy] = segs[0];
       if (!drawAvatar(ctx, p.avatar, hx * S + S / 2, hy * S + S / 2, S * 1.5)) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx * S + S / 2, hy * S + S / 2, 6, 0, 7); ctx.fill(); }
       ctx.globalAlpha = 1;
@@ -91,9 +130,11 @@ export function start(api) {
         ctx.strokeText(p.name, hx * S + S / 2, hy * S - 8); ctx.fillText(p.name, hx * S + S / 2, hy * S - 8);
       }
     }
+    fx.draw(ctx);
+    ctx.restore(); fx.overlay(ctx, W, HH);
   }
   function shadeHex(hex) { const v = parseInt(hex.slice(1), 16); const f = (x) => Math.round(x * 0.78); return `rgb(${f((v >> 16) & 255)},${f((v >> 8) & 255)},${f(v & 255)})`; }
-  api.raf((dt, now) => draw(now));
+  api.raf((dt, now) => { fx.update(dt); draw(now); });
 
   // ------------------------------------------------------------ input
   trackKeys(api, (k, down) => { if (down) keyEvent(k, true); });
