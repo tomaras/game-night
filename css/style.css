@@ -779,3 +779,43 @@ body:not([data-tab="games"]) .envpill { display: none; }
 .gbtn { height: 54px; padding: 0 8px; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.1; min-width: 0; }
 .gbtn .ic { width: 20px; height: 20px; }
 .gbtn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- motion ---------- */
+:root { --spring: cubic-bezier(0.34, 1.5, 0.5, 1); --out: cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes sheetin { from { transform: translateY(100%); } }
+@keyframes dlgin { from { opacity: 0; transform: translateY(18px) scale(0.9); } }
+@keyframes popin { from { opacity: 0; transform: scale(0.88) translateY(-4px); } }
+@keyframes toastin { from { opacity: 0; transform: translateY(26px) scale(0.92); } }
+@keyframes toastout { to { opacity: 0; transform: translateY(12px) scale(0.95); } }
+@keyframes noticein { from { opacity: 0; transform: translateY(-28px) scale(0.94); } }
+@keyframes stagein { from { opacity: 0; transform: translateY(12px); } }
+.sheet { animation: sheetin 0.5s var(--out); }
+.dialog { animation: dlgin 0.4s var(--spring); }
+.scrim.out { opacity: 0; transition: opacity 0.2s; } .scrim.out .dialog { transform: scale(0.94); opacity: 0; transition: transform 0.2s, opacity 0.2s; }
+.menu, .popover { animation: popin 0.28s var(--spring); }
+.toast { animation: toastin 0.45s var(--spring); } .toast.out { animation: toastout 0.25s ease-in forwards; }
+.notice { animation: noticein 0.5s var(--spring); } .notice.out { animation: toastout 0.25s ease-in forwards; }
+.btn:not(:disabled):active { transform: scale(0.96); }
+.iconbtn:not(:disabled):active { transform: scale(0.88); }
+.btn, .iconbtn, .fchip, .chip, .seg button { transition-timing-function: var(--spring); }
+.gcard:active { transform: scale(0.975); }
+.switch span::after { transition: transform 0.32s var(--spring), background 0.2s, left 0.32s var(--spring); }
+.lobby, .game-root { animation: fade 0.4s var(--out); }
+/* results */
+@keyframes resin { from { opacity: 0; transform: translateY(30px) scale(0.88); } }
+@keyframes trophyin { from { transform: scale(0) rotate(-40deg); } }
+@keyframes trophyhov { 50% { transform: translateY(-4px) rotate(2.5deg); } }
+@keyframes rrowin { from { opacity: 0; transform: translateX(-28px) scale(0.96); } }
+@keyframes shine { 0% { transform: translateX(-120%) skewX(-18deg); } 55%, 100% { transform: translateX(260%) skewX(-18deg); } }
+.results { animation: resin 0.55s var(--spring); }
+.results .trophy { animation: trophyin 0.9s var(--spring) 0.15s backwards, trophyhov 3.4s ease-in-out 1.3s infinite; }
+.results h2 { animation: ktpop 0.5s var(--out) 0.35s backwards; }
+.rrow { animation: rrowin 0.55s var(--spring) calc(0.45s + var(--i, 0) * 0.1s) backwards; }
+.rrow.first { position: relative; overflow: hidden; }
+.rrow.first::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent); animation: shine 3s ease-in-out 1.4s infinite; pointer-events: none; }
+/* screen changes */
+main#view { view-transition-name: view; }
+::view-transition-old(view) { animation: fade 0.16s ease reverse both; }
+::view-transition-new(view) { animation: stagein 0.4s var(--out) both; }
+::view-transition-group(root) { animation-duration: 0.01s; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }

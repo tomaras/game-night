@@ -53,7 +53,7 @@ export function toast(text, kind = '') {
   const host = document.getElementById('toasts');
   const t = h('div.toast' + (kind ? '.' + kind : ''), text);
   host.appendChild(t);
-  setTimeout(() => t.remove(), 3400);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 260); }, 3200);
 }
 
 /** A card that slides in at the top of the screen and waits for a decision (join requests, invitations).
@@ -62,7 +62,7 @@ export function notice({ avatar, icon: ic, title, text, actions = [], ttl = 0, k
   let host = document.getElementById('notices');
   if (!host) { host = h('div#notices'); document.body.append(host); }
   if (key) host.querySelector(`[data-key="${key}"]`)?.remove();
-  const close = () => el.remove();
+  const close = () => { if (el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 260); };
   const el = h('div.notice', { 'data-key': key || '', role: 'alert' },
     avatar || (ic ? h('div.nic', icon(ic)) : null),
     h('div.nbody', h('b', title), text ? h('div.nt', text) : null,
@@ -105,7 +105,7 @@ export function openSheet(content, { wide, onClose, closable = true, cls = '' } 
 export function openDialog({ title, text, content, actions }) {
   return new Promise((resolve) => {
     const back = h('div.scrim.center', { onclick: (e) => { if (e.target === back) done(undefined); } });
-    const done = (v) => { back.remove(); removeEventListener('keydown', onKey); resolve(v); };
+    const done = (v) => { removeEventListener('keydown', onKey); back.classList.add('out'); setTimeout(() => back.remove(), 200); resolve(v); };
     const onKey = (e) => { if (e.key === 'Escape') done(undefined); };
     addEventListener('keydown', onKey);
     back.append(h('div.dialog', [

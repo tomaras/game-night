@@ -62,3 +62,53 @@ export function countTo(el, to, { ms = 600, from = Number(el.textContent) || 0, 
   const step = (t) => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
+
+/** Run a screen change inside a View Transition (a soft cross-fade of the main area) where the browser supports it. */
+export function swap(fn) {
+  if (reduced() || !document.startViewTransition) return fn();
+  try { return document.startViewTransition(() => fn()).updateCallbackDone; } catch { return fn(); }
+}
+
+/** FLIP: remember where the keyed children are, change the DOM, then slide every child that moved from its old spot. New ones pop in. */
+export function flip(container, mutate, { ms = 420, key = (el) => el.dataset.k, stagger = 18 } = {}) {
+  const before = new Map();
+  for (const el of container.children) { const k = key(el); if (k) before.set(k, el.getBoundingClientRect()); }
+  mutate();
+  let n = 0;
+  for (const el of container.children) {
+    const k = key(el); if (!k) continue;
+    const was = before.get(k);
+    if (!was) { popIn(el, { ms: 340, delay: Math.min(n++, 14) * stagger, from: 0.85 }); continue; }
+    const now = el.getBoundingClientRect();
+    const dx = was.left - now.left, dy = was.top - now.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) el.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], { duration: dur(ms), easing: EASE.out });
+  }
+}
+
+/** Confetti: two cannons from the bottom corners plus a shower from above, with gravity, drag and tumbling paper. */
+export function celebrate(host, { n = 110, colors = ['#ea4335', '#fbbc04', '#34a853', '#4285f4', '#e5399b', '#f57c00', '#ffffff'] } = {}) {
+  if (reduced()) return;
+  const r = host.getBoundingClientRect(), w = r.width || innerWidth, hgt = r.height || innerHeight;
+  const g = 1500;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i');
+    const cannon = i < n * 0.6, left = i % 2 === 0;
+    const x0 = cannon ? (left ? 0 : w) : Math.random() * w, y0 = cannon ? hgt * 0.95 : -20;
+    const ang = cannon ? (left ? -1 : -Math.PI + 1) * (0.55 + Math.random() * 0.5) + (left ? 0 : 0) : Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    const sp = cannon ? 650 + Math.random() * 700 : 80 + Math.random() * 160;
+    let vx = Math.cos(ang) * sp * (cannon && !left ? 1 : 1), vy = Math.sin(ang) * sp;
+    if (cannon) { vx = (left ? 1 : -1) * Math.abs(Math.cos(ang)) * sp; vy = -Math.abs(Math.sin(ang)) * sp * 1.1; }
+    const s = 6 + Math.random() * 7, ribbon = Math.random() < 0.4;
+    p.style.cssText = `position:absolute;left:0;top:0;width:${ribbon ? s * 0.45 : s}px;height:${ribbon ? s * 1.9 : s * 0.62}px;background:${colors[i % colors.length]};border-radius:${Math.random() < 0.3 ? '50%' : '1.5px'};pointer-events:none;z-index:60;will-change:transform`;
+    host.append(p);
+    const T = 2.4 + Math.random() * 1.6, steps = 28, frames = [];
+    const rot0 = Math.random() * 360, spin = (Math.random() - 0.5) * 900, flipS = 1 + Math.random() * 4;
+    for (let k = 0; k <= steps; k++) {
+      const t = (k / steps) * T, drag = Math.exp(-1.1 * t);
+      const x = x0 + (vx / 1.1) * (1 - drag) + Math.sin(t * flipS * 2) * (cannon ? 6 : 16);
+      const y = y0 + vy * (1 - drag) / 1.1 + 0.5 * g * t * t * 0.32 + 80 * t * (1 - drag) * 0;
+      frames.push({ transform: `translate(${x}px,${y}px) rotate(${rot0 + spin * t}deg) rotateX(${t * flipS * 220}deg)`, opacity: k > steps - 5 ? (steps - k) / 5 : 1 });
+    }
+    p.animate(frames, { duration: T * 1000, delay: Math.random() * 350, easing: 'linear', fill: 'both' }).finished.catch(() => {}).then(() => p.remove());
+  }
+}

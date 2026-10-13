@@ -11,6 +11,7 @@ import { Comms } from './comms.js';
 import { createCommsButtons, openCommsSheet, channelList, createMiniCall } from './commsui.js';
 import { chatView } from './chatview.js';
 import { videoCard } from './videos.js';
+import { swap, flip, celebrate, countTo } from './motion.js';
 import { createChatOverlay } from './chatoverlay.js';
 import { Recorder } from './recorder.js';
 import { openRecordings } from './recui.js';
@@ -310,12 +311,13 @@ function gameBrowser({ onPick, only = null, fixedPlayers, compact = false }) {
   function openPlayersPopover(anchor = pf) {
     let close;
     const chip = (n) => h('button.numchip' + (local.players === n ? '.on' : ''), { onclick: () => { setPlayers(n); close(); } }, n);
-    const box = h('div', h('h4', 'How many players?'),
+    const box = h('div', h('h4', 'Players'),
       h('div.numgrid', h('button.numchip.any' + (local.players == null ? '.on' : ''), { onclick: () => { setPlayers(null); close(); } }, 'Any'), ...Array.from({ length: 12 }, (_, i) => chip(i + 1))),
       h('div.sw-row', h('span', 'Include games with computer players'), switchEl(S.withBots, (v) => { S.withBots = v; writePref('gn.withBots', v ? '1' : '0'); paint(); })),
-      h('div.muted', { style: 'font-size:12.5px;margin-top:8px;line-height:1.4' }, 'Shows only the games that work with exactly this many people. 1 = games you can play alone.'));
+      );
     close = openPopover(anchor, box, { align: 'right', width: 300 });
   }
+  let painted = false;
   function paint() {
     const q = local.query.trim().toLowerCase();
     const cats = ['All', RECENT, FAVS, ...CATEGORIES];
@@ -325,7 +327,10 @@ function gameBrowser({ onPick, only = null, fixedPlayers, compact = false }) {
       && (!q || (g.name + ' ' + g.tagline + ' ' + (g.tags || []).join(' ') + ' ' + g.cat).toLowerCase().includes(q)));
     if (local.filter === RECENT) list.sort((a, b) => S.recent.indexOf(a.id) - S.recent.indexOf(b.id));
     const cardOpts = { onCat: (c) => { local.filter = c; if (!compact) S.filter = c; paint(); }, onPlayers: (el) => openPlayersPopover(el) };
-    mount(grid, list.length ? list.map((g) => gameCard(g, onPick, cardOpts)) : h('div.empty', local.filter === RECENT && !S.recent.length ? 'Games you play will show up here, newest first.' : local.filter === FAVS && !S.favs.size ? 'Tap the ☆ on any game to pin it here.' : local.players != null ? `No games for ${local.players} player${local.players === 1 ? '' : 's'}${S.withBots ? '' : ' (computer players off)'} — try another number.` : 'No games match — try another search.'));
+    const cards = () => list.map((g) => { const c = gameCard(g, onPick, cardOpts); c.dataset.k = g.id; return c; });
+    const fill = () => mount(grid, list.length ? cards() : h('div.empty', local.filter === RECENT && !S.recent.length ? 'Games you play show up here' : local.filter === FAVS && !S.favs.size ? 'Tap ☆ on a game to pin it' : local.players != null ? `No games for ${local.players} player${local.players === 1 ? '' : 's'}${S.withBots ? '' : ' (computer players off)'} — try another number.` : 'No games match — try another search.'));
+    if (painted) flip(grid, fill); else fill();
+    painted = true;
     clear.classList.toggle('hide', !local.query);
     pf.classList.toggle('on', local.players != null);
     mount(pf, icon('group'), local.players == null ? 'Players' : String(local.players));
@@ -1265,11 +1270,14 @@ function updateResults() {
     res.subtitle ? h('div.sub', res.subtitle) : null,
     ...ranking.map((r, i) => {
       const p = room.player(r.id) || { name: r.name || '?', color: '#888' };
-      return h('div.rrow' + (i === 0 ? '.first' : ''), [
+      const sc = h('div.sc', r.score !== undefined ? String(r.score) : '', r.note ? h('small', r.note) : null);
+      const num = typeof r.score === 'number' || /^-?\d+$/.test(String(r.score ?? 'x')) ? Number(r.score) : null;
+      if (num !== null && Math.abs(num) > 0 && Math.abs(num) < 1e7) { sc.firstChild.textContent = '0'; setTimeout(() => { if (sc.firstChild) countTo(sc.firstChild, num, { ms: 900, from: 0 }); }, 650 + i * 100); }
+      return h('div.rrow' + (i === 0 ? '.first' : ''), { style: `--i:${i}` }, [
         h('div.rk', i + 1),
         avatarEl(p, winners.includes(r.id) ? 'lg dance' : 'lg'),
         h('div.pname', p.name + (r.id === room.me ? ' (you)' : '')),
-        h('div.sc', r.score !== undefined ? String(r.score) : '', r.note ? h('small', r.note) : null),
+        sc,
       ]);
     }),
     h('div.row.wrap', { style: 'margin-top:20px;justify-content:center' },
@@ -1284,7 +1292,7 @@ function updateResults() {
   ]));
   ui.resultsEl = el;
   ui.stage.append(el);
-  if (iWon) { sfx('win'); confetti(ui.stage); } else sfx('good');
+  if (iWon) { sfx('win'); celebrate(el); } else sfx('good');
 }
 
 function playAgain() {
@@ -1299,22 +1307,6 @@ function playAgain() {
   room.startGame(g.gameId, g.opts, ids);
 }
 
-function confetti(container) {
-  const colors = ['#ea4335', '#fbbc04', '#34a853', '#4285f4', '#e5399b', '#f57c00'];
-  for (let i = 0; i < 80; i++) {
-    const c = h('div.confetti', {
-      style: {
-        left: Math.random() * 100 + '%',
-        background: colors[i % colors.length],
-        animationDuration: 2 + Math.random() * 2.5 + 's',
-        animationDelay: Math.random() * 0.6 + 's',
-        transform: `rotate(${Math.random() * 360}deg)`,
-      },
-    });
-    container.append(c);
-    setTimeout(() => c.remove(), 5500);
-  }
-}
 
 // ------------------------------------------------------------------ routing
 async function route() {
@@ -1340,8 +1332,8 @@ async function route() {
   const mm = /^#\/m\/([\w-]+)/.exec(hash);
   if (mm) return importMatch(mm[1]);
   const tab = /^#\/(rooms|matches|lounge)\b/.exec(hash);
-  if (tab) return renderTab(tab[1]);
-  renderGamesTab();
+  if (tab) return swap(() => renderTab(tab[1]));
+  swap(() => renderGamesTab());
   const g = /^#\/game\/([\w-]+)/.exec(hash);
   if (g && GAME_BY_ID[g[1]]) openGameSheet(GAME_BY_ID[g[1]]);
 }

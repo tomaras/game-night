@@ -390,7 +390,7 @@ await test('Recent: games you play appear under a Recent filter, newest first', 
   await p.waitForSelector('.gcard');
   ok(await p.locator('.fchip:has-text("Recent")').count() === 1 && await p.locator('.fchip:has-text("Favourites")').count() === 1, 'Recent and Favourites chips are always there');
   await p.click('.fchip:has-text("Recent")');
-  ok(await p.locator('.gcard').count() === 0 && /will show up here/.test(await p.innerText('.home')), 'Recent starts empty with a hint');
+  ok(await p.locator('.gcard').count() === 0 && /Games you play show up here/.test(await p.innerText('.home')), 'Recent starts empty with a hint');
   await p.click('.fchip:has-text("All")');
   for (const id of ['connect4', 'letterdash']) {
     await p.evaluate((id) => { location.hash = '#/game/' + id; }, id);
