@@ -12,7 +12,7 @@ import { loadGames, buildScript } from './script.mjs';
 import { captureGame } from './capture.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PY = process.env.KOKORO_PYTHON, MODEL = process.env.KOKORO_MODEL, VOICES = process.env.KOKORO_VOICES, VOICE = process.env.KOKORO_VOICE || 'af_heart', SPEED = +(process.env.KOKORO_SPEED || 0.97);
+const PY = process.env.KOKORO_PYTHON, MODEL = process.env.KOKORO_MODEL, VOICES = process.env.KOKORO_VOICES, VOICE = process.env.KOKORO_VOICE || 'af_heart', SPEED = +(process.env.KOKORO_SPEED || 0.9);
 const W = 480, H = 1038, FPS = 30, TITLE = 3.4, LEAD = 0.7, GAP = 0.3, SECTION_GAP = 0.85, TAIL = 1.4, SR = 24000;
 const sh = (cmd, args, opts = {}) => execFileSync(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'], ...opts });
 const vttTime = (t) => { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`; };
@@ -65,7 +65,7 @@ export async function buildVideo(id, { seconds = 110, out = path.join(ROOT, '.vi
   const total = t;
   fs.writeFileSync(path.join(wavDir, 'list.txt'), parts.map((p) => `file '${p}'`).join('\n'));
   const voice = path.join(dir, 'voice.wav');
-  sh('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', path.join(wavDir, 'list.txt'), '-af', 'loudnorm=I=-17:TP=-1.5:LRA=9,aresample=44100', '-ac', '1', voice]);
+  sh('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', path.join(wavDir, 'list.txt'), '-af', 'highpass=f=70,acompressor=threshold=-21dB:ratio=2.2:attack=8:release=140:makeup=2,equalizer=f=3500:t=q:w=1.2:g=1.5,loudnorm=I=-17:TP=-1.5:LRA=9,aresample=44100', '-ac', '1', voice]);
   fs.writeFileSync(path.join(out, id + '.vtt'), 'WEBVTT\n\n' + cues.map((c, i) => `${i + 1}\n${vttTime(c.start)} --> ${vttTime(c.end + 0.15)}\n${c.text}\n`).join('\n'));
 
   // 2. gameplay footage long enough for the narration

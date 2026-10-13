@@ -138,7 +138,9 @@ export function start(api) {
   api.cleanup(() => ro.disconnect());
 
   // ---- drawing
-  api.raf(() => {
+  const vis = []; // drawn positions glide towards the real ones, so other people's pieces move smoothly
+  const flashes = new Map(); // piece -> time it clicked into place
+  api.raf((dt) => {
     if (!cw || S.phase === 'pick') return;
     const dpr = canvas.width / cw;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -152,10 +154,17 @@ export function start(api) {
     const order = S.pos.map((_, i) => i).sort((a, b) => (S.z[S.grp[a]] || 0) - (S.z[S.grp[b]] || 0));
     for (const i of order) {
       const bm = bmps[i]; if (!bm) continue;
-      const [x, y] = S.pos[i];
+      const target = S.pos[i], mine = drag && drag.members.includes(i);
+      const v = vis[i] || (vis[i] = [target[0], target[1]]);
+      if (mine) { v[0] = target[0]; v[1] = target[1]; } else { const k = Math.min(1, dt * 22); v[0] += (target[0] - v[0]) * k; v[1] += (target[1] - v[1]) * k; if (Math.abs(target[0] - v[0]) < 0.05) v[0] = target[0]; if (Math.abs(target[1] - v[1]) < 0.05) v[1] = target[1]; }
+      const [x, y] = v;
       const holder = S.holders[S.grp[i]];
+      const lift = holder ? 1.035 : 1, fl = flashes.get(i), fu = fl ? (performance.now() - fl) / 480 : 1;
       if (holder) { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 14 / V.s; ctx.shadowOffsetY = 6 / V.s; }
+      ctx.save(); ctx.translate(x + PW / 2, y + PH / 2); ctx.scale(lift * (fu < 1 ? 1 + 0.06 * Math.sin(fu * Math.PI) : 1), lift * (fu < 1 ? 1 + 0.06 * Math.sin(fu * Math.PI) : 1)); ctx.translate(-(x + PW / 2), -(y + PH / 2));
       ctx.drawImage(bm, x - M, y - M);
+      if (fu < 1) { ctx.globalAlpha = (1 - fu) * 0.55; ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(bm, x - M, y - M); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; } else if (fl) flashes.delete(i);
+      ctx.restore();
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       if (holder && holder !== api.me) { ctx.strokeStyle = PCOL[ids.indexOf(holder) % 10]; ctx.lineWidth = 5 / V.s; ctx.strokeRect(x, y, PW, PH); }
     }
@@ -226,6 +235,7 @@ export function start(api) {
     if (drag) S.holders[drag.g] = api.me;
     S.z = { ...S.z, ...(m.z || {}) };
     if (m.snd) api.sfx(m.snd);
+    if (m.snd === 'good') { const t = performance.now(); for (const [i] of m.p) flashes.set(i, t); }
     if (m.stat) { S.snaps = m.stat; renderBar(); }
   });
   api.on('done', (m) => { S.phase = 'done'; S.done = m; api.sfx('win'); render(); });

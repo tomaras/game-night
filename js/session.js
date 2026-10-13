@@ -6,6 +6,7 @@
 // Messages: games talk with api.toHost / api.broadcast / api.sendTo and listen with api.on.
 // The host is the single source of truth (it runs the rules); guests render what it sends.
 
+import { autoMotion } from './motion.js';
 import { makeRng } from './util.js';
 import { sfx } from './audio.js';
 
@@ -120,6 +121,7 @@ export class GameSession {
     this._offLeft = room.on('left', (id) => { if (room.isHost) this._leaveFns.forEach((f) => this._safe(f, id)); });
     this._offRejoin = room.on('rejoin', (id) => { if (room.isHost) this._rejoinFns.forEach((f) => this._safe(f, id)); });
 
+    this._cleanups.push(autoMotion(root));
     try {
       this.instance = mod.start(api) || {};
     } catch (e) {

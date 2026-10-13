@@ -121,7 +121,7 @@ export async function captureGame(id, { seconds = 110, work = path.join(ROOT, '.
     if (solo) {
       const p = await mkPage('Alice'); pages.push(p);
       await p.goto(base + '&autopilot=1#/game/' + id); await p.waitForSelector('.sheet');
-      await p.click('.sheet button:has-text("Play vs computer"), .sheet button:has-text("Play alone")');
+      await p.click('.sheet .galt button:first-child');
       await p.waitForSelector('.sheet button:has-text("Start")');
       rec = await startScreencast(p, path.join(dir, 'frames'));
       started = Date.now();

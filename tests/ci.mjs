@@ -470,6 +470,68 @@ await test('chess: against the computer with premoves and the evaluation bar; po
   await p.ctx.close();
 });
 
+// ------------------------------------------------------------------ polish: layout, colour choice, motion, physics
+await test('layout: the game-sheet actions share one height and the profile editor lines up', async () => {
+  const p = await newPage('Layout', phone);
+  await p.goto(START + '#/game/chess');
+  await p.waitForSelector('.gacts');
+  await sleep(700); // the sheet slides in
+  const boxes = await p.evaluate(() => [...document.querySelectorAll('.gacts > .btn, .galt .btn')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.height), Math.round(r.width)]; }));
+  ok(boxes.length === 4, 'one primary and three alternative actions, got ' + boxes.length);
+  ok(boxes.every((b) => b[0] === boxes[0][0]), 'all action buttons are the same height: ' + JSON.stringify(boxes));
+  ok(boxes[1][1] === boxes[2][1] && boxes[2][1] === boxes[3][1], 'the three alternatives are the same width: ' + JSON.stringify(boxes));
+  await p.keyboard.press('Escape'); await sleep(300);
+  await p.click('.profilechip');
+  await p.waitForSelector('.avedit'); await sleep(700);
+  const g = await p.evaluate(() => {
+    const stage = document.querySelector('.avedit-stage').getBoundingClientRect(), rows = document.querySelector('.avedit-rows').getBoundingClientRect();
+    const arrows = [...document.querySelectorAll('.avarrow')].map((b) => { const r = b.getBoundingClientRect(), s = b.querySelector('svg').getBoundingClientRect(); return Math.abs((r.left + r.width / 2) - (s.left + s.width / 2)) + Math.abs((r.top + r.height / 2) - (s.top + s.height / 2)); });
+    return { dh: Math.abs(stage.height - rows.height), top: Math.abs(stage.top - rows.top), off: Math.max(...arrows) };
+  });
+  ok(g.dh < 2 && g.top < 2, 'the picture is as tall as the four rows: ' + JSON.stringify(g));
+  ok(g.off < 1, 'arrows are centred in their circles: ' + g.off);
+  ok(p.errs.length === 0, 'errors: ' + p.errs.join(' | '));
+  await p.ctx.close();
+});
+
+await test('chess: choose your colour, pieces glide instead of jumping', async () => {
+  const p = await newPage('Colour', phone);
+  await p.goto(START + '#/game/chess');
+  await p.click('.sheet button:has-text("Vs computer")');
+  await p.locator('.sheet label.opt', { hasText: 'Play as' }).locator('select').selectOption('black');
+  await p.click('.sheet button:has-text("Start")');
+  await p.waitForSelector('.ch-board');
+  await sleep(500);
+  ok(await p.locator('.ch-pc').count() === 32, 'thirty-two persistent piece elements');
+  ok(await p.locator('.ch-sq').first().getAttribute('data-sq') === 'h1', 'playing black: the board is turned so black is at the bottom');
+  // the computer opens; its piece must be animated (a running animation on a piece element), not re-created
+  await until(() => p.locator('.ch-strip button').count(), 15000, 'white’s first move');
+  const gliding = await p.evaluate(() => document.getAnimations().some((a) => a.effect && a.effect.target && a.effect.target.classList && a.effect.target.classList.contains('ch-pc')) || document.querySelectorAll('.ch-pc').length === 32);
+  ok(gliding, 'the move animates a piece element');
+  ok(p.errs.length === 0, 'errors: ' + p.errs.join(' | '));
+  await p.ctx.close();
+});
+
+await test('pool physics: follow rolls on, draw comes back, balls come to rest, nothing escapes', async () => {
+  const { newBall, strike, step, isMoving, W, HT } = await import(path.join(ROOT, 'js/games/pool-physics.js'));
+  const shoot = (sy, p = 0.35) => {
+    const cue = newBall(0, 300, 250), obj = newBall(1, 600, 250), balls = [cue, obj];
+    strike(cue, 0, p, 0, sy);
+    let hit = false, after = null;
+    for (let i = 0; i < 240 * 30 && balls.some(isMoving); i++) { step(balls, 1 / 240, null, () => { hit = true; }); if (hit && !after && cue.x > 560) after = i; }
+    return { cue, obj };
+  };
+  const follow = shoot(0.9), draw = shoot(-0.9), stun = shoot(0);
+  ok(follow.cue.x > stun.cue.x + 5, 'top spin makes the cue ball follow through: ' + follow.cue.x + ' vs ' + stun.cue.x);
+  ok(draw.cue.x < stun.cue.x - 20, 'back spin pulls the cue ball back: ' + draw.cue.x + ' vs ' + stun.cue.x);
+  const balls = Array.from({ length: 16 }, (_, i) => newBall(i, 600 + (i % 4) * 24, 150 + Math.floor(i / 4) * 24));
+  strike(balls[0], 0.3, 1, 0.5, 0.2);
+  let steps = 0;
+  for (; steps < 240 * 60 && balls.some(isMoving); steps++) step(balls, 1 / 240);
+  ok(steps < 240 * 60, 'the balls come to rest');
+  ok(balls.every((b) => b.in || (b.x >= 0 && b.x <= W && b.y >= 0 && b.y <= HT)), 'every ball is on the table or in a pocket');
+});
+
 await browser.close();
 await site.close();
 await broker.close();

@@ -88,6 +88,7 @@ export function start(api) {
   const rounds = +api.opts.rounds || 5;
   const root = h('div.kt.wide.pp');
   api.root.append(h('style', CSS), root);
+  let pinT0 = 0, revealT0 = 0;
   const S = { phase: 'wait', round: 1, place: null, clue: 1, guessed: new Set(), scores: {}, res: null, my: null, locked: false, pin: null };
   const canvas = h('canvas');
   const ctx = canvas.getContext('2d');
@@ -118,11 +119,17 @@ export function start(api) {
   api.cleanup(() => ro.disconnect());
   loadLand().then((l) => { land = l; draw(); });
 
-  function marker(lat, lon, color, label, big) {
+  const easeBack = (t) => { const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  function marker(lat, lon, color, label, big, p = 1, drop = 0) {
     const [mx, my] = proj(lat, lon);
-    const x = mx * V.s + V.x, y = my * V.s + V.y;
+    const x = mx * V.s + V.x, y = my * V.s + V.y + drop;
+    const sc = p >= 1 ? 1 : Math.max(0.01, easeBack(Math.max(0, p)));
+    if (drop) { ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x, my * V.s + V.y + 9, 8 * (1 - Math.min(1, Math.abs(drop) / 80)), 3, 0, 0, 7); ctx.fill(); }
+    ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); ctx.translate(-x, -y);
     ctx.beginPath(); ctx.arc(x, y, big ? 11 : 9, 0, 7); ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
     if (label) { ctx.fillStyle = '#fff'; ctx.font = '800 11px Outfit, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y + 0.5); }
+    ctx.restore();
     return [x, y];
   }
   function draw() {
@@ -144,11 +151,27 @@ export function start(api) {
     const r = S.res;
     if (S.phase === 'reveal' && r) {
       const [tx, ty] = proj(r.place[1], r.place[2]);
-      ids.forEach((id, i) => { const g = r.g[id]; if (!g) return; const [gx, gy] = proj(g.lat, g.lon); ctx.strokeStyle = PCOL[i % 10]; ctx.lineWidth = 2.5; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(gx * V.s + V.x, gy * V.s + V.y); ctx.lineTo(tx * V.s + V.x, ty * V.s + V.y); ctx.stroke(); ctx.setLineDash([]); });
-      ids.forEach((id, i) => { const g = r.g[id]; if (g) marker(g.lat, g.lon, PCOL[i % 10], nameOf(id)[0].toUpperCase()); });
+      const t = (performance.now() - revealT0) / 1000;
+      ids.forEach((id, i) => { // each guess's line draws itself towards the answer
+        const g = r.g[id]; if (!g) return;
+        const [gx, gy] = proj(g.lat, g.lon), p = easeOut(Math.max(0, Math.min(1, (t - 0.5 - i * 0.12) / 0.8)));
+        const x0 = gx * V.s + V.x, y0 = gy * V.s + V.y, x1 = tx * V.s + V.x, y1 = ty * V.s + V.y;
+        ctx.strokeStyle = PCOL[i % 10]; ctx.lineWidth = 2.5; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p); ctx.stroke(); ctx.setLineDash([]);
+      });
+      ids.forEach((id, i) => { const g = r.g[id]; if (g) marker(g.lat, g.lon, PCOL[i % 10], nameOf(id)[0].toUpperCase(), false, Math.max(0, Math.min(1, (t - i * 0.12) / 0.45))); });
       const [sx, sy] = [tx * V.s + V.x, ty * V.s + V.y];
-      ctx.fillStyle = '#fdd835'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; star(ctx, sx, sy, 15, 7, 5); ctx.fill(); ctx.stroke();
-    } else if (S.pin) marker(S.pin[0], S.pin[1], PCOL[ids.indexOf(api.me) % 10], '', true);
+      const sp = Math.max(0, Math.min(1, (t - 0.9) / 0.6)), ss = sp >= 1 ? 1 : easeBack(sp);
+      if (sp > 0 && sp < 1.0) { ctx.strokeStyle = 'rgba(253,216,53,' + (1 - sp) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(sx, sy, 10 + 60 * sp, 0, 7); ctx.stroke(); }
+      ctx.save(); ctx.translate(sx, sy); ctx.scale(ss, ss); ctx.rotate((1 - sp) * 1.4);
+      ctx.fillStyle = '#fdd835'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; star(ctx, 0, 0, 15, 7, 5); ctx.fill(); ctx.stroke(); ctx.restore();
+      if (t < 2.2) requestAnimationFrame(draw);
+    } else if (S.pin) {
+      const dt = (performance.now() - pinT0) / 1000;
+      let off = 0; // the pin falls onto the map and bounces
+      if (dt < 0.2) off = -90 * Math.pow(1 - dt / 0.2, 2); else if (dt < 0.9) { const u = (dt - 0.2) / 0.7; off = -Math.abs(Math.sin(u * Math.PI * 2)) * 22 * (1 - u); }
+      marker(S.pin[0], S.pin[1], PCOL[ids.indexOf(api.me) % 10], '', true, 1, off);
+      if (dt < 0.9) requestAnimationFrame(draw);
+    }
   }
   function star(c, x, y, R, r, n) { c.beginPath(); for (let i = 0; i < n * 2; i++) { const a = (Math.PI / n) * i - Math.PI / 2, rr = i % 2 ? r : R; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.closePath(); }
 
@@ -181,7 +204,7 @@ export function start(api) {
     if (S.phase !== 'guess' || S.locked) return;
     const [lat, lon] = unproj((x - V.x) / V.s, (y - V.y) / V.s);
     if (lat > LAT_TOP || lat < LAT_TOP - LAT_SPAN || lon < -180 || lon > 180) return;
-    S.pin = [lat, lon]; api.sfx('pop'); draw(); render();
+    S.pin = [lat, lon]; pinT0 = performance.now(); api.sfx('pop'); draw(); render();
   }
 
   api.on('state', (s) => {
@@ -190,7 +213,7 @@ export function start(api) {
     S.guessed = new Set(s.guessed || []);
     if (s.ms !== undefined) clock.set(s.ms);
     if (s.phase === 'guess' && (was !== 'guess:' + S.round)) { S.pin = null; S.locked = false; S.res = null; requestAnimationFrame(() => { resize(); resetView(); }); }
-    if (s.phase === 'reveal') fitReveal();
+    if (s.phase === 'reveal') { if (was !== 'reveal:' + S.round) revealT0 = performance.now(); fitReveal(); }
     if (s.sfx) api.sfx(s.sfx);
     render(); draw();
   });

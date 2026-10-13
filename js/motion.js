@@ -99,7 +99,7 @@ export function celebrate(host, { n = 110, colors = ['#ea4335', '#fbbc04', '#34a
     let vx = Math.cos(ang) * sp * (cannon && !left ? 1 : 1), vy = Math.sin(ang) * sp;
     if (cannon) { vx = (left ? 1 : -1) * Math.abs(Math.cos(ang)) * sp; vy = -Math.abs(Math.sin(ang)) * sp * 1.1; }
     const s = 6 + Math.random() * 7, ribbon = Math.random() < 0.4;
-    p.style.cssText = `position:absolute;left:0;top:0;width:${ribbon ? s * 0.45 : s}px;height:${ribbon ? s * 1.9 : s * 0.62}px;background:${colors[i % colors.length]};border-radius:${Math.random() < 0.3 ? '50%' : '1.5px'};pointer-events:none;z-index:60;will-change:transform`;
+    p.style.cssText = `position:absolute;left:0;top:0;width:${ribbon ? s * 0.45 : s}px;height:${ribbon ? s * 1.9 : s * 0.62}px;background:${colors[i % colors.length]};border-radius:${Math.random() < 0.3 ? '50%' : '1.5px'};pointer-events:none;z-index:1;will-change:transform`;
     host.append(p);
     const T = 2.4 + Math.random() * 1.6, steps = 28, frames = [];
     const rot0 = Math.random() * 360, spin = (Math.random() - 0.5) * 900, flipS = 1 + Math.random() * 4;
@@ -144,6 +144,7 @@ export function from(el, rect, { ms = 520, delay = 0, rotate = 0, scale = 1, eas
 
 /** FLIP for elements anywhere inside `root` that carry a unique data-k: whatever moved slides from its old place, new ones pop in. */
 export function flipDeep(root, mutate, { sel = '[data-k]', ms = 460, enter = true, easing = EASE.out } = {}) {
+  root.dataset.motion = 'own'; // this screen animates itself: skip the generic section fade
   const before = new Map();
   for (const el of root.querySelectorAll(sel)) before.set(el.dataset.k, el.getBoundingClientRect());
   mutate();
@@ -156,4 +157,29 @@ export function flipDeep(root, mutate, { sel = '[data-k]', ms = 460, enter = tru
     const dx = was.left - now.left, dy = was.top - now.top;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) el.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], { duration: dur(ms), easing });
   }
+}
+
+// A signature of what a section SAYS, blind to numbers and inline styles, so a ticking clock or a score going up is not a "change".
+const sig = (el) => el.outerHTML.replace(/ style="[^"]*"/g, '').replace(/\d+(\.\d+)?/g, '#');
+/**
+ * Generic motion for the party games: whenever a game redraws its screen (a plain replaceChildren on a .kt column),
+ * the sections that actually changed ease in; the ones that look the same stay perfectly still.
+ */
+export function autoMotion(root) {
+  if (reduced() || typeof MutationObserver === 'undefined') return () => {};
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) {
+      const t = m.target;
+      if (!m.addedNodes.length || !t.classList || !t.classList.contains('kt') || t.dataset.motion === 'own') continue;
+      const old = [...m.removedNodes].filter((n) => n.nodeType === 1).map(sig);
+      const fresh = [...m.addedNodes].filter((n) => n.nodeType === 1);
+      let k = 0;
+      fresh.forEach((el, i) => {
+        if (old.length && old[i] === sig(el)) return;
+        el.animate([{ opacity: 0, translate: '0 12px', scale: 0.985 }, { opacity: 1, translate: '0 0', scale: 1 }], { duration: 380, delay: Math.min(k++, 6) * 45, easing: EASE.out, fill: 'backwards' });
+      });
+    }
+  });
+  mo.observe(root, { childList: true, subtree: true });
+  return () => mo.disconnect();
 }

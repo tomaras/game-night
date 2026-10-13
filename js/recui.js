@@ -71,7 +71,7 @@ export function openRecordings(rec, { toast }) {
       h('div.pp-set', h('div', h('b', 'Screen video'), screenOk ? null : h('div.muted', { style: 'font-size:12.5px' }, 'Not supported here')), switchEl(s.video && screenOk, (v) => rec.set({ video: v }))),
       h('div.pp-set', h('b', 'Screen sound'), switchEl(s.screen, (v) => rec.set({ screen: v }))),
       h('div.pp-set', h('b', 'My microphone'), switchEl(s.mic, (v) => rec.set({ mic: v }))),
-      h('div.pp-set', h('div', h('b', 'Taps & cursor'), h('div.muted', { style: 'font-size:12.5px' }, s.video && screenOk ? 'Show where you touch or point, so it appears in the video.' : 'Needs screen video.')), switchEl(s.taps, (v) => rec.set({ taps: v }))),
+      h('div.pp-set', h('div', h('b', 'Taps & cursor'), h('div.muted', { style: 'font-size:12.5px' }, s.video && screenOk ? '' : 'Needs screen video')), switchEl(s.taps, (v) => rec.set({ taps: v }))),
       !canRecordAudio() ? h('div.warnbox', icon('info'), 'This browser can’t record.') : null,
       h('div.row.wrap', { style: 'gap:8px;margin-top:4px' },
         st ? h('button.btn.primary.grow', { onclick: save }, icon('save_alt'), `Save last ${s.minutes} min`) : h('button.btn.primary.grow', { disabled: !canRecordAudio(), onclick: start }, icon('fiber_manual_record'), 'Start recording'),
