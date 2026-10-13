@@ -5,6 +5,7 @@
 // move list you can step through (and keyboard arrows) · captured pieces & material · flip board · takebacks ·
 // draw offers / resign / abort · hints and an evaluation bar (against the computer, over the board, or after a game) ·
 // over-the-board mode (black's pieces face the other player) · board colours, coordinates, sounds · copy PGN / FEN.
+import { glide, popIn, popOut, shake } from '../motion.js';
 import { h, copyText } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { icon, confirmDialog, openPopover, openMenu, switchEl, toast } from '../ui.js';
@@ -53,11 +54,13 @@ const CSS = `
 .ch-sq.over::after { content:''; position:absolute; inset:0; box-shadow:inset 0 0 0 calc(var(--bs) / 90) rgba(255,255,255,.85); }
 .ch-sq .mv { position:absolute; width:29%; height:29%; border-radius:50%; background:rgba(30,50,15,.34); }
 .ch-sq .cp { position:absolute; inset:2%; border-radius:50%; border:calc(var(--bs) / 90) solid rgba(30,50,15,.36); }
-.ch-sq img { position:relative; z-index:2; width:94%; height:94%; pointer-events:none; filter:drop-shadow(0 2px 2px rgba(0,0,0,.28)); }
-.ch-sq img.rot { transform:rotate(180deg); }
-.ch-sq img.ghost { opacity:.28; }
-.ch-sq img.slide { animation:chslide .2s ease-out; }
-@keyframes chslide { from { transform:translate(var(--dx), var(--dy)); } }
+.ch-pcs { position:absolute; inset:0; z-index:2; pointer-events:none; border-radius:6px; overflow:hidden; }
+.ch-pc { position:absolute; left:0; top:0; width:12.5%; height:12.5%; display:grid; place-items:center; will-change:translate; }
+.ch-pc img { width:94%; height:94%; filter:drop-shadow(0 2px 2px rgba(0,0,0,.3)); transition:filter .2s, opacity .15s; transform-origin:50% 60%; }
+.ch-pc.flying { z-index:6; } .ch-pc.flying img { filter:drop-shadow(0 11px 7px rgba(0,0,0,.34)); }
+.ch-pc img.rot { transform:rotate(180deg); }
+.ch-pc.ghost img { opacity:.25; }
+.ch-pc.fallen img { filter:drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
 .ch-sq small { position:absolute; z-index:3; font-weight:800; font-size:calc(var(--bs) / 36); line-height:1; opacity:.95; pointer-events:none; }
 .ch-sq.l small { color:var(--sqD); } .ch-sq.d small { color:var(--sqL); }
 .ch-sq small.f { right:4%; bottom:2%; } .ch-sq small.rk { left:4%; top:3%; }
@@ -111,6 +114,7 @@ export function start(api) {
   let S = { fen: game.fen(), last: null, san: [], turn: 'w', over: null, clock: { w: tc.min * 60000, b: tc.min * 60000 }, drawOffer: null, tb: null, stamp: performance.now() };
   let hist = { fens: [game.fen()], mv: [] }; // every position of the game, so any move can be reviewed
   let view = null; // null = live, otherwise the number of half-moves shown
+  let opt = null, dropAt = null; // opt: my move shown before the host confirms it; dropAt: where a dragged piece was let go
   let sel = null, targets = [], promo = null, premove = null, hint = null, userFlip = false, evalCp = null, drag = null, evalToken = 0;
   const mySide = () => (otb ? S.turn : myFixed);
   const canAnalyze = () => otb || vsBot || !!S.over;
@@ -120,7 +124,8 @@ export function start(api) {
   const boardEl = h('div.ch-board');
   const arrowEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   arrowEl.setAttribute('class', 'ch-arrows'); arrowEl.setAttribute('viewBox', '0 0 8 8');
-  const wrapEl = h('div.ch-boardwrap', boardEl, arrowEl);
+  const pcLayer = h('div.ch-pcs');
+  const wrapEl = h('div.ch-boardwrap', boardEl, pcLayer, arrowEl);
   const evalEl = h('div.ch-eval', h('div.ew'));
   const rowEl = h('div.ch-row', evalEl, wrapEl);
   const topPl = h('div.ch-pl'), botPl = h('div.ch-pl');
@@ -143,7 +148,8 @@ export function start(api) {
     for (const s of S.san) { const m = g.move(s); if (!m) break; mv.push({ from: m.from, to: m.to, san: m.san, cap: m.captured, color: m.color }); fens.push(g.fen()); }
     hist = { fens, mv };
   }
-  const shownFen = () => (view === null ? S.fen : hist.fens[Math.min(view, hist.fens.length - 1)]);
+  const shownFen = () => (view === null ? (opt ? opt.fen : S.fen) : hist.fens[Math.min(view, hist.fens.length - 1)]);
+  const shownMove = () => { if (view === null && opt) return opt; const i = view === null ? hist.mv.length : view; const m = hist.mv[i - 1]; return m ? { from: m.from, to: m.to, promo: /=/.test(m.san) } : null; };
   const shownLast = () => { const i = view === null ? hist.mv.length : view; const m = hist.mv[i - 1]; return m ? [m.from, m.to] : null; };
   const clockNow = (c) => (timed && !S.over && S.turn === c && S.san.length > 0 ? Math.max(0, S.clock[c] - (performance.now() - S.stamp)) : S.clock[c]);
 
@@ -212,23 +218,16 @@ export function start(api) {
         const pc = board[rr][ff];
         const light = (rr + ff) % 2 === 0;
         const tgt = live && prefs.dots && targets.find((m) => m.to === sq);
-        let slide = null;
-        if (pc && live && S.last && S.last[1] === sq && render.prev !== S.fen) {
-          const fs = S.last[0];
-          const fx = FILES.indexOf(fs[0]), fy = 8 - +fs[1];
-          slide = { '--dx': (fl ? -1 : 1) * (fx - ff) * 100 + '%', '--dy': (fl ? -1 : 1) * (fy - rr) * 100 + '%' };
-        }
         const cls = 'div.ch-sq.' + (light ? 'l' : 'd') + (last && (last[0] === sq || last[1] === sq) ? '.last' : '') + (live && sel === sq ? '.sel' : '') + (kingSq === sq ? '.chk' : '') + (live && premove && (premove.from === sq || premove.to === sq) ? '.pre' : '');
         cells.push(h(cls, { 'data-sq': sq }, [
           f === 0 && prefs.coords ? h('small.rk', String(8 - rr)) : null,
           r === 7 && prefs.coords ? h('small.f', FILES[ff]) : null,
           tgt ? h(pc ? 'div.cp' : 'div.mv') : null,
-          pc ? h('img' + (slide ? '.slide' : '') + (otb && prefs.rotate && pc.color === topC ? '.rot' : '') + (drag && drag.from === sq ? '.ghost' : ''), { src: piece(pc.color, pc.type), alt: pc.color + pc.type, style: slide || '' }) : null,
         ]));
       }
     }
-    render.prev = S.fen;
     boardEl.replaceChildren(...cells);
+    syncPieces(board, fl, g);
     wrapEl.querySelector('.ch-promo')?.remove();
     if (promo) {
       const col = mySide();
@@ -240,6 +239,63 @@ export function start(api) {
     renderControls();
     renderPlayers(game.board());
     renderEval();
+  }
+
+
+  // ---------------------------------------------------------------- pieces (persistent elements that glide between squares)
+  const pcs = new Map(); // square -> { el, color, type, sq }
+  const sqXY = (sq, fl) => { const f = FILES.indexOf(sq[0]), r = 8 - +sq[1]; return { x: (fl ? 7 - f : f) * 100, y: (fl ? 7 - r : r) * 100 }; };
+  let lastFl = null;
+  function syncPieces(board, fl, g) {
+    const lm = shownMove();
+    const topC = fl ? 'w' : 'b';
+    const next = [];
+    for (let rr = 0; rr < 8; rr++) for (let ff = 0; ff < 8; ff++) { const p = board[rr][ff]; if (p) next.push({ sq: FILES[ff] + (8 - rr), color: p.color, type: p.type }); }
+    const old = [...pcs.values()];
+    const taken = new Set();
+    const claim = (n, o) => { n.o = o; taken.add(o); };
+    for (const n of next) { const o = pcs.get(n.sq); if (o && o.color === n.color && o.type === n.type) claim(n, o); }
+    const free = () => old.filter((o) => !taken.has(o));
+    if (lm) for (const n of next) if (!n.o && n.sq === lm.to) { const o = free().find((o) => o.sq === lm.from && o.color === n.color && (o.type === n.type || o.type === 'p')); if (o) claim(n, o); }
+    const dist = (a, b) => Math.hypot(FILES.indexOf(a[0]) - FILES.indexOf(b[0]), +a[1] - +b[1]);
+    for (const n of next) if (!n.o) { const cand = free().filter((o) => o.color === n.color && o.type === n.type).sort((a, b) => dist(a.sq, n.sq) - dist(b.sq, n.sq)); if (cand[0]) claim(n, cand[0]); }
+    const flipping = lastFl !== null && lastFl !== fl; lastFl = fl;
+    const first = old.length === 0;
+    let usedDrop = false;
+    // the moving piece's travel time sets when a captured piece disappears
+    let moverMs = 0;
+    for (const n of next) if (n.o && n.o.sq !== n.sq) { const d = dist(n.o.sq, n.sq); moverMs = Math.max(moverMs, 240 + Math.min(d, 7) * 42); }
+    const kingSqChecked = g.isCheck() ? findKing(board, g.turn()) : null;
+    pcs.clear();
+    for (const n of next) {
+      let o = n.o;
+      const to = sqXY(n.sq, fl);
+      if (!o) {
+        const el = h('div.ch-pc', h('img', { src: piece(n.color, n.type), alt: n.color + n.type }));
+        el.style.translate = `${to.x}% ${to.y}%`;
+        pcLayer.append(el);
+        if (!first) popIn(el, { delay: moverMs * 0.5 });
+        o = { el, color: n.color, type: n.type, sq: n.sq };
+      } else {
+        if (o.sq !== n.sq || flipping) {
+          let start = sqXY(o.sq, flipping ? !fl : fl);
+          if (dropAt && lm && n.sq === lm.to) { start = { x: dropAt.x * 100 - 50, y: dropAt.y * 100 - 62 }; usedDrop = true; }
+          const d = flipping ? 0 : dist(o.sq, n.sq);
+          const knight = n.type === 'n';
+          glide(o.el, start, to, { ms: flipping ? 520 : 250 + Math.min(d, 7) * 46 + (dropAt ? -60 : 0), lift: flipping ? 0 : knight ? 1.3 : 1.15 });
+        } else o.el.style.translate = `${to.x}% ${to.y}%`;
+        if (o.type !== n.type) { const img = o.el.firstChild; setTimeout(() => { img.src = piece(n.color, n.type); }, 160); }
+        o.type = n.type; o.sq = n.sq; o.color = n.color;
+      }
+      o.el.firstChild.classList.toggle('rot', !!(otb && prefs.rotate && n.color === topC));
+      o.el.classList.toggle('ghost', !!(drag && drag.moved && drag.from === n.sq));
+      o.el.style.rotate = '';
+      pcs.set(n.sq, o);
+    }
+    if (usedDrop) dropAt = null;
+    for (const o of old) if (!taken.has(o)) popOut(o.el, { delay: moverMs * 0.7, ms: 200 });
+    if (kingSqChecked && view === null && pcs.get(kingSqChecked)) shake(pcs.get(kingSqChecked).el, { delay: moverMs + 60 });
+    if (S.over && view === null && /^Checkmate/.test(S.over.text || '')) { const loser = S.over.winner === 'w' ? 'b' : 'w'; const k = [...pcs.values()].find((o) => o.type === 'k' && o.color === loser); if (k) { k.el.style.rotate = '82deg'; k.el.animate([{ rotate: '0deg' }, { rotate: '82deg' }], { duration: 650, delay: moverMs + 250, easing: 'cubic-bezier(.5,0,1,.6)', fill: 'backwards' }); k.el.classList.add('fallen'); } }
   }
 
   function renderMoves() {
@@ -339,7 +395,10 @@ export function start(api) {
   }
   function submit(m) {
     hint = null;
-    if (S.turn === mySide()) { api.toHost('move', m); premove = null; sel = null; targets = []; render(); }
+    if (S.turn === mySide()) {
+      try { const gg = new Chess(S.fen); const mv = gg.move({ from: m.from, to: m.to, promotion: m.promotion }); if (mv) opt = { fen: gg.fen(), from: mv.from, to: mv.to, promo: !!mv.promotion }; } catch { /* */ }
+      api.toHost('move', m); premove = null; sel = null; targets = []; render();
+    }
     else { premove = { from: m.from, to: m.to, promotion: m.promotion }; sel = null; targets = []; sfx('click'); render(); }
   }
   function attempt(from, to) {
@@ -393,7 +452,7 @@ export function start(api) {
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag; drag = null;
     d.img?.remove();
-    if (d.moved && !cancel) { const to = sqAt(e); if (to && to !== d.from && attempt(d.from, to)) return; sel = d.from; targets = legalFrom(d.from); }
+    if (d.moved && !cancel) { const r = boardEl.getBoundingClientRect(); dropAt = { x: ((e.clientX - r.left) / r.width) * 8, y: ((e.clientY - r.top) / r.height) * 8 }; const to = sqAt(e); if (to && to !== d.from && attempt(d.from, to)) return; sel = d.from; targets = legalFrom(d.from); }
     render();
   };
   boardEl.addEventListener('pointerup', (e) => endDrag(e, false));
@@ -448,12 +507,14 @@ export function start(api) {
     const was = S.san.length;
     const same = s.fen === S.fen && s.san.length === S.san.length; // a re-send of the same position (e.g. a clock tick) must not drop a half-made move
     S = { ...s, stamp: performance.now() };
+    opt = null; dropAt = null;
     try { game.load(S.fen); } catch { /* */ }
     if (S.san.length !== hist.mv.length || S.san[S.san.length - 1] !== hist.mv[hist.mv.length - 1]?.san) rebuild();
     if (!same) { sel = null; targets = []; promo = null; hint = null; evalCp = null; }
     if (S.san.length > was && view === null) {
       const last = S.san[S.san.length - 1];
-      sfx(/[+#]/.test(last) ? 'bad' : /x/.test(last) ? 'hit' : /=/.test(last) ? 'good' : /^O/.test(last) ? 'turn' : 'clack');
+      sfx(/x/.test(last) ? 'woodcap' : 'wood');
+      if (/[+#]/.test(last)) setTimeout(() => sfx('bad'), 200); else if (/=/.test(last)) setTimeout(() => sfx('good'), 200);
     }
     if (view !== null && S.san.length < view) view = null;
     // a premove waits for our turn

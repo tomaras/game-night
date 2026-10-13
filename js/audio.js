@@ -78,11 +78,20 @@ const SFX = {
   msg: () => tone(740, 0.06, { type: 'sine', vol: 0.05 }),
   line: () => [523, 659, 784].forEach((f, i) => tone(f, 0.07, { type: 'square', vol: 0.04, delay: i * 0.05 })),
   drop: () => tone(200, 0.05, { type: 'square', vol: 0.04 }),
+  // physical sounds: the argument is how hard the thing was hit (0..1)
+  ball: (v = 1) => { noise(0.03, 0.05 + 0.13 * v); tone(2300 + 700 * v, 0.045, { type: 'sine', vol: 0.03 + 0.08 * v }); tone(3600, 0.03, { type: 'sine', vol: 0.015 + 0.04 * v }); },
+  rail: (v = 1) => { noise(0.07, 0.03 + 0.1 * v); tone(150 + 40 * v, 0.1, { type: 'sine', vol: 0.05 + 0.1 * v, slide: -50 }); },
+  pocket: () => { tone(180, 0.16, { type: 'sine', vol: 0.12, slide: -90 }); noise(0.1, 0.05, 0.03); tone(90, 0.22, { type: 'sine', vol: 0.09, delay: 0.14, slide: -40 }); },
+  cue: (v = 1) => { noise(0.02, 0.07 + 0.12 * v); tone(1500, 0.035, { type: 'triangle', vol: 0.05 + 0.08 * v }); tone(380, 0.05, { type: 'sine', vol: 0.06 + 0.06 * v }); },
+  wood: () => { noise(0.025, 0.05); tone(520, 0.07, { type: 'sine', vol: 0.09, slide: -120 }); tone(210, 0.09, { type: 'sine', vol: 0.07 }); },
+  woodcap: () => { noise(0.04, 0.1); tone(640, 0.08, { type: 'sine', vol: 0.1, slide: -160 }); tone(240, 0.12, { type: 'sine', vol: 0.09 }); tone(900, 0.04, { type: 'triangle', vol: 0.04 }); },
+  thud: (v = 1) => { tone(110, 0.12, { type: 'sine', vol: 0.06 + 0.08 * v, slide: -40 }); noise(0.05, 0.03 + 0.05 * v); },
+  whoosh: () => { noise(0.16, 0.05); tone(300, 0.14, { type: 'sine', vol: 0.025, slide: 500 }); },
 };
 
-export function sfx(name) {
+export function sfx(name, v) {
   if (muted) return;
-  try { SFX[name]?.(); } catch { /* audio unavailable */ }
+  try { SFX[name]?.(v); } catch { /* audio unavailable */ }
 }
 export const isMuted = () => muted;
 export function setMuted(m) {
