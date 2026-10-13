@@ -2,6 +2,7 @@
 // the shooter aims (drag on the table), sets power and shoots. Simplified standard 8-ball rules.
 import { h, canvasPoint, clamp, fitCanvas } from '../util.js';
 import { botLoop, thinkMs } from '../bots.js';
+import { icon } from '../ui.js';
 
 const W = 1000, HT = 500, R = 11, M = 44; // table size, ball radius, rail margin
 const CW = W + M * 2, CH = HT + M * 2;
@@ -16,18 +17,34 @@ const HEAD = { x: W * 0.25, y: HT / 2 };
 const MAXV = 1900;
 
 const CSS = `
-.pl { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px; min-height:0; }
-.pl-top { display:flex; gap:10px; align-items:stretch; width:100%; max-width:1000px; flex-wrap:wrap; justify-content:center; }
-.pl-team { flex:1; min-width:150px; background:var(--panel); box-shadow:var(--e1); border-radius:20px; padding:8px 14px; display:flex; flex-direction:column; gap:4px; }
-.pl-team.turn { box-shadow:0 0 0 3px var(--yellow); }
-.pl-team .tn { font-weight:800; font-size:13px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-.pl-tray { display:flex; gap:3px; min-height:20px; flex-wrap:wrap; }
-.pl-mini { width:18px; height:18px; border-radius:50%; display:inline-grid; place-items:center; font-size:9px; font-weight:900; color:#fff; border:1px solid rgba(255,255,255,.4); }
-.pl-wrap { flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
-.pl canvas { border-radius:14px; box-shadow:0 12px 30px rgba(31,41,55,.22); touch-action:none; cursor:crosshair; max-width:100%; }
-.pl-bar { display:flex; align-items:center; gap:10px; width:100%; max-width:760px; background:var(--panel); box-shadow:var(--e2); border-radius:26px; padding:10px 14px; flex-wrap:wrap; justify-content:center; }
-.pl-bar input[type=range] { flex:1; min-width:120px; accent-color:var(--blue); }
-.pl-msg { font-weight:700; min-height:22px; text-align:center; }
+.pl { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 8px 8px; min-height:0; }
+.pl-top { display:flex; gap:8px; align-items:stretch; width:100%; max-width:1000px; justify-content:center; }
+.pl-team { flex:1; min-width:0; background:var(--surface); box-shadow:var(--e1); border-radius:18px; padding:6px 10px; display:flex; flex-direction:column; gap:3px; transition:box-shadow .2s; }
+.pl-team.turn { box-shadow:0 0 0 3px var(--yellow), var(--e1); }
+.pl-team .tn { font-weight:800; font-size:12.5px; display:flex; gap:6px; align-items:center; min-width:0; }
+.pl-team .tn .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pl-team .tn .chip { height:20px; padding:0 8px; font-size:10.5px; flex:none; }
+.pl-tray { display:flex; gap:2px; min-height:19px; flex-wrap:wrap; }
+.pl-mini { width:18px; height:18px; border-radius:50%; display:inline-grid; place-items:center; font-size:8.5px; font-weight:900; color:#111; box-shadow:inset -2px -2px 3px rgba(0,0,0,.28), inset 1px 1px 2px rgba(255,255,255,.5); }
+.pl-mini i { width:9px; height:9px; border-radius:50%; background:#fff; display:grid; place-items:center; font-style:normal; line-height:1; }
+.pl-wrap { flex:1 1 0; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.pl canvas { border-radius:16px; box-shadow:0 14px 34px rgba(0,0,0,.32); touch-action:none; cursor:crosshair; max-width:100%; }
+.pl-msg { font-weight:700; min-height:20px; text-align:center; font-size:14px; }
+.pl-bar { display:grid; grid-template-columns:auto auto 1fr; align-items:center; gap:8px 12px; width:100%; max-width:760px; background:var(--surface); box-shadow:var(--e2); border-radius:24px; padding:8px 12px; }
+.pl-power { grid-column:1 / -1; display:flex; align-items:center; gap:10px; }
+.pl-power b { font:800 12px var(--font); color:var(--on3); width:46px; }
+.pl-power input[type=range] { flex:1; -webkit-appearance:none; appearance:none; height:14px; border-radius:7px; background:linear-gradient(90deg,#3ddc84,#ffd23f 55%,#ff5252); outline:none; }
+.pl-power input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #263238; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+.pl-power input[type=range]::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #263238; }
+.pl-spin { width:58px; height:58px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff, #e8e8e8 60%, #bcbcbc); box-shadow:inset -3px -4px 8px rgba(0,0,0,.25), var(--e1); position:relative; touch-action:none; cursor:pointer; }
+.pl-spin::before, .pl-spin::after { content:''; position:absolute; background:rgba(0,0,0,.14); } .pl-spin::before { left:50%; top:8%; bottom:8%; width:1px; } .pl-spin::after { top:50%; left:8%; right:8%; height:1px; }
+.pl-spin i { position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; background:#e63946; box-shadow:0 1px 3px rgba(0,0,0,.45); left:50%; top:50%; }
+.pl-fine { display:flex; gap:6px; align-items:center; }
+.pl-fine button { width:40px; height:40px; border-radius:50%; border:0; background:var(--s2); color:var(--on); display:grid; place-items:center; cursor:pointer; touch-action:manipulation; }
+.pl-fine button:active { background:var(--blue-c); }
+.pl-fine .ic { width:22px; height:22px; }
+.pl-shoot { justify-self:end; }
+.pl-lbl { font:700 10px var(--font); color:var(--on3); text-transform:uppercase; letter-spacing:.6px; text-align:center; margin-top:2px; }
 `;
 
 export function start(api) {
@@ -41,15 +58,30 @@ export function start(api) {
   const live = []; // for rendering: {id,x,y,vx,vy,in,t}
   const aimNow = { a: 0, p: 0.55, cx: null, cy: null };
   let power = 0.55;
+  let spin = { x: 0, y: 0 }; // where on the cue ball you strike: y>0 follow (top), y<0 draw (back), x = side
+  let guide = (() => { try { return localStorage.getItem('gn.pool.guide') || 'long'; } catch { return 'long'; } })();
   const remote = { a: 0, p: 0, t: 0 };
 
   const canvas = h('canvas', { width: CW, height: CH });
   const ctx = canvas.getContext('2d');
   const msgEl = h('div.pl-msg');
   const teamEls = [h('div.pl-team'), h('div.pl-team')];
-  const slider = h('input', { type: 'range', min: 8, max: 100, value: 55, oninput: (e) => { power = e.target.value / 100; aimNow.p = power; sendAim(); } });
-  const shootBtn = h('button.btn.primary.big', { onclick: () => shoot() }, 'Shoot');
-  const bar = h('div.pl-bar', h('span', 'Power'), slider, shootBtn);
+  const slider = h('input', { type: 'range', min: 8, max: 100, value: 55, 'aria-label': 'Shot power', oninput: (e) => { power = e.target.value / 100; aimNow.p = power; sendAim(); } });
+  const shootBtn = h('button.btn.primary.big.pl-shoot', { onclick: () => shoot() }, 'Shoot');
+  const spinEl = h('div.pl-spin', { title: 'Where you hit the cue ball: top = follow, bottom = draw, sides = english' }, h('i'));
+  const setSpin = (e) => {
+    const r = spinEl.getBoundingClientRect();
+    let x = ((e.clientX - r.left) / r.width - 0.5) * 2, y = -((e.clientY - r.top) / r.height - 0.5) * 2;
+    const m = Math.hypot(x, y); if (m > 0.85) { x *= 0.85 / m; y *= 0.85 / m; }
+    spin = { x, y }; spinEl.firstChild.style.left = 50 + x * 50 + '%'; spinEl.firstChild.style.top = 50 - y * 50 + '%';
+  };
+  spinEl.addEventListener('pointerdown', (e) => { spinEl.setPointerCapture(e.pointerId); setSpin(e); });
+  spinEl.addEventListener('pointermove', (e) => { if (e.buttons || e.pressure) setSpin(e); });
+  spinEl.addEventListener('dblclick', () => { spin = { x: 0, y: 0 }; spinEl.firstChild.style.left = '50%'; spinEl.firstChild.style.top = '50%'; });
+  const nudge = (dir) => { let t = 0; const step = () => { aimNow.a += dir * 0.0025; sendAim(); }; step(); t = setInterval(step, 60); const stop = () => { clearInterval(t); removeEventListener('pointerup', stop); }; addEventListener('pointerup', stop); };
+  const fine = h('div.pl-fine', h('button', { 'aria-label': 'Aim a little left', onpointerdown: () => nudge(-1) }, icon('chevron_left')), h('button', { 'aria-label': 'Aim a little right', onpointerdown: () => nudge(1) }, icon('chevron_right')),
+    h('button', { 'aria-label': 'Aim guide', title: 'Aim guide: long / short / off', onclick: (e) => { guide = guide === 'long' ? 'short' : guide === 'short' ? 'off' : 'long'; try { localStorage.setItem('gn.pool.guide', guide); } catch { /* */ } e.currentTarget.classList.toggle('on', guide !== 'off'); api.toast('Aim guide: ' + guide); } }, icon('visibility')));
+  const bar = h('div.pl-bar', h('div.pl-power', h('b', 'Power'), slider), h('div', spinEl, h('div.pl-lbl', 'Spin')), h('div', fine, h('div.pl-lbl', 'Fine aim')), shootBtn);
   const wrap = h('div.pl-wrap', canvas);
   api.root.append(h('style', CSS), h('div.pl', h('div.pl-top', teamEls), msgEl, wrap, bar));
   // On tall (phone) screens the table is drawn rotated 90° so it fills the screen.
@@ -74,22 +106,71 @@ export function start(api) {
   const myTurn = () => S.shooter === api.me && S.phase === 'aim' && !S.over;
 
   // ------------------------------------------------------------ rendering
+  // the table itself is painted once (wood, felt, cushions, pockets) and then just copied each frame
+  const bg = document.createElement('canvas'); bg.width = CW; bg.height = CH;
+  (function paintTable() {
+    const c = bg.getContext('2d');
+    const wood = c.createLinearGradient(0, 0, 0, CH);
+    wood.addColorStop(0, '#8a5530'); wood.addColorStop(0.5, '#6a3d1e'); wood.addColorStop(1, '#45260f');
+    c.fillStyle = wood; c.beginPath(); c.roundRect(0, 0, CW, CH, 28); c.fill();
+    // wood grain
+    c.lineWidth = 1;
+    for (let i = 0; i < 90; i++) { c.strokeStyle = `rgba(${i % 2 ? '30,14,4' : '255,214,160'},${0.04 + Math.random() * 0.05})`; const y = Math.random() * CH; c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(CW * 0.3, y + (Math.random() - 0.5) * 8, CW * 0.7, y + (Math.random() - 0.5) * 8, CW, y + (Math.random() - 0.5) * 6); c.stroke(); }
+    c.strokeStyle = 'rgba(255,225,180,.35)'; c.lineWidth = 2; c.beginPath(); c.roundRect(2, 2, CW - 4, CH - 4, 26); c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = 3; c.beginPath(); c.roundRect(M - 8, M - 8, W + 16, HT + 16, 8); c.stroke();
+    // diamonds
+    const dia = (x, y) => { c.save(); c.translate(x, y); c.rotate(Math.PI / 4); c.fillStyle = '#f1e4c8'; c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; c.fillRect(-4.5, -4.5, 9, 9); c.strokeRect(-4.5, -4.5, 9, 9); c.restore(); };
+    for (let i = 1; i < 8; i++) { if (i === 4) continue; dia(M + (W * i) / 8, M / 2); dia(M + (W * i) / 8, CH - M / 2); }
+    for (let i = 1; i < 4; i++) { dia(M / 2, M + (HT * i) / 4); dia(CW - M / 2, M + (HT * i) / 4); }
+    c.save(); c.translate(M, M);
+    // cushions (dark green rubber) around the felt
+    c.fillStyle = '#0e5a30'; c.fillRect(-14, -14, W + 28, HT + 28);
+    const felt = c.createRadialGradient(W / 2, HT / 2, 60, W / 2, HT / 2, W * 0.66);
+    felt.addColorStop(0, '#2a9d5c'); felt.addColorStop(0.6, '#1b8048'); felt.addColorStop(1, '#13663a');
+    c.fillStyle = felt; c.fillRect(0, 0, W, HT);
+    // felt texture
+    for (let i = 0; i < 5200; i++) { c.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,40,20'},${0.025 + Math.random() * 0.04})`; c.fillRect(Math.random() * W, Math.random() * HT, 1.3, 1.3); }
+    // cushion bevel
+    c.strokeStyle = 'rgba(0,0,0,.28)'; c.lineWidth = 5; c.strokeRect(0, 0, W, HT);
+    c.strokeStyle = 'rgba(255,255,255,.1)'; c.lineWidth = 2; c.strokeRect(-6, -6, W + 12, HT + 12);
+    // head string, spots
+    c.strokeStyle = 'rgba(255,255,255,.13)'; c.lineWidth = 2; c.beginPath(); c.moveTo(HEAD.x, 6); c.lineTo(HEAD.x, HT - 6); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.22)'; for (const [sx, sy] of [[W * 0.72, HT / 2], [HEAD.x, HT / 2]]) { c.beginPath(); c.arc(sx, sy, 3.2, 0, 7); c.fill(); }
+    c.fillStyle = 'rgba(255,255,255,.07)'; c.font = '800 26px sans-serif'; c.textAlign = 'center'; c.fillText('GAME NIGHT', W * 0.5, HT / 2 + 9);
+    // pockets: leather rim + deep hole
+    for (const p of POCKETS) {
+      const g = c.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r + 8);
+      g.addColorStop(0, '#000'); g.addColorStop(0.7, '#0a0a0a'); g.addColorStop(1, '#2b1b10');
+      c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, p.r + 8, 0, 7); c.fill();
+      c.strokeStyle = '#b08d57'; c.lineWidth = 2.5; c.beginPath(); c.arc(p.x, p.y, p.r + 8, 0, 7); c.stroke();
+    }
+    c.restore();
+    // vignette
+    const v = c.createRadialGradient(CW / 2, CH / 2, CH * 0.35, CW / 2, CH / 2, CW * 0.62);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.28)');
+    c.fillStyle = v; c.beginPath(); c.roundRect(0, 0, CW, CH, 28); c.fill();
+  })();
+
   function ballFill(b, x, y, r) {
     const col = colorOf(b.id);
+    const stripe = b.id > 8;
     ctx.save();
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = b.id > 8 ? '#f4f4f0' : col;
+    ctx.fillStyle = stripe ? '#f6f3ea' : col;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    if (b.id > 8) { ctx.fillStyle = col; ctx.fillRect(x - r, y - r * 0.55, r * 2, r * 1.1); }
-    ctx.restore();
-    const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, 1, x, y, r);
-    g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,.35)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    if (stripe) { ctx.fillStyle = col; ctx.fillRect(x - r, y - r * 0.56, r * 2, r * 1.12); }
+    // number disc
     if (b.id > 0) {
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, r * 0.48, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.font = `bold ${r * 0.72}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(b.id), x, y + 0.5);
+      ctx.fillStyle = '#fdfcf8'; ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.font = `800 ${r * 0.74}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(b.id), x, y + r * 0.04);
     }
+    // sphere shading
+    const g = ctx.createRadialGradient(x - r * 0.38, y - r * 0.42, r * 0.05, x, y, r * 1.02);
+    g.addColorStop(0, 'rgba(255,255,255,.7)'); g.addColorStop(0.28, 'rgba(255,255,255,.12)'); g.addColorStop(0.62, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)');
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(x - r * 0.36, y - r * 0.42, r * 0.2, r * 0.12, -0.6, 0, 7); ctx.fill();
   }
   function pos(b, now) {
     if (S.phase !== 'sim' || !b.t) return [b.x, b.y];
@@ -115,74 +196,79 @@ export function start(api) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (portrait) { ctx.translate(CH, 0); ctx.rotate(Math.PI / 2); }
-    // rails
-    const wood = ctx.createLinearGradient(0, 0, 0, CH);
-    wood.addColorStop(0, '#7a4a25'); wood.addColorStop(1, '#4d2c14');
-    ctx.fillStyle = wood; ctx.beginPath(); ctx.roundRect(0, 0, CW, CH, 26); ctx.fill();
-    ctx.fillStyle = '#d8b98a';
-    for (let i = 1; i < 8; i++) { if (i === 4) continue; for (const yy of [M / 2, CH - M / 2]) { ctx.beginPath(); ctx.arc(M + (W * i) / 8, yy, 3.5, 0, 7); ctx.fill(); } }
-    for (let i = 1; i < 4; i++) for (const xx of [M / 2, CW - M / 2]) { ctx.beginPath(); ctx.arc(xx, M + (HT * i) / 4, 3.5, 0, 7); ctx.fill(); }
+    ctx.drawImage(bg, 0, 0);
     ctx.save(); ctx.translate(M, M);
-    // felt
-    const felt = ctx.createRadialGradient(W / 2, HT / 2, 80, W / 2, HT / 2, W * 0.65);
-    felt.addColorStop(0, '#1f8a4f'); felt.addColorStop(1, '#126b3a');
-    ctx.fillStyle = felt; ctx.fillRect(-4, -4, W + 8, HT + 8);
-    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(HEAD.x, 0); ctx.lineTo(HEAD.x, HT); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(W * 0.72, HT / 2, 3, 0, 7); ctx.fill();
-    // cushion shading
-    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 6; ctx.strokeRect(-1, -1, W + 2, HT + 2);
-    // pockets
-    for (const p of POCKETS) { ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4, 0, 7); ctx.fill(); }
-    // aim line
+    ctx.beginPath(); ctx.rect(-12, -12, W + 24, HT + 24); ctx.clip();
+    // aim guide
     const cue = cueBall();
     const mine = myTurn();
     const showRemote = !mine && S.phase === 'aim' && now - remote.t < 1500 && cue && !cue.in;
+    let stick = null;
     if (cue && !cue.in && S.phase === 'aim' && (mine || showRemote)) {
       const a = mine ? aimNow.a : remote.a;
       const dx = Math.cos(a), dy = Math.sin(a);
-      const hit = raycast(cue, dx, dy);
-      const ex = cue.x + dx * hit.t, ey = cue.y + dy * hit.t;
-      ctx.setLineDash([8, 8]); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(cue.x + dx * R, cue.y + dy * R); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
-      ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(ex, ey, R, 0, 7); ctx.stroke();
-      if (hit.ball) {
-        const nx = hit.ball.x - ex, ny = hit.ball.y - ey, nl = Math.hypot(nx, ny) || 1;
-        ctx.strokeStyle = 'rgba(255,230,120,.9)'; ctx.beginPath(); ctx.moveTo(hit.ball.x, hit.ball.y); ctx.lineTo(hit.ball.x + (nx / nl) * 70, hit.ball.y + (ny / nl) * 70); ctx.stroke();
+      stick = { a, pw: mine ? power : remote.p };
+      if (guide !== 'off' || !mine) {
+        const hit = raycast(cue, dx, dy);
+        const reach = guide === 'short' && mine ? Math.min(hit.t, 260) : hit.t;
+        const ex = cue.x + dx * reach, ey = cue.y + dy * reach;
+        ctx.setLineDash([9, 7]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cue.x + dx * R, cue.y + dy * R); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+        if (reach === hit.t) {
+          ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ex, ey, R, 0, 7); ctx.stroke();
+          if (hit.ball) {
+            const nx = hit.ball.x - ex, ny = hit.ball.y - ey, nl = Math.hypot(nx, ny) || 1;
+            ctx.strokeStyle = 'rgba(255,214,100,.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(hit.ball.x, hit.ball.y); ctx.lineTo(hit.ball.x + (nx / nl) * 90, hit.ball.y + (ny / nl) * 90); ctx.stroke();
+            // where the cue ball goes afterwards (tangent line)
+            const ux = nx / nl, uy = ny / nl, dot = dx * ux + dy * uy;
+            let tx = dx - dot * ux, ty = dy - dot * uy; const tl = Math.hypot(tx, ty);
+            if (tl > 0.05) { tx /= tl; ty /= tl; ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + tx * 60 * tl, ey + ty * 60 * tl); ctx.stroke(); }
+          }
+        }
       }
-      // cue stick
-      const pw = mine ? power : remote.p;
-      const back = R + 10 + pw * 70;
-      ctx.save(); ctx.translate(cue.x, cue.y); ctx.rotate(a);
-      const g = ctx.createLinearGradient(-back - 330, 0, -back, 0);
-      g.addColorStop(0, '#3b2412'); g.addColorStop(0.7, '#e2b676'); g.addColorStop(1, '#f6e3b8');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-back - 330, -3.5, 330, 7, 3); ctx.fill();
-      ctx.fillStyle = '#6ec6ff'; ctx.fillRect(-back - 2, -3.5, 6, 7);
-      ctx.restore();
     }
-    // balls
+    // balls (soft shadows first so they never cover a neighbour)
     for (const b of live) {
       if (b.in) continue;
       const [x, y] = pos(b, now);
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 4, R, R * 0.85, 0, 0, 7); ctx.fill();
-      ballFill(b, x, y, R);
+      const sg = ctx.createRadialGradient(x + 2, y + 4, 1, x + 2, y + 4, R * 1.15);
+      sg.addColorStop(0, 'rgba(0,0,0,.42)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(x + 2, y + 4, R * 1.15, 0, 7); ctx.fill();
+    }
+    for (const b of live) { if (!b.in) { const [x, y] = pos(b, now); ballFill(b, x, y, R); } }
+    // cue stick
+    if (stick && cue) {
+      const back = R + 8 + stick.pw * 85;
+      ctx.save(); ctx.translate(cue.x, cue.y); ctx.rotate(stick.a);
+      ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
+      const L = 360, g = ctx.createLinearGradient(-back - L, 0, -back, 0);
+      g.addColorStop(0, '#2a1a0d'); g.addColorStop(0.28, '#3d2614'); g.addColorStop(0.3, '#caa070'); g.addColorStop(0.75, '#efd7a8'); g.addColorStop(1, '#f9ecc8');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-back, -1.9); ctx.lineTo(-back - L, -4.8); ctx.lineTo(-back - L, 4.8); ctx.lineTo(-back, 1.9); ctx.closePath(); ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = '#f4f4f0'; ctx.fillRect(-back - 12, -2, 12, 4);
+      ctx.fillStyle = '#4aa3e8'; ctx.beginPath(); ctx.roundRect(-back - 2, -2.1, 4, 4.2, 1); ctx.fill();
+      ctx.restore();
     }
     if (mine && S.inHand && cue) {
-      ctx.strokeStyle = '#ffc857'; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cue.x, cue.y, R + 6, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = '#ffc857'; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cue.x, cue.y, R + 7, 0, 7); ctx.stroke(); ctx.setLineDash([]);
     }
     ctx.restore();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   api.raf((dt, now) => draw(now));
 
+  const miniBall = (id) => {
+    const col = colorOf(id), stripe = id > 8;
+    return h('span.pl-mini', { style: { background: stripe ? `linear-gradient(#f6f3ea 26%, ${col} 26% 74%, #f6f3ea 74%)` : col, color: id === 8 ? '#fff' : '#111' } }, h('i', { style: id === 8 ? { background: '#fff' } : {} }, String(id)));
+  };
   function renderHud() {
     for (let t = 0; t < 2; t++) {
       const g = S.groups[t];
       const own = S.pocketed[t];
       teamEls[t].classList.toggle('turn', S.team === t && !S.over);
       teamEls[t].replaceChildren(
-        h('div.tn', teams[t].map((id) => (api.player(id)?.name || '?') + (id === api.me ? ' (you)' : '')).join(' & '), h('span.chip', g ? (g === 'solid' ? 'Solids' : 'Stripes') : 'open')),
-        h('div.pl-tray', own.map((id) => h('span.pl-mini', { style: { background: colorOf(id) } }, id)))
+        h('div.tn', h('span.nm', teams[t].map((id) => (api.player(id)?.name || '?') + (id === api.me ? ' (you)' : '')).join(' & ')), h('span.chip', g ? (g === 'solid' ? 'Solids' : 'Stripes') : 'Open')),
+        h('div.pl-tray', own.map((id) => miniBall(id)))
       );
     }
     const sh = api.player(S.shooter);
@@ -239,11 +325,13 @@ export function start(api) {
     if ((e.key === ' ' || e.key === 'Enter') && myTurn()) { e.preventDefault(); shoot(); }
     if (e.key === 'ArrowUp' && myTurn()) { power = clamp(power + 0.05, 0.08, 1); slider.value = power * 100; }
     if (e.key === 'ArrowDown' && myTurn()) { power = clamp(power - 0.05, 0.08, 1); slider.value = power * 100; }
+    if (e.key === 'ArrowLeft' && myTurn()) { aimNow.a -= e.shiftKey ? 0.002 : 0.01; sendAim(); }
+    if (e.key === 'ArrowRight' && myTurn()) { aimNow.a += e.shiftKey ? 0.002 : 0.01; sendAim(); }
   });
   function shoot() {
     if (!myTurn()) return;
     const cue = cueBall();
-    api.toHost('shot', { a: aimNow.a, p: power, cx: S.inHand ? cue.x : undefined, cy: S.inHand ? cue.y : undefined });
+    api.toHost('shot', { a: aimNow.a, p: power, sx: +spin.x.toFixed(2), sy: +spin.y.toFixed(2), cx: S.inHand ? cue.x : undefined, cy: S.inHand ? cue.y : undefined });
     S.phase = 'sim';
     renderHud();
   }
@@ -311,6 +399,7 @@ export function start(api) {
     // --- physics
     const FRIC = 230, DAMP = 0.45, MINV = 7;
     let ev = [], first = null, shotPocketed = [], out = [];
+    let cspin = null; // the cue-ball strike point of the shot in progress: {x: side, y: follow(+)/draw(-), dx, dy, rails}
     function stepPhysics(dt) {
       const alive = balls.filter((b) => !b.in);
       for (const b of alive) {
@@ -334,7 +423,10 @@ export function start(api) {
               const imp = vn * 0.97;
               a.vx -= imp * nx; a.vy -= imp * ny; b.vx += imp * nx; b.vy += imp * ny;
               if (vn > 40) ev.push('clack');
-              if (first === null && (a.id === 0 || b.id === 0)) first = a.id === 0 ? b.id : a.id;
+              if (first === null && (a.id === 0 || b.id === 0)) {
+                first = a.id === 0 ? b.id : a.id;
+                if (cspin && cspin.y) { const cb = a.id === 0 ? a : b, k = cspin.y * 0.5 * vn; cb.vx += cspin.dx * k; cb.vy += cspin.dy * k; } // follow rolls on after contact, draw pulls back
+              }
             }
           }
         }
@@ -343,10 +435,15 @@ export function start(api) {
         let pocketed = false;
         for (const p of POCKETS) if (Math.hypot(b.x - p.x, b.y - p.y) < p.r) { pocketed = true; break; }
         if (pocketed) { b.in = true; b.vx = b.vy = 0; shotPocketed.push(b.id); out.push(b.id); ev.push('coin'); continue; }
+        const ovx = b.vx, ovy = b.vy;
         if (b.x < R) { b.x = R; b.vx = Math.abs(b.vx) * 0.8; if (Math.abs(b.vx) > 40) ev.push('bump'); }
         if (b.x > W - R) { b.x = W - R; b.vx = -Math.abs(b.vx) * 0.8; if (Math.abs(b.vx) > 40) ev.push('bump'); }
         if (b.y < R) { b.y = R; b.vy = Math.abs(b.vy) * 0.8; if (Math.abs(b.vy) > 40) ev.push('bump'); }
         if (b.y > HT - R) { b.y = HT - R; b.vy = -Math.abs(b.vy) * 0.8; if (Math.abs(b.vy) > 40) ev.push('bump'); }
+        if (b.id === 0 && cspin && cspin.x && cspin.rails < 3 && (b.vx !== ovx || b.vy !== ovy)) { // side spin ("english") bends the angle the cue ball leaves a cushion at
+          const ang = cspin.x * 0.2 / (1 + cspin.rails), c = Math.cos(ang), sn = Math.sin(ang), vx = b.vx, vy = b.vy;
+          b.vx = vx * c - vy * sn; b.vy = vx * sn + vy * c; cspin.rails++;
+        }
       }
     }
     const moving = () => balls.some((b) => !b.in && (b.vx || b.vy));
@@ -425,7 +522,7 @@ export function start(api) {
     }
 
     api.on('aim', (a, from) => { if (from === shooterId() && H.phase === 'aim') api.broadcast('aimr', a, from); });
-    api.on('shot', ({ a, p, cx, cy }, from) => {
+    api.on('shot', ({ a, p, cx, cy, sx, sy }, from) => {
       if (from !== shooterId() || H.phase !== 'aim' || H.over) return;
       const cue = balls.find((b) => b.id === 0);
       if (H.inHand && Number.isFinite(cx) && Number.isFinite(cy)) {
@@ -435,6 +532,8 @@ export function start(api) {
       a = Number.isFinite(a) ? a : 0;
       p = clamp(Number.isFinite(p) ? p : 0.5, 0.05, 1);
       cue.vx = Math.cos(a) * p * MAXV; cue.vy = Math.sin(a) * p * MAXV;
+      const spx = clamp(Number.isFinite(sx) ? sx : 0, -0.9, 0.9), spy = clamp(Number.isFinite(sy) ? sy : 0, -0.9, 0.9);
+      cspin = spx || spy ? { x: spx, y: spy, dx: Math.cos(a), dy: Math.sin(a), rails: 0 } : null;
       first = null; shotPocketed = []; ev = ['clack']; out = [];
       H.phase = 'sim'; H.inHand = false; H.msg = '';
       publish();
@@ -443,7 +542,7 @@ export function start(api) {
     });
     // ---- computer player: ghost-ball geometry finds the shots, the real physics engine tries them out
     function simulate(a, p, cx, cy) {
-      const saved = { balls, ev, first, shotPocketed, out };
+      const saved = { balls, ev, first, shotPocketed, out, cspin }; cspin = null;
       balls = saved.balls.map((b) => ({ ...b }));
       const cue = balls.find((b) => b.id === 0);
       if (cx !== undefined) { cue.x = cx; cue.y = cy; }
@@ -451,7 +550,7 @@ export function start(api) {
       first = null; shotPocketed = []; out = []; ev = [];
       for (let i = 0; i < 240 * 9 && balls.some((b) => !b.in && (b.vx || b.vy)); i++) stepPhysics(1 / 240);
       const res = { first, poc: shotPocketed.slice(), cueIn: shotPocketed.includes(0) };
-      balls = saved.balls; ev = saved.ev; first = saved.first; shotPocketed = saved.shotPocketed; out = saved.out;
+      balls = saved.balls; ev = saved.ev; first = saved.first; shotPocketed = saved.shotPocketed; out = saved.out; cspin = saved.cspin;
       return res;
     }
     const segDist = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1; const t = clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1); return Math.hypot(px - (ax + dx * t), py - (ay + dy * t)); };

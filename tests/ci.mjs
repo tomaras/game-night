@@ -415,6 +415,58 @@ await test('Recent: games you play appear under a Recent filter, newest first', 
   await p.ctx.close();
 });
 
+// ------------------------------------------------------------------ game overhauls
+await test('chess: over the board on one phone — drag and tap moves, clocks, undo, review, hint', async () => {
+  const p = await newPage('Chess', phone);
+  await p.goto(START + '#/game/chess');
+  await p.click('.sheet button:has-text("Same device")');
+  await p.locator('.sheet select').selectOption('5+3');
+  await p.click('.sheet button:has-text("Start")');
+  await p.waitForSelector('.ch-board');
+  const sq = (s) => p.locator(`[data-sq="${s}"]`);
+  const tap = async (a, c) => { await sq(a).click(); await sq(c).click(); await sleep(250); };
+  const drag = async (a, c) => { const A = await sq(a).boundingBox(), C = await sq(c).boundingBox(); await p.mouse.move(A.x + A.width / 2, A.y + A.height / 2); await p.mouse.down(); await p.mouse.move(C.x + C.width / 2, C.y + C.height / 2, { steps: 5 }); await p.mouse.up(); await sleep(300); };
+  await tap('e2', 'e4'); await drag('e7', 'e5'); await tap('g1', 'f3');
+  ok((await p.locator('.ch-strip button').allInnerTexts()).join(' ') === 'e4 e5 Nf3', 'moves should be listed');
+  ok((await p.locator('.ch-clock').allInnerTexts()).every((t) => /^[45]:/.test(t)), 'clocks should show a 5-minute control');
+  await p.click('.ch-ctl button:has-text("Undo")');
+  await until(async () => (await p.locator('.ch-strip button').allInnerTexts()).join(' ') === 'e4 e5', 5000, 'the take-back');
+  await p.locator('.ch-strip button').first().click();
+  ok(/Reviewing move 1/.test(await p.innerText('.ch-status')), 'tapping a move reviews it');
+  await p.locator('.ch-nav').count();
+  await p.keyboard.press('End');
+  await p.click('.ch-ctl button:has-text("Hint")');
+  await until(() => p.locator('.ch-arrows line').count(), 8000, 'a hint arrow');
+  ok(p.errs.length === 0, 'errors: ' + p.errs.join(' | '));
+  await p.ctx.close();
+});
+
+await test('chess: against the computer with premoves and the evaluation bar; pool: new table, spin and shot', async () => {
+  const p = await newPage('Cpu', phone);
+  await p.goto(START + '#/game/chess');
+  await p.click('.sheet button:has-text("Play vs computer")');
+  await p.click('.sheet button:has-text("Start")');
+  await p.waitForSelector('.ch-board');
+  await p.click('.ch-ctl button:has-text("More")');
+  await p.locator('.ch-set .sw-row:has-text("Evaluation") label.switch').click();
+  await until(() => p.evaluate(() => document.querySelector('.ch-eval')?.style.display !== 'none' && !!document.querySelector('.ch-eval')?.title), 8000, 'the evaluation bar');
+  await p.keyboard.press('Escape');
+  await p.click('button[aria-label="Leave room"]'); await p.locator('.dialog button.bad').click({ timeout: 2000 }).catch(() => {});
+  await p.waitForSelector('.gcard');
+  await p.goto(START + '#/game/pool');
+  await p.click('.sheet button:has-text("Play vs computer")');
+  await p.click('.sheet button:has-text("Start")');
+  await p.waitForSelector('.pl canvas');
+  await until(() => p.locator('.pl-bar').isVisible(), 8000, 'the control bar on my turn');
+  const bb = await p.locator('.pl-bar').boundingBox();
+  ok(bb.y + bb.height <= 844 + 1, 'the pool control bar must fit on the phone screen: ' + JSON.stringify(bb));
+  await p.locator('.pl-spin').click({ position: { x: 29, y: 14 } }); // a little follow
+  await p.click('.pl-shoot');
+  await until(async () => /…|lining up|Foul|shoot/.test(await p.innerText('.pl-msg')), 5000, 'the shot to play');
+  ok(p.errs.length === 0, 'errors: ' + p.errs.join(' | '));
+  await p.ctx.close();
+});
+
 await browser.close();
 await site.close();
 await broker.close();
