@@ -705,8 +705,8 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 //   bots  — has a computer brain, so it can be played alone / with computer players filling empty seats
 //   async — can be played turn by turn by sharing a link (a text message), not only live
 const CAPS = {
-  connect4: { bots: true },
-  chess: { bots: true },
+  connect4: { bots: true, async: true },
+  chess: { bots: true, async: true },
   colorrush: { bots: true },
   rowrumble: { bots: true },
   sushitrain: { bots: true },
@@ -720,7 +720,7 @@ const CAPS = {
   typeracer: { bots: true },
   bomber: { bots: true },
   blocks: { bots: true },
-  pool: { bots: true },
+  pool: { bots: true, async: true },
   royalletters: { bots: true },
   tilemosaic: { bots: true },
   temple: { bots: true },

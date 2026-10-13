@@ -12,7 +12,9 @@ import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialo
 import { initTheme, THEMES, getThemePref, setThemePref, onTheme } from './theme.js';
 import { createChrome } from './chrome.js';
 import { LocalRoom } from './local.js';
-import { LEVELS } from './bots.js';
+import { LEVELS, makeBot } from './bots.js';
+import { listMatches, getMatch, putMatch, deleteMatch, myTurnCount, newMatchId, encodeMatch, decodeMatch, matchLink, smsUrl, shareText, nativeShare } from './matches.js';
+import { randomAvatar } from './avatar.js';
 
 installSafeDom();
 installRipples();
@@ -196,7 +198,7 @@ function renderHeader() {
   const ids = st.game ? st.game.playerIds : st.players.map((p) => p.id);
   mount(S.headerEl,
     iconBtn('arrow_back', 'Leave room', () => requestLeave()),
-    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
+    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
     h('div.tb-players', ids.map((id) => room.player(id)).filter(Boolean).slice(0, 10).map((p) => avatarEl(p, 'sm', { still: true }))),
     h('div.spacer'),
     ...S.avUI.buttons,
@@ -235,6 +237,8 @@ function openRoomMenu(anchor) {
   const room = S.room;
   const st = room.state;
   openMenu(anchor, [
+    room.match && room.match.mode === 'link' ? { icon: 'sms', label: 'Send my move again', onClick: () => { if (room.match.snap) matchBar(room.match); else toast('Make a move first'); } } : null,
+    !room.local && room.isHost && currentDef()?.async && S.session?.lastSave ? { icon: 'sms', label: 'Continue by message…', onClick: convertToMatch } : null,
     room.local ? null : { icon: 'link', label: 'Copy invite link', onClick: copyInvite },
     room.local ? null : navigator.share ? { icon: 'share', label: 'Share invite…', onClick: () => navigator.share({ title: 'Game Night', text: `Join my game room ${room.number}!`, url: roomLink(room.number) }).catch(() => {}) } : null,
     { icon: 'person', label: 'Edit name & avatar', onClick: editProfile },
@@ -397,7 +401,162 @@ function launchSolo(def, cfg) {
     room.startGame(def.id, cfg.opts, ids);
   }).catch((e) => toast('Failed to load the game: ' + e.message, 'bad'));
 }
-function startMatch(def) { toast('Turn-by-turn is coming to ' + def.name); }
+// ------------------------------------------------------------------ turn-by-turn matches
+const refreshBadges = () => S.chrome?.setBadge('matches', myTurnCount());
+const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+const otherOf = (m) => m.players.find((p) => p.id !== m.mine) || m.players[1];
+
+/** Setup sheet: who are you playing, and by what means? */
+function startMatch(def) {
+  if (S.room || S.joining) return;
+  const cfg = { mode: 'link', level: 'normal', name: '', opts: fillOpts(def, {}) };
+  const body = h('div.col', { style: 'gap:14px' });
+  const MODES = [['link', 'sms', 'A friend, by message', 'Play whenever you like — each move is sent as a link by text.'], ['cpu', 'smart_toy', 'The computer', 'Offline; pick up where you left off any time.'], ['local', 'groups', 'Pass & play', 'Two people, one phone — hand it over after each move.']];
+  const paint = () => mount(body,
+    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', 'Turn by turn')])]),
+    h('div.mcards', MODES.map(([v, ic, t, d]) => h('button.mcard' + (cfg.mode === v ? '.on' : ''), { onclick: () => { cfg.mode = v; paint(); } }, icon(ic), h('div', h('b', t), h('small', d))))),
+    cfg.mode === 'cpu' ? h('label.opt', 'Difficulty', segmented(LEVELS, cfg.level, (v) => { cfg.level = v; })) : h('label.opt', cfg.mode === 'local' ? 'Second player’s name' : 'Your friend’s name (optional)', h('input.txt', { placeholder: cfg.mode === 'local' ? 'Player 2' : 'Friend', maxlength: 16, value: cfg.name, oninput: (e) => { cfg.name = e.target.value; } })),
+    ...(def.options || []).filter((op) => cfg.mode !== 'link' || op.key !== 'time').map((op) => {
+      const choices = op.choices.map((c) => (typeof c === 'object' ? c : { value: c, label: String(c) }));
+      return h('label.opt', op.label, h('select.txt', { onchange: (e) => { cfg.opts[op.key] = choices.find((x) => String(x.value) === e.target.value).value; } }, choices.map((c) => h('option', { value: c.value, selected: String(c.value) === String(cfg.opts[op.key]) }, c.label))));
+    }),
+    h('button.btn.primary.big.block', { onclick: () => { sheet.close(); createMatch(def, cfg); } }, icon('play_arrow'), 'Start'));
+  paint();
+  const sheet = openSheet(body);
+}
+function createMatch(def, cfg) {
+  const me = { id: 'p1', name: S.profile.name, avatar: S.profile.avatar };
+  const other = cfg.mode === 'cpu' ? { ...makeBot([me], 'p2', cfg.level), id: 'p2' } : { id: 'p2', name: cfg.name.trim() || (cfg.mode === 'local' ? 'Player 2' : 'Friend'), avatar: randomAvatar() };
+  const m = { id: newMatchId(), game: def.id, opts: cfg.opts, seed: ((Math.random() * 2 ** 32) >>> 1) << 1 >>> 0, created: Date.now(), players: [me, other], snap: null, turn: null, over: false, summary: '', moves: 0, mode: cfg.mode, mine: 'p1', level: cfg.level };
+  putMatch(m);
+  openMatch(m, 'p1');
+}
+
+/** Enter (or re-enter) a match as `meId`: an offline room with the game resumed from the saved position. */
+async function openMatch(m, meId = m.mine) {
+  const def = GAME_BY_ID[m.game];
+  if (!def?.async) return toast('That game isn’t available in this version.', 'bad');
+  if (S.room) teardownRoom();
+  S.joining = true;
+  try { await def.load(); } catch (e) { S.joining = false; return toast('Failed to load the game: ' + e.message, 'bad'); }
+  S.joining = false;
+  m.mine = meId;
+  const room = new LocalRoom(S.profile, { players: m.players, me: meId, autopilot: new URLSearchParams(location.search).get('autopilot') === 'me' ? 'me' : false });
+  room.match = m;
+  if (m.mode === 'cpu') room.setBotLevel(m.level || 'normal');
+  S.match = m;
+  enterRoom(room);
+  history.replaceState(null, '', '#/solo');
+  room.startGame(def.id, m.opts, m.players.map((p) => p.id), { seed: m.seed, restore: m.snap || undefined, async: m.mode !== 'cpu' });
+  putMatch(m);
+  if (m.mode === 'link' && !m.over && m.snap && m.turn === meId) toast(`Your turn vs ${otherOf(m).name}!`, 'good');
+  if (m.mode === 'link') setTimeout(() => { if (S.match === m && S.ui) matchBar(m); }, 400);
+}
+
+/** Called by the running game after every move: remember it, then offer to send it. */
+function onGameSave(snap, meta) {
+  const m = S.match;
+  if (!m || !S.room?.match) return;
+  Object.assign(m, { snap: JSON.parse(JSON.stringify(snap)), turn: meta.turn || null, over: !!meta.over, summary: meta.summary || '', moves: meta.moves || m.moves + 1 });
+  putMatch(m);
+  refreshBadges();
+  if (m.mode === 'link') offerShare(m, true);
+  else if (m.mode === 'local' && !m.over) setTimeout(() => { if (S.match === m && S.ui) passDevice(m); }, 900);
+}
+
+/** The "send your move" strip at the bottom of a message match. */
+async function matchBar(m, note) {
+  if (!S.ui || S.match !== m) return;
+  S.ui.matchBar?.remove();
+  const def = GAME_BY_ID[m.game], me = m.players.find((p) => p.id === m.mine);
+  const token = await encodeMatch(m);
+  const link = matchLink(token);
+  const them = otherOf(m);
+  const mineToMove = !m.over && m.turn === m.mine;
+  const text = shareText(m, def, link, me.name);
+  const bar = h('div.matchbar' + (mineToMove ? '.mine' : ''),
+    h('div.mt', note || (m.over ? `Game over — ${m.summary}` : mineToMove ? `Your move vs ${them.name}` : m.snap ? `Move saved ✓ — send it so ${them.name} can play` : `Make the first move, then send it to ${them.name}`)),
+    !mineToMove && m.snap ? h('div.row', { style: 'gap:6px;flex-wrap:wrap' },
+      navigator.share ? h('button.btn.small.primary', { onclick: async () => { await nativeShare(m, def, link, me.name); } }, icon('share'), 'Send') : null,
+      h('a.btn.small.tonal', { href: smsUrl(text) }, icon('sms'), 'Text'),
+      h('button.btn.small.tonal', { onclick: async () => { toast((await copyText(text)) ? 'Copied — paste it anywhere' : 'Copy failed', 'good'); } }, icon('content_copy'), 'Copy')) : null,
+    h('button.iconbtn.sm', { 'aria-label': 'Hide', onclick: () => bar.remove() }, icon('close')));
+  S.ui.matchBar = bar;
+  S.ui.roommain.insertBefore(bar, S.ui.bar);
+}
+async function offerShare(m, auto) {
+  await matchBar(m);
+  if (!auto || readPref('gn.autoShare') === '0' || !navigator.share) return;
+  const def = GAME_BY_ID[m.game], me = m.players.find((p) => p.id === m.mine);
+  const link = matchLink(await encodeMatch(m));
+  const r = await nativeShare(m, def, link, me.name); // works straight after a tap; otherwise the bar's Send button is one tap away
+  if (r === true) toast('Sent! 🎉', 'good');
+}
+function passDevice(m) {
+  const next = m.players.find((p) => p.id === m.turn);
+  if (!next || !S.ui) return;
+  const back = h('div.passback', h('div.passcard', avatarEl(next, 'xl'), h('h2', `Pass the phone to ${next.name}`), h('div.muted', 'No peeking at the board 😉'), h('button.btn.primary.big', { onclick: () => { back.remove(); openMatch(m, next.id); } }, `I’m ${next.name}`)));
+  S.ui.stage.append(back);
+  sfx('good');
+}
+/** Turn a live game (host only) into a message match so everyone can carry on at their own pace. */
+async function convertToMatch() {
+  const room = S.room, ss = S.session;
+  const def = currentDef(), g = room?.state.game;
+  if (!ss?.lastSave || !def?.async || !g || g.playerIds.length !== 2) return toast('Make a move first, then you can continue by message.');
+  const ps = g.playerIds.map((id, i) => ({ id: 'p' + (i + 1), name: room.player(id).name, avatar: room.player(id).avatar }));
+  const turnIdx = ss.lastSave.meta.turn ? g.playerIds.indexOf(ss.lastSave.meta.turn) : -1;
+  const m = { id: newMatchId(), game: def.id, opts: g.opts, seed: g.seed, created: Date.now(), players: ps, snap: JSON.parse(JSON.stringify(ss.lastSave.snapshot)), turn: turnIdx >= 0 ? 'p' + (turnIdx + 1) : null, over: !!ss.lastSave.meta.over, summary: ss.lastSave.meta.summary || '', moves: ss.lastSave.meta.moves || 1, mode: 'link', mine: 'p' + (g.playerIds.indexOf(room.me) + 1), level: 'normal' };
+  if (!(await confirmDialog('Continue by message?', 'The live game ends and the position is saved as a turn-by-turn match you can send to your opponent.', { ok: 'Save as match' }))) return;
+  putMatch(m);
+  teardownRoom();
+  openMatch(m, m.mine);
+}
+
+function renderMatchesTab() {
+  S.mode = 'none'; S.tab = 'matches';
+  setTitle('Matches — Game Night');
+  renderHeader();
+  S.chrome.setActive('matches');
+  refreshBadges();
+  const all = listMatches().filter((m) => GAME_BY_ID[m.game]);
+  const mineMove = (m) => !m.over && m.turn === m.mine;
+  const groups = [
+    ['Your turn', all.filter((m) => m.mode !== 'local' && mineMove(m))],
+    ['Waiting for them', all.filter((m) => m.mode === 'link' && !m.over && !mineMove(m))],
+    ['Pass & play', all.filter((m) => m.mode === 'local' && !m.over)],
+    ['Finished', all.filter((m) => m.over)],
+  ].filter(([, l]) => l.length);
+  const card = (m) => {
+    const def = GAME_BY_ID[m.game], them = otherOf(m);
+    const status = m.over ? h('span.chip', icon('check', 'sm'), m.summary || 'Finished') : m.mode === 'local' ? h('span.chip', 'Pass & play') : mineMove(m) ? h('span.chip.green', icon('play_arrow', 'sm'), 'Your move') : m.mode === 'cpu' ? h('span.chip', 'Computer’s move') : h('span.chip.yellow', icon('hourglass_empty', 'sm'), 'Waiting for ' + them.name);
+    return h('div.mrow', { style: { '--gc': def.color } },
+      h('button.mmain', { onclick: () => openMatch(m, m.mine) }, h('div.tile.emo', def.emoji), h('div.grow', h('b', def.name), h('div.muted', { style: 'font-size:13px' }, `${m.mode === 'local' ? m.players.map((p) => p.name).join(' vs ') : 'vs ' + them.name} · ${ago(m.updated)}`), status)),
+      h('div.mact',
+        m.mode === 'link' && m.snap ? iconBtn('share', 'Send again', async () => { const me = m.players.find((p) => p.id === m.mine); const link = matchLink(await encodeMatch(m)); if (!(await nativeShare(m, def, link, me.name))) { await copyText(shareText(m, def, link, me.name)); toast('Link copied', 'good'); } }, 'sm') : null,
+        iconBtn('delete', 'Delete match', async () => { if (await confirmDialog('Delete this match?', 'It’s only removed from this device.', { ok: 'Delete', danger: true })) { deleteMatch(m.id); renderMatchesTab(); } }, 'sm')));
+  };
+  mount(S.view, h('div.home', h('div.tabhead', h('h2', 'Turn-by-turn matches'), h('div.muted', 'Play Chess, Connect Four and Pool at your own pace — send each move by text.')),
+    all.length ? groups.map(([t, l]) => h('div.msec', h('div.kt-title', t), h('div.mlist', l.map(card)))) : h('div.empty', h('div', { style: 'font-size:54px' }, '💬'), h('p', 'No matches yet. Start one with the + button — then text your move to a friend.'))));
+  S.chrome.setFab([
+    { label: 'New match', icon: 'add_circle', onClick: () => pickGame({ title: 'Turn-by-turn match', only: (g) => g.async, onPick: (d) => startMatch(d) }) },
+  ]);
+}
+
+/** Opening a match link someone sent you. */
+async function importMatch(token) {
+  let inc;
+  try { inc = await decodeMatch(token); } catch (e) { toast('That match link looks broken.', 'bad'); history.replaceState(null, '', '#/matches'); return renderMatchesTab(); }
+  const have = getMatch(inc.id);
+  const m = have && have.moves >= inc.moves ? have : { ...inc, mode: 'link', mine: have?.mine || (inc.turn && !inc.over ? inc.turn : 'p2'), level: 'normal' };
+  if (have && m !== have) m.mine = have.mine;
+  if (!GAME_BY_ID[m.game]?.async) { toast('This match needs a newer version — reload the page.', 'bad'); history.replaceState(null, '', '#/'); return renderGamesTab(); }
+  const seat = m.players.find((p) => p.id === m.mine); // whoever opens the link is the person it was sent to: put their real name and face in that seat
+  if (seat) { seat.name = S.profile.name; seat.avatar = S.profile.avatar; }
+  putMatch(m);
+  refreshBadges();
+  openMatch(m, m.mine);
+}
 
 // ------------------------------------------------------------------ connecting
 function showBusy(text) {
@@ -461,6 +620,8 @@ function enterRoom(room) {
   S.chat = createChat(room);
   const ui = (S.ui = {
     stage: h('div.stage'),
+    roommain: null,
+    matchBar: null,
     lobby: null,
     float: h('div.chatfloat'),
     side: h('aside.chatside'),
@@ -483,7 +644,8 @@ function enterRoom(room) {
     S.avUI = createAvUI(room, S.av, { toast });
   }
   document.body.append(ui.sheetBack, ui.sheet);
-  mount(S.view, h('div.roomwrap', h('div.roommain', ui.stage, ui.float, ui.bar), S.avUI.dock, ui.side));
+  ui.roommain = h('div.roommain', ui.stage, ui.float, ui.bar);
+  mount(S.view, h('div.roomwrap', ui.roommain, S.avUI.dock, ui.side));
   const onMQ = () => applyChatLayout();
   wideMQ.addEventListener('change', onMQ);
   S.offs = [
@@ -624,6 +786,7 @@ function teardownRoom() {
   S.avUI = null; S.av = null; S.chatBtn = null;
   S.ui = null;
   S.chat = null;
+  S.match = null;
   const r = S.room;
   S.room = null;
   S.mode = 'none';
@@ -841,7 +1004,7 @@ async function startSession(g) {
   }
   if (token !== S.token || S.room !== room) return;
   clear(root);
-  S.session = new GameSession({ room, def, mod, run: g, root, toast });
+  S.session = new GameSession({ room, def, mod, run: g, root, toast, onSave: onGameSave });
   S.session.updatePlayers();
   updateResults();
   // first time in this game on this device? show the rules briefly
@@ -881,7 +1044,9 @@ function updateResults() {
       ]);
     }),
     h('div.row.wrap', { style: 'margin-top:20px;justify-content:center' },
-      room.isHost
+      room.match
+        ? [h('button.btn.primary', { onclick: () => { teardownRoom(); location.hash = '#/matches'; renderMatchesTab(); } }, icon('sms'), 'Back to matches')]
+        : room.isHost
         ? [
           h('button.btn.primary', { onclick: () => playAgain() }, icon('replay'), 'Play again'),
           h('button.btn.tonal', { onclick: () => room.toLobby() }, icon('home'), 'Lobby'),
@@ -927,6 +1092,8 @@ async function route() {
   if (S.joining) return;
   const hash = location.hash || '#/';
   if (hash === '#/solo' && S.room?.local) return;
+  if (/^#\/m\//.test(hash) && S.room && !(await confirmDialog('Leave this game?', 'Open the match from the link instead.', { ok: 'Open match', danger: true }))) { history.replaceState(null, '', '#/solo'); return; }
+  if (/^#\/m\//.test(hash) && S.room) teardownRoom();
   const m = /^#\/room\/(\d+)/.exec(hash);
   if (m) {
     const n = +m[1];
@@ -941,6 +1108,8 @@ async function route() {
     if (!(await confirmDialog(`Leave room ${S.room.number}?`, 'You’ll go back to the home screen.', { ok: 'Leave', danger: true }))) { history.replaceState(null, '', '#/room/' + S.room.number); return; }
     teardownRoom();
   }
+  const mm = /^#\/m\/([\w-]+)/.exec(hash);
+  if (mm) return importMatch(mm[1]);
   const tab = /^#\/(rooms|matches|lounge)\b/.exec(hash);
   if (tab) return renderTab(tab[1]);
   renderGamesTab();
@@ -950,6 +1119,7 @@ async function route() {
 
 /** Rooms / Matches / Lounge tabs (filled in by their own modules). */
 function renderTab(id) {
+  if (id === 'matches') return renderMatchesTab();
   S.mode = 'none';
   S.tab = id;
   renderHeader();
@@ -986,6 +1156,7 @@ function boot() {
   window.__pwa = pwa;
   if (ENV_TAG) document.body.append(h('div.envpill', ENV_TAG.replace(/[\[\]]/g, '') + ' · ' + CFG.build));
   // reload for a waiting update only when nobody is in the middle of anything
+  refreshBadges();
   initPwa(() => !S.room && !S.joining && !document.querySelector('.sheet, .dialog, .scrim') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || ''));
   route();
 }

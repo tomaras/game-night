@@ -370,6 +370,7 @@ export function start(api) {
     function endGame(winTeam, why) {
       H.over = true; H.msg = why;
       publish();
+      api.save({ balls: balls.map((b) => [b.id, +b.x.toFixed(1), +b.y.toFixed(1), b.in ? 1 : 0]), team: H.team, ptr: H.ptr, groups: H.groups, pocketed: H.pocketed, inHand: false, isBreak: false, msg: why }, { turn: null, over: true, summary: `${teams[winTeam].map((id) => api.player(id).name).join(' & ')} won — ${why}`, moves: 0 });
       const win = teams[winTeam], lose = teams[1 - winTeam];
       api.timeout(() => api.endGame({ title: `${win.map((id) => api.player(id).name).join(' & ')} win${win.length > 1 ? '' : 's'}!`, subtitle: why, ranking: [...win, ...lose].map((id, i) => ({ id, score: win.includes(id) ? 'win' : 'loss' })), winners: win }), 1800);
     }
@@ -419,6 +420,8 @@ export function start(api) {
       for (let k = 0; k < 8 && api.player(shooterId())?.left; k++) H.ptr[H.team]++;
       H.phase = 'aim';
       publish();
+      api.save({ balls: balls.map((b) => [b.id, +b.x.toFixed(1), +b.y.toFixed(1), b.in ? 1 : 0]), team: H.team, ptr: H.ptr, groups: H.groups, pocketed: H.pocketed, inHand: H.inHand, isBreak: H.isBreak, msg: H.msg },
+        { turn: shooterId(), over: false, summary: H.msg || '', moves: 0 });
     }
 
     api.on('aim', (a, from) => { if (from === shooterId() && H.phase === 'aim') api.broadcast('aimr', a, from); });
@@ -535,7 +538,11 @@ export function start(api) {
       if (teams[t].every((x) => api.player(x).left)) return endGame(1 - t, 'The other team left.');
       if (H.phase === 'aim' && api.player(shooterId())?.left) { H.ptr[H.team]++; publish(); }
     });
-    rack();
+    function restoreFrom(r) {
+      balls = r.balls.map(([id, x, y, inn]) => ({ id, x, y, vx: 0, vy: 0, in: !!inn }));
+      Object.assign(H, { team: r.team, ptr: r.ptr, groups: r.groups, pocketed: r.pocketed, inHand: !!r.inHand, isBreak: !!r.isBreak, msg: r.msg || '' });
+    }
+    if (api.restore) { try { restoreFrom(api.restore); } catch (e) { console.error('bad pool snapshot', e); rack(); } } else rack();
     api.timeout(() => publish(), 400);
   }
   renderHud();

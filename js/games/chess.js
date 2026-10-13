@@ -60,7 +60,7 @@ export function start(api) {
   const white = ids[api.seed % 2];
   const black = ids.find((i) => i !== white);
   const myColor = api.me === white ? 'w' : api.me === black ? 'b' : null;
-  const timed = +api.opts.time || 0;
+  const timed = api.async ? 0 : +api.opts.time || 0; // no clocks when moves are sent by message
   const INC = 2000;
   const idOf = (c) => (c === 'w' ? white : black);
 
@@ -204,6 +204,17 @@ export function start(api) {
     const g = new Chess();
     let flag = 0;
     const H = { last: null, san: [], over: null, clock: { w: timed * 60000, b: timed * 60000 }, drawOffer: null, t0: 0 };
+    if (api.restore) { // resuming a turn-by-turn match
+      try {
+        g.loadPgn(api.restore.pgn || '');
+        const hist = g.history({ verbose: true });
+        H.san = hist.map((m) => m.san);
+        H.last = hist.length ? [hist[hist.length - 1].from, hist[hist.length - 1].to] : null;
+        H.over = api.restore.over || null;
+        H.drawOffer = api.restore.drawOffer || null;
+      } catch (e) { console.error('bad chess snapshot', e); }
+    }
+    const saveNow = () => api.save({ pgn: g.pgn(), over: H.over, drawOffer: H.drawOffer }, { turn: H.over ? null : idOf(g.turn()), over: !!H.over, summary: H.over ? H.over.text : '', moves: H.san.length });
     const snap = () => ({ fen: g.fen(), last: H.last, san: H.san, turn: g.turn(), over: H.over, clock: H.clock, drawOffer: H.drawOffer });
     const publish = (to) => (to ? api.sendTo(to, 'state', snap()) : api.broadcast('state', snap()));
     const finish = (winner, text) => {
@@ -211,6 +222,7 @@ export function start(api) {
       clearTimeout(flag);
       H.over = { winner, text };
       publish();
+      saveNow();
       api.timeout(() => {
         const w = winner ? idOf(winner) : null;
         api.endGame({
@@ -254,14 +266,15 @@ export function start(api) {
       if (g.isInsufficientMaterial()) return finish(null, 'Draw by insufficient material');
       if (g.isThreefoldRepetition()) return finish(null, 'Draw by repetition');
       if (g.isDraw()) return finish(null, 'Draw (50-move rule)');
+      saveNow();
       armFlag();
       maybeBot();
     });
     api.on('resign', (_, pid) => { if (!H.over && (pid === white || pid === black)) finish(pid === white ? 'b' : 'w', `${api.player(pid).name} resigned`); });
-    api.on('drawoffer', (_, pid) => { if (!H.over && (pid === white || pid === black)) { H.drawOffer = pid === white ? 'w' : 'b'; publish(); } });
+    api.on('drawoffer', (_, pid) => { if (!H.over && (pid === white || pid === black)) { H.drawOffer = pid === white ? 'w' : 'b'; publish(); saveNow(); } });
     api.on('drawans', ({ yes }, pid) => {
       if (H.over || !H.drawOffer || idOf(H.drawOffer) === pid) return;
-      if (yes) finish(null, 'Draw agreed'); else { H.drawOffer = null; publish(); }
+      if (yes) finish(null, 'Draw agreed'); else { H.drawOffer = null; publish(); saveNow(); }
     });
     api.onRejoin((id) => publish(id));
     api.onLeave((id) => { if (!H.over && (id === white || id === black)) finish(id === white ? 'b' : 'w', 'Opponent left the game'); });

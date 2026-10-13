@@ -28,6 +28,7 @@ export class GameSession {
     this.players = players;
 
     const self = this;
+    const autoSeat = (id) => !!room.autopilot && room.isHost && (room.autopilot !== 'me' || id === room.me);
     const api = (this.api = {
       root,
       def,
@@ -45,8 +46,8 @@ export class GameSession {
       // ---- computer players (host only runs their brains)
       get solo() { return !!room.local; },
       get level() { return room.state?.botLevel || 'normal'; },
-      isBot: (id) => !!players.find((p) => p.id === id)?.bot || (!!room.autopilot && room.isHost),
-      get bots() { return players.filter((p) => p.bot || (room.autopilot && room.isHost)).map((p) => p.id); },
+      isBot: (id) => !!players.find((p) => p.id === id)?.bot || autoSeat(id),
+      get bots() { return players.filter((p) => p.bot || autoSeat(p.id)).map((p) => p.id); },
       /** Make bot `id` perform an action: runs the host's handler exactly as if that player had sent the message. */
       botDo(id, k, d) {
         if (self.dead || !room.isHost) return;
@@ -55,7 +56,7 @@ export class GameSession {
       },
       restore: run.restore || null, // a saved position to resume from (turn-by-turn matches)
       async: !!run.async,
-      save(snapshot) { if (!self.dead) self.onSave?.(snapshot); }, // a turn-based game reports its position after each move
+      save(snapshot, meta = {}) { if (self.dead) return; self.lastSave = { snapshot, meta }; self.onSave?.(snapshot, meta); }, // a turn-based game reports its position after each move
 
       on(type, fn) { self._handlers.set(type, fn); },
       toHost(k, d) { if (!self.dead) room.gToHost(k, d); },

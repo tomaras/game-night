@@ -7,31 +7,35 @@ import { makeBot } from './bots.js';
 import { CFG, COLORS } from './net.js';
 
 export class LocalRoom extends Emitter {
-  constructor(profile, { autopilot } = {}) {
+  /** `players` + `me` let a turn-by-turn match put two real people in the room while only one of them is on this device. */
+  constructor(profile, { autopilot, players, me } = {}) {
     super();
     this.local = true;
     this.isHost = true;
-    this.me = 'p1';
+    this.me = me || 'p1';
     this.number = 0;
     this.chat = [];
     this.rtt = 0;
     this.connected = true;
     this.peer = null;
     this.profile = profile;
-    this.autopilot = !!autopilot && CFG.env !== 'prod'; // test hook: the human is driven by the same brain as the bots
+    this.autopilot = CFG.env !== 'prod' && autopilot ? autopilot : false; // test hook: the human (or, with 'me', just this device's seat) is driven by the same brain as the bots
     this._seq = 1;
     this._v = 0;
     this._runSeq = 0;
     this._gBuf = [];
     this._gHandler = null;
-    this._players = [{ id: 'p1', name: String(profile.name || 'You').slice(0, 16), avatar: sanitizeAvatar(profile.avatar), color: COLORS[0], online: true, pid: '', av: { on: 0, mic: 0, cam: 0 } }];
+    this._players = players
+      ? players.map((p, i) => ({ id: p.id, name: p.name, avatar: sanitizeAvatar(p.avatar), color: COLORS[i], online: true, pid: '', av: { on: 0, mic: 0, cam: 0 }, ...(p.bot ? { bot: true, level: p.level || 'normal' } : {}) }))
+      : [{ id: 'p1', name: String(profile.name || 'You').slice(0, 16), avatar: sanitizeAvatar(profile.avatar), color: COLORS[0], online: true, pid: '', av: { on: 0, mic: 0, cam: 0 } }];
+    this._seq = Math.max(this._seq, this._players.length);
     this._st = { number: 0, hostId: 'p1', gameId: null, opts: {}, locked: false, phase: 'lobby', game: null, results: null, botLevel: 'normal' };
     this._publish();
   }
 
   get players() { return this.state?.players || []; }
   player(id) { return this.players.find((p) => p.id === id); }
-  get hostId() { return 'p1'; }
+  get hostId() { return this.me; }
   get runId() { return this.state?.game?.runId || 0; }
 
   _publish() {
@@ -83,15 +87,15 @@ export class LocalRoom extends Emitter {
   sendChat(text) {
     text = String(text || '').trim().slice(0, 300);
     if (!text) return;
-    const p = this._players[0];
-    const m = { id: ++this._seq + ':' + Date.now(), from: 'p1', name: p.name, color: p.color, text, ts: Date.now() };
+    const p = this._players.find((x) => x.id === this.me) || this._players[0];
+    const m = { id: ++this._seq + ':' + Date.now(), from: this.me, name: p.name, color: p.color, text, ts: Date.now() };
     this.chat.push(m);
     this.emit('chat', m);
   }
   systemMessage() { /* no system chatter offline */ }
   setProfile(profile) {
     this.profile = profile;
-    const p = this._players[0];
+    const p = this._players.find((x) => x.id === this.me) || this._players[0];
     p.name = String(profile.name || p.name).slice(0, 16);
     if (profile.avatar) p.avatar = sanitizeAvatar(profile.avatar);
     this._publish();
@@ -99,9 +103,9 @@ export class LocalRoom extends Emitter {
   setAv() { /* no calls offline */ }
 
   // ---- game message transport (everything is local, delivered synchronously like the host's own messages)
-  gToHost(k, d) { this._deliverG(k, d, 'p1', this.runId); }
-  gBroadcast(k, d, exceptId) { if (exceptId !== 'p1') this._deliverG(k, d, 'p1', this.runId); }
-  gSendTo(id, k, d) { if (id === 'p1') this._deliverG(k, d, 'p1', this.runId); }
+  gToHost(k, d) { this._deliverG(k, d, this.me, this.runId); }
+  gBroadcast(k, d, exceptId) { if (exceptId !== this.me) this._deliverG(k, d, this.me, this.runId); }
+  gSendTo(id, k, d) { if (id === this.me) this._deliverG(k, d, this.me, this.runId); }
   _deliverG(k, d, from, r) {
     const cur = this.runId;
     if (r < cur) return;

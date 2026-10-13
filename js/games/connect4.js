@@ -23,6 +23,7 @@ export function start(api) {
   const first = api.seed % 2;
   const order = first ? [ids[1], ids[0]] : ids; // order[0] = red (moves first)
   const st = { board: Array(R * C).fill(0), turn: 0, winner: -1, line: [], draw: false };
+  if (api.restore) Object.assign(st, api.restore); // resuming a turn-by-turn match
 
   const status = h('div.c4-status');
   const boardEl = h('div.c4-board');
@@ -83,6 +84,12 @@ export function start(api) {
 
   if (api.isHost) {
     const send = () => api.broadcast('state', st);
+    // report the position after every move (the shell turns it into a shareable turn-by-turn match)
+    const save = () => {
+      const over = st.winner >= 0 || st.draw;
+      api.save({ board: st.board.slice(), turn: st.turn, winner: st.winner, line: st.line, draw: st.draw },
+        { turn: over ? null : order[st.turn], over, summary: st.draw ? 'Draw' : st.winner >= 0 ? `${api.player(order[st.winner]).name} won` : '', moves: st.board.filter(Boolean).length });
+    };
     // ---- computer player
     const maybeBot = () => {
       if (st.winner >= 0 || st.draw) return;
@@ -104,6 +111,7 @@ export function start(api) {
       else if (st.board.every(Boolean)) st.draw = true;
       else st.turn ^= 1;
       send();
+      save();
       maybeBot();
       if (st.winner >= 0 || st.draw) {
         api.timeout(() => {
