@@ -15,6 +15,7 @@ const PRECACHE = []; // __PRECACHE__ (stamped at build time)
 const APP_CACHE = 'gn-app-' + BUILD;
 const DATA_CACHE = 'gn-data-v1'; // big, rarely-changing files (word list, world map, ROMs): refreshed in the background
 const SCOPE = self.registration.scope;
+const NIGHTLY_PATH = new URL('nightly/', SCOPE).pathname; // the early-access version lives in a /nightly/ folder with its own worker
 const url = (p) => new URL(p, SCOPE).href;
 
 self.addEventListener('install', (e) => {
@@ -42,6 +43,7 @@ self.addEventListener('fetch', (e) => {
   const u = new URL(req.url);
   if (u.origin !== location.origin) return; // fonts, PeerJS cloud etc. go straight to the network
   if (u.pathname.endsWith('/build.json') || u.pathname.endsWith('/sw.js')) return; // always fresh
+  if (u.pathname.startsWith(NIGHTLY_PATH)) return; // the early-access version's pages and files are its own worker's business, never ours
 
   if (req.mode === 'navigate') {
     e.respondWith(caches.match(url('index.html')).then((r) => r || fetch(req)));

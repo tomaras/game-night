@@ -9,6 +9,7 @@ import { avatarEl, avatarEditor, sanitizeAvatar } from './avatar.js';
 import { AV } from './av.js';
 import { createAvUI } from './avui.js';
 import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialog, openMenu, switchEl } from './ui.js';
+import { maybeRedirect, switchChannel, channelInfo } from './channel.js';
 
 installSafeDom();
 installRipples();
@@ -157,6 +158,11 @@ function appSection() {
       if (pwa.installEvent) rows.push(h('div.sw-row', h('span', 'Install it like an app'), h('button.btn.primary.small', { onclick: () => promptInstall() }, icon('download'), 'Install')));
       else if (isIOS()) rows.push(h('div.sw-row.col', h('span', 'Install on iPhone / iPad'), h('small.muted', 'Open this page in Safari, tap the Share button, then “Add to Home Screen”.')));
       else rows.push(h('div.sw-row.col', h('span', 'Install as an app'), h('small.muted', 'Use your browser menu → “Install app” / “Add to Home screen”.')));
+    }
+    const ch = channelInfo();
+    if (ch.canSwitch) { // early access: flip to the newest version of the app (and back) — same app, same address
+      const sw = switchEl(ch.current === 'nightly', async (on) => { if (S.room) { toast('Leave the room first', 'bad'); sw.querySelector('input').checked = !on; return; } if (!(await switchChannel(on ? 'nightly' : 'stable'))) { sw.querySelector('input').checked = !on; toast('Early access isn’t available right now', 'bad'); } });
+      rows.unshift(h('div.sw-row', h('span', '🌙 Early access'), sw), h('small.muted', { style: 'padding:0 6px 4px' }, ch.current === 'nightly' ? 'You’re trying the newest features, which can be a little rough. Turn it off to go back to the tried-and-tested version. Rooms are separate between the two.' : 'Try the newest features before everyone else. Rooms are separate, so you’ll only meet friends who also have early access on.'));
     }
     mount(box, ...rows);
   };
@@ -863,4 +869,4 @@ function boot() {
 }
 
 window.__gn = S; // handy for debugging in the console
-boot();
+maybeRedirect().then((leaving) => { if (!leaving) boot(); }, () => boot());
