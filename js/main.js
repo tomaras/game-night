@@ -29,7 +29,7 @@ installRipples();
 initTheme();
 
 // Non-production builds are tagged everywhere so a test copy can never be mistaken for the real thing.
-const ENV_TAG = CFG.env === 'prod' ? '' : CFG.env === 'nightly' ? '[NIGHTLY]' : '[LOCAL]';
+const ENV_TAG = CFG.env === 'local' ? '[LOCAL]' : ''; // only a copy run from source is tagged; the early-access version is marked by a tiny moon on the die
 const setTitle = (t) => { document.title = (ENV_TAG ? ENV_TAG + ' ' : '') + t; };
 
 const $app = document.getElementById('app');
@@ -198,13 +198,9 @@ function renderHeader() {
   document.getElementById('app')?.classList.toggle('inroom', !!room);
   if (!room) {
     mount(S.headerEl,
-      iconBtn('menu', 'Menu', () => S.chrome.openDrawer(), 'hide-wide'),
-      h('a.logo', { href: '#/', 'aria-label': 'Home' }, logoMark()),
-      CFG.env === 'nightly' ? h('span.chantag', { title: 'You are on the Nightly version' }, icon('bolt', 'sm'), 'Nightly') : null,
+      S.chrome.die,
       joinPill(),
-      h('div.spacer'),
       ...(S.comms?.loungeAV ? S.commsBtns.buttons : []),
-      iconBtn(resolvedThemeIcon(), 'Theme', (e) => openThemePopover(e.currentTarget)),
       h('button.profilechip', { onclick: editProfile, title: 'Edit your name & avatar' }, avatarEl({ avatar: S.profile.avatar }, 'sm'), h('span.n', S.profile.name))
     );
     return;
@@ -228,19 +224,15 @@ function renderHeader() {
   updateChatBadge();
 }
 
-const resolvedThemeIcon = () => THEMES.find((t) => t[0] === getThemePref())[2];
-function openThemePopover(anchor) {
-  const seg = segmented(THEMES.map(([v, label, ic]) => ({ value: v, label, icon: ic })), getThemePref(), (v) => { setThemePref(v); renderHeader(); });
-  openPopover(anchor, h('div', h('h4', 'Theme'), seg), { align: 'right', width: 290 });
-}
 
 /** The small "room number / link" box in the app bar (built once so typing survives header repaints). */
 function joinPill() {
   if (S.joinEl) return S.joinEl;
-  const input = h('input', { placeholder: 'Room # or link', autocomplete: 'off', inputmode: 'text', enterkeyhint: 'go', 'aria-label': 'Room number or invite link' });
-  const el = h('div.joinpill', icon('login'), input, h('button.go', { type: 'button', 'aria-label': 'Join room', onclick: () => go() }, icon('arrow_forward')));
+  const input = h('input', { placeholder: 'Room # or invite link', autocomplete: 'off', inputmode: 'text', enterkeyhint: 'go', 'aria-label': 'Room number or invite link' });
+  const el = h('div.joinpill', icon('meeting_room'), input, h('button.go', { type: 'button', 'aria-label': 'Join room', onclick: () => go() }, 'Join'));
   const go = () => {
     const n = parseRoomInput(input.value);
+    if (!input.value.trim()) { input.focus(); return; }
     if (!n) return toast('Type a room number (like 3) or paste an invite link', 'bad');
     input.value = ''; el.classList.remove('has'); input.blur();
     location.hash = '#/room/' + n;
@@ -281,23 +273,29 @@ async function copyInvite() {
 const fitsPlayers = (def, n, withBots) => n == null || (n >= def.min && n <= def.max) || (withBots && !!def.bots && n >= 1 && n <= def.max) || (!!def.solo && n === 1);
 const saveFavs = () => writePref('gn.favs', JSON.stringify([...S.favs]));
 const RECENT = '🕘 Recent';
+const FAVS = '★ Favourites';
 /** Remember that this game was just played (shown first under the Recent filter). */
 function touchRecent(id) {
   S.recent = [id, ...S.recent.filter((x) => x !== id)].slice(0, 12);
   writePref('gn.recent', JSON.stringify(S.recent));
 }
 
-function gameCard(def, onPick) {
+/** "1–10" (or "1" …): a computer opponent makes any bot game playable alone, so those start at 1 with a tiny robot on the 1. */
+const playerRange = (def) => { const lo = def.bots || def.solo ? 1 : def.min; return { lo, hi: def.max, robot: !!def.bots }; };
+const rangeText = (def) => { const r = playerRange(def); return r.lo === r.hi ? String(r.lo) : `${r.lo}–${r.hi}`; };
+const rangeEl = (def) => { const r = playerRange(def); return h('span.rng', h('span.n1', r.lo, r.robot ? h('span.rbt', { title: 'Can be played against the computer' }, icon('smart_toy')) : null), r.lo === r.hi ? null : '–' + r.hi); };
+
+function gameCard(def, onPick, { onCat, onPlayers } = {}) {
   const fav = h('button.fav' + (S.favs.has(def.id) ? '.on' : ''), {
     'aria-label': (S.favs.has(def.id) ? 'Remove from' : 'Add to') + ' favourites', title: 'Favourite',
     onclick: (e) => { e.stopPropagation(); if (S.favs.has(def.id)) S.favs.delete(def.id); else S.favs.add(def.id); saveFavs(); fav.classList.toggle('on', S.favs.has(def.id)); fav.replaceChildren(icon(S.favs.has(def.id) ? 'star' : 'star_border')); },
   }, icon(S.favs.has(def.id) ? 'star' : 'star_border'));
+  const chipBtn = (cls, title, fn, ...kids) => h('button.chip.cchip' + cls, { type: 'button', title, onclick: (e) => { e.stopPropagation(); fn?.(e.currentTarget); } }, ...kids);
   return h('div.gcard', { role: 'button', tabindex: 0, style: { '--gc': def.color }, onclick: () => onPick(def), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(def); } } }, [
     fav,
-    h('div.tile.emo', def.emoji),
-    h('h3', def.name),
+    h('div.ghead', h('div.tile.emo', def.emoji), h('h3', def.name)),
     h('p', def.tagline),
-    h('div.meta', [h('span.chip', icon('group'), def.min === def.max ? def.min : `${def.min}–${def.max}`), def.bots ? h('span.chip.green', icon('smart_toy', 'sm'), 'vs computer') : def.solo ? h('span.chip.green', icon('person', 'sm'), 'solo') : h('span.chip', def.cat), def.async ? h('span.chip.purple', icon('sms', 'sm')) : null]),
+    h('div.meta', [chipBtn('', 'Filter by number of players', onPlayers, icon('group'), rangeEl(def)), chipBtn('', 'Show ' + def.cat + ' games', () => onCat?.(def.cat), def.cat), def.async ? h('span.chip.purple', { title: 'Can be played turn by turn by message' }, icon('sms', 'sm')) : null]),
   ]);
 }
 
@@ -309,27 +307,27 @@ function gameBrowser({ onPick, only = null, fixedPlayers, compact = false }) {
   const local = { query: compact ? '' : S.query, players: fixedPlayers !== undefined ? fixedPlayers : S.players, filter: compact ? 'All' : S.filter };
   const search = h('input', { placeholder: `Search ${GAMES.length} games`, value: local.query, 'aria-label': 'Search games', oninput: (e) => { local.query = e.target.value; if (!compact) S.query = local.query; paint(); } });
   const clear = h('button.iconbtn.sm.hide', { type: 'button', 'aria-label': 'Clear search', onclick: () => { search.value = ''; local.query = ''; if (!compact) S.query = ''; paint(); search.focus(); } }, icon('close'));
-  const pf = h('button.pfilter', { type: 'button', 'aria-label': 'Filter by number of players', onclick: () => openPlayersPopover() });
+  const pf = h('button.pfilter', { type: 'button', 'aria-label': 'Filter by number of players', onclick: () => openPlayersPopover(pf) });
   const setPlayers = (n) => { local.players = n; if (!compact) S.players = n; paint(); };
-  function openPlayersPopover() {
+  function openPlayersPopover(anchor = pf) {
     let close;
     const chip = (n) => h('button.numchip' + (local.players === n ? '.on' : ''), { onclick: () => { setPlayers(n); close(); } }, n);
     const box = h('div', h('h4', 'How many players?'),
       h('div.numgrid', h('button.numchip.any' + (local.players == null ? '.on' : ''), { onclick: () => { setPlayers(null); close(); } }, 'Any'), ...Array.from({ length: 12 }, (_, i) => chip(i + 1))),
       h('div.sw-row', h('span', 'Include games with computer players'), switchEl(S.withBots, (v) => { S.withBots = v; writePref('gn.withBots', v ? '1' : '0'); paint(); })),
       h('div.muted', { style: 'font-size:12.5px;margin-top:8px;line-height:1.4' }, 'Shows only the games that work with exactly this many people. 1 = games you can play alone.'));
-    close = openPopover(pf, box, { align: 'right', width: 300 });
+    close = openPopover(anchor, box, { align: 'right', width: 300 });
   }
   function paint() {
     const q = local.query.trim().toLowerCase();
-    const cats = ['All', ...(S.recent.some((id) => GAME_BY_ID[id]) ? [RECENT] : []), ...(S.favs.size && !compact ? ['★ Favourites'] : []), ...CATEGORIES];
-    if (!cats.includes(local.filter)) local.filter = 'All';
+    const cats = ['All', RECENT, FAVS, ...CATEGORIES];
     mount(chips, cats.map((c) => h('button.fchip' + (c === local.filter ? '.on' : ''), { onclick: () => { local.filter = c; if (!compact) S.filter = c; paint(); } }, c)));
     const list = GAMES.filter((g) => (!only || only(g)) && fitsPlayers(g, local.players, S.withBots)
-      && (local.filter === 'All' || (local.filter === RECENT ? S.recent.includes(g.id) : local.filter === '★ Favourites' ? S.favs.has(g.id) : g.cat === local.filter))
+      && (local.filter === 'All' || (local.filter === RECENT ? S.recent.includes(g.id) : local.filter === FAVS ? S.favs.has(g.id) : g.cat === local.filter))
       && (!q || (g.name + ' ' + g.tagline + ' ' + (g.tags || []).join(' ') + ' ' + g.cat).toLowerCase().includes(q)));
     if (local.filter === RECENT) list.sort((a, b) => S.recent.indexOf(a.id) - S.recent.indexOf(b.id));
-    mount(grid, list.length ? list.map((g) => gameCard(g, onPick)) : h('div.empty', local.players != null ? `No games for ${local.players} player${local.players === 1 ? '' : 's'}${S.withBots ? '' : ' (computer players off)'} — try another number.` : 'No games match — try another search.'));
+    const cardOpts = { onCat: (c) => { local.filter = c; if (!compact) S.filter = c; paint(); }, onPlayers: (el) => openPlayersPopover(el) };
+    mount(grid, list.length ? list.map((g) => gameCard(g, onPick, cardOpts)) : h('div.empty', local.filter === RECENT && !S.recent.length ? 'Games you play will show up here, newest first.' : local.filter === FAVS && !S.favs.size ? 'Tap the ☆ on any game to pin it here.' : local.players != null ? `No games for ${local.players} player${local.players === 1 ? '' : 's'}${S.withBots ? '' : ' (computer players off)'} — try another number.` : 'No games match — try another search.'));
     clear.classList.toggle('hide', !local.query);
     pf.classList.toggle('on', local.players != null);
     mount(pf, icon('group'), local.players == null ? 'Players' : String(local.players));
@@ -348,13 +346,48 @@ function renderGamesTab() {
   S.chrome.setActive('games');
   const browser = gameBrowser({ onPick: openGameSheet });
   mount(S.view, h('div.home', [browser.el, installChip(), h('div.footnote', 'Rooms are peer-to-peer: nothing is stored on a server. Retro Console uses jsnes and free homebrew by Damian Yerrick.')]));
-  S.chrome.setFab([
-    { label: 'Create a room', icon: 'add_circle', onClick: () => pickGame({ title: 'Create a room', onPick: (d) => createRoom(d.id) }) },
-    { label: 'Quick play', icon: 'casino', onClick: () => { const l = browser.list(); if (!l.length) return toast('No games match your filter'); const d = pick(l); toast('How about ' + d.name + '?'); openGameSheet(d); } },
-    { label: 'Join with a code', icon: 'login', onClick: () => { S.joinInput?.focus(); } },
-  ]);
+  S.chrome.setFab(fabActions(browser));
 }
 const renderHome = renderGamesTab;
+
+/** The round + button's menu: everything you might want to start from anywhere. */
+function fabActions(browser) {
+  const last = S.recent.map((id) => GAME_BY_ID[id]).find(Boolean);
+  const qr = 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia;
+  return [
+    { label: 'Create a room', icon: 'add_circle', onClick: () => pickGame({ title: 'Create a room', onPick: (d) => createRoom(d.id) }) },
+    { label: 'Play vs computer', icon: 'smart_toy', onClick: () => pickGame({ title: 'Play vs the computer', only: (g) => g.bots || g.solo, onPick: (d) => startSolo(d) }) },
+    { label: 'Turn by turn', icon: 'sms', onClick: () => pickGame({ title: 'Turn-by-turn match', only: (g) => g.async, onPick: (d) => startMatch(d) }) },
+    { label: 'Surprise me', icon: 'casino', onClick: () => { const l = (browser?.list() || GAMES).filter((g) => g.bots || g.solo || g.min <= 2); const d = pick(l.length ? l : GAMES); toast('How about ' + d.name + '?'); openGameSheet(d); } },
+    last ? { label: 'Play ' + last.name + ' again', icon: 'history', onClick: () => openGameSheet(last) } : null,
+    { label: 'Join with a code', icon: 'login', onClick: () => S.joinInput?.focus() },
+    qr ? { label: 'Scan a QR invite', icon: 'qr_code_scanner', onClick: scanQr } : null,
+  ].filter(Boolean);
+}
+
+/** Point the camera at an invite QR code (browsers with BarcodeDetector: Chrome, Edge, Android). */
+async function scanQr() {
+  let stream, stop = false;
+  const video = h('video', { autoplay: true, playsinline: true, muted: true, style: 'width:100%;border-radius:18px;background:#000;max-height:60dvh' });
+  const sheet = openSheet(h('div.col', { style: 'gap:12px' }, h('h2', 'Scan a QR invite'), video, h('div.muted', 'Point the camera at the QR code on your friend’s screen.')), { onClose: () => { stop = true; stream?.getTracks().forEach((t) => t.stop()); } });
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream; await video.play();
+    const det = new BarcodeDetector({ formats: ['qr_code'] });
+    while (!stop) {
+      const codes = await det.detect(video).catch(() => []);
+      const text = codes[0]?.rawValue;
+      if (text) {
+        sheet.close();
+        if (text.startsWith(location.origin)) { location.href = text; return; }
+        const n = parseRoomInput(text);
+        if (n) location.hash = '#/room/' + n; else toast('That QR code isn’t a Game Night invite', 'bad');
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } catch (e) { sheet.close(); toast('Couldn’t open the camera: ' + (e.message || e.name), 'bad'); }
+}
 
 /** A bottom-sheet game chooser (create room, solo, turn-by-turn, or the host changing game in a lobby). */
 function pickGame({ title, only, players, onPick }) {
@@ -567,9 +600,7 @@ function renderMatchesTab() {
   };
   mount(S.view, h('div.home',
     all.length ? groups.map(([t, l]) => h('div.msec', h('div.kt-title', t), h('div.mlist', l.map(card)))) : h('div.empty', h('div', { style: 'font-size:54px' }, '💬'), h('p', 'No matches yet. Start one with the + button — then text your move to a friend.'))));
-  S.chrome.setFab([
-    { label: 'New match', icon: 'add_circle', onClick: () => pickGame({ title: 'Turn-by-turn match', only: (g) => g.async, onPick: (d) => startMatch(d) }) },
-  ]);
+  S.chrome.setFab([{ label: 'New match', icon: 'add_circle', onClick: () => pickGame({ title: 'Turn-by-turn match', only: (g) => g.async, onPick: (d) => startMatch(d) }) }, ...fabActions(null).filter((a) => a.label !== 'Turn by turn' && a.label !== 'Create a room')]);
 }
 
 /** Opening a match link someone sent you. */
@@ -1340,10 +1371,7 @@ function renderRoomsTab() {
   const subs = ['rooms', 'people', 'connection'].map((ev) => plaza.on(ev, () => { if (el.isConnected) paint(); else subs.forEach((f) => f?.()); }));
   paint();
   mount(S.view, el);
-  S.chrome.setFab([
-    { label: 'Create a room', icon: 'add_circle', onClick: () => pickGame({ title: 'Create a room', onPick: (d) => createRoom(d.id) }) },
-    { label: 'Join with a code', icon: 'login', onClick: () => S.joinInput?.focus() },
-  ]);
+  S.chrome.setFab(fabActions(null));
 }
 
 // ------------------------------------------------------------------ Lounge tab (global chat, voice channels, who's online)
@@ -1355,7 +1383,7 @@ function renderLoungeTab() {
   S.chrome.setBadge('lounge', 0);
   renderHeader();
   S.chrome.setActive('lounge');
-  S.chrome.setFab(null);
+  S.chrome.setFab(fabActions(null));
   const pane = h('div.lpane');
   const chat = chatView({ placeholder: 'Message everyone online…', send: (t) => plaza.sendChat(t), onName: globalNameMenu, empty: 'Nobody has said anything yet — be the first 👋' });
   chat.reset(plaza.chat('lounge'));
@@ -1436,7 +1464,7 @@ function boot() {
   S.comms = new Comms({ plaza, toast });
   S.rec = new Recorder({ remoteStreams: () => [...(S.comms.roomAV?.remote.values() || []), ...(S.comms.loungeAV?.remote.values() || [])] });
   S.rec.on('state', () => { renderHeader(); });
-  S.commsBtns = createCommsButtons(S.comms, { toast });
+  S.commsBtns = createCommsButtons(S.comms, { toast, openTray: () => openComms() });
   S.comms.on('avs', syncLounge);
   S.mini = createMiniCall(S.comms, { go: () => { location.hash = '#/lounge'; } });
   document.body.append(S.mini.el);

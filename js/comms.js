@@ -3,6 +3,7 @@
 // them with one tap, without ever dropping either call.
 import { Emitter } from './util.js';
 import { AV } from './av.js';
+import { prime } from './media.js';
 import { LoungeRoom, channelName } from './lounge.js';
 import { LOUNGE_CHANNELS, CHANNEL_CAP } from './plaza.js';
 
@@ -100,8 +101,8 @@ export class Comms extends Emitter {
 
   async _ensureTarget(kind) {
     const scope = this.scope[kind];
-    if (scope === 'room' && !this.roomAV) { this.toast('You’re not in a room — switch this to Global to use it in the Lounge.'); return false; }
-    if (scope === 'global' && !this.loungeAV) {
+    if (scope === 'room' && !this.roomAV) { this.scope[kind] = 'global'; this._save(); this.emit('scope', kind); } // no room to talk to: use the Lounge instead
+    if (this.scope[kind] === 'global' && !this.loungeAV) {
       const ch = this.firstFreeChannel();
       if (!ch) { this.toast('All Lounge channels are full right now', 'bad'); return false; }
       if (!(await this.joinChannel(ch))) return false;
@@ -111,6 +112,7 @@ export class Comms extends Emitter {
   }
   async toggle(kind) {
     const key = kind + 'Want';
+    if (!this[key]) prime(kind === 'mic' ? 'audio' : 'video'); // permission prompt straight from the tap
     if (!this[key]) { if (!(await this._ensureTarget(kind))) return; this[key] = true; } else this[key] = false;
     await this._apply();
   }

@@ -11,7 +11,7 @@ export function makeBot(players, id, level = 'normal') {
   const free = BOT_NAMES.filter((n) => !names.has('Robo ' + n));
   const name = 'Robo ' + (free[Math.floor(Math.random() * free.length)] || 'Bot ' + id);
   const av = randomAvatar();
-  av.e = 11; // the visor eyes: instantly recognisable as a computer
+  av.r = 1; // drawn as a square-headed robot (see avatar.js)
   av.a = 0;
   return { id, name, avatar: av, color: BODY_COLORS[av.c], online: true, pid: '', av: { on: 0, mic: 0, cam: 0 }, bot: true, level };
 }

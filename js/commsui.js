@@ -9,10 +9,15 @@ import { channelName } from './lounge.js';
 const SCOPES = [{ value: 'room', label: 'Room', icon: 'meeting_room' }, { value: 'global', label: 'Global', icon: 'public' }];
 
 /** The two header buttons. They stay in sync with `comms` by themselves. */
-export function createCommsButtons(comms, { toast }) {
+export function createCommsButtons(comms, { toast, openTray }) {
   const mk = (kind, title) => {
-    const badge = h('span.sbadge', { role: 'button', tabindex: '-1', onclick: (e) => { e.stopPropagation(); comms.flipScope(kind); } });
-    const btn = h('button.iconbtn.cbtn', { title, 'aria-label': title, onclick: () => { if (!comms.supported) return toast('Voice & video need a secure (https) page and a browser with WebRTC support.', 'bad'); comms.toggle(kind); } });
+    const badge = h('span.sbadge'); // just a label (R = room, G = global): a tap on the button ALWAYS turns it on/off
+    let timer = 0, held = false;
+    const btn = h('button.iconbtn.cbtn', { title: title + ' — hold for more options', 'aria-label': title,
+      onclick: () => { if (held) { held = false; return; } if (!comms.supported) return toast('Voice & video need a secure (https) page and a browser with WebRTC support.', 'bad'); comms.toggle(kind); },
+      oncontextmenu: (e) => e.preventDefault() });
+    btn.addEventListener('pointerdown', () => { held = false; clearTimeout(timer); timer = setTimeout(() => { held = true; openTray?.(); }, 520); });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => clearTimeout(timer));
     return { btn, badge, kind };
   };
   const mic = mk('mic', 'Microphone'), cam = mk('cam', 'Camera');
@@ -27,7 +32,6 @@ export function createCommsButtons(comms, { toast }) {
       x.btn.replaceChildren(icon(name), x.badge);
       x.badge.textContent = scope === 'room' ? 'R' : 'G';
       x.badge.classList.toggle('g', scope === 'global');
-      x.badge.title = `${x.kind === 'mic' ? 'Microphone' : 'Camera'} goes to: ${scope === 'room' ? 'this room' : 'the global Lounge'} — tap to switch`;
       x.btn.setAttribute('aria-label', `${x.kind === 'mic' ? 'Microphone' : 'Camera'} ${on ? 'on' : 'off'}, sending to ${scope === 'room' ? 'room' : 'global'}`);
     }
   }

@@ -75,12 +75,13 @@ const createRoom = async (p, gameId = 'connect4') => {
 
 console.log(`\nGame Night CI — Nightly ${builds.A.id}, Stable ${stableId}\n`);
 
-await test('home screen loads without errors; Nightly is clearly marked', async () => {
+await test('home screen loads without errors; early access is marked by a moon', async () => {
   const p = await newPage();
   await p.goto(START);
   await p.waitForSelector('.gcard');
-  ok((await p.title()).startsWith('[NIGHTLY]'), 'title should start with [NIGHTLY], got ' + (await p.title()));
-  ok(await p.locator('.envpill').count() === 1, 'Nightly pill missing');
+  ok(!/nightly/i.test(await p.title()), 'the early-access version must not say "nightly" anywhere');
+  ok(await p.locator('.diebtn .moon').count() === 1, 'a tiny moon marks early access on the die');
+  ok(await p.locator('.envpill').count() === 0, 'no environment pill outside local builds');
   const bj = await (await p.request.get(site.url + 'nightly/build.json')).json();
   ok(bj.build === builds.A.id && bj.env === 'nightly', 'build.json mismatch');
   ok(await p.locator('.gcard').count() >= 52, 'expected at least 52 games, got ' + await p.locator('.gcard').count());
@@ -297,17 +298,18 @@ await test('global chat reaches other people; Lounge voice call connects; the mi
   for (const p of [A, B]) { await p.click('.lounge .seg button:has-text("Voice")'); await p.locator('.chrow', { hasText: 'Lounge 1' }).locator('button:has-text("Join")').click(); }
   await until(() => A.evaluate(() => window.__gn.comms.loungeAV?.remote.size === 1), 20000, 'the lounge call to connect');
   // mic: scope Room → Global, then on
-  await A.click('.top .cbtn >> nth=0 >> .sbadge');
-  await A.click('.top .cbtn >> nth=0');
+  await A.evaluate(() => window.__gn.comms.setScope('mic', 'global'));
+  await A.click('.top .cbtn >> nth=0'); // a plain tap on the button turns the mic on — it never just flips the scope
   await until(() => A.evaluate(() => window.__gn.comms.loungeAV?.local.mic === true), 8000, 'mic live in the Lounge');
+  ok(await A.evaluate(() => window.__gn.comms.scope.mic) === 'global', 'tapping the mic must not change its scope');
   await until(() => B.evaluate(() => window.__gn.comms.lounge.players.some((p) => p.name === 'Anna' && p.av.mic === 1)), 8000, 'B to see A\'s mic');
   // A hosts a room, flips the live mic to Room and back
   await A.evaluate(() => { location.hash = '#/game/connect4'; });
   await A.click('.sheet button:has-text("Create a room")'); await A.click('.sheet button.primary:has-text("Create room")');
   await A.waitForSelector('.lobby', { timeout: 20000 });
-  await A.click('.top .cbtn >> nth=0 >> .sbadge');
+  await A.evaluate(() => window.__gn.comms.setScope('mic', 'room'));
   await until(() => A.evaluate(() => window.__gn.comms.roomAV?.local.mic === true && window.__gn.comms.loungeAV?.local.mic === false), 8000, 'mic to move to the room');
-  await A.click('.top .cbtn >> nth=0 >> .sbadge');
+  await A.evaluate(() => window.__gn.comms.setScope('mic', 'global'));
   await until(() => A.evaluate(() => window.__gn.comms.roomAV?.local.mic === false && window.__gn.comms.loungeAV?.local.mic === true), 8000, 'mic to move back to the Lounge');
   ok(A.errs.length + B.errs.length === 0, 'errors: ' + [...A.errs, ...B.errs].join(' | '));
   await A.ctx.close(); await B.ctx.close();
@@ -350,16 +352,16 @@ await test('Stable and Nightly share one site: the menu switches, the choice is 
   const cfg = () => p.evaluate(() => ({ env: window.GAME_NIGHT_CONFIG.env, prefix: window.GAME_NIGHT_CONFIG.prefix, path: location.pathname }));
   let c = await cfg();
   ok(c.env === 'prod' && c.prefix === 'gnight-v1-' && c.path === '/index.html', 'root should be Stable: ' + JSON.stringify(c));
-  ok(!(await p.title()).startsWith('[NIGHTLY]') && await p.locator('.chantag').count() === 0, 'Stable must not look like Nightly');
+  ok(await p.locator('.diebtn .moon').count() === 0, 'Stable has no moon');
   await until(() => p.evaluate(() => !!navigator.serviceWorker.controller), 15000, 'Stable service worker');
   // switch to Nightly from the menu
-  await p.evaluate(() => window.__gn.chrome.openDrawer());
-  await p.click('.drow:has-text("Nightly version") label.switch');
+  await p.click('.diebtn');
+  await p.click('.drow:has-text("Early access") label.switch');
   await p.waitForURL(/\/nightly\//, { timeout: 15000 });
   await p.waitForSelector('.gcard');
   c = await cfg();
   ok(c.env === 'nightly' && c.prefix === 'gnight-nightly-v1-', 'should be on Nightly now: ' + JSON.stringify(c));
-  ok(await p.locator('.chantag').count() === 1, 'Nightly tag missing');
+  ok(await p.locator('.diebtn .moon').count() === 1, 'moon missing on early access');
   // each channel has its OWN service worker and cache, and the Nightly page is controlled by Nightly's
   await until(() => p.evaluate(() => navigator.serviceWorker.controller?.scriptURL.endsWith('/nightly/sw.js')), 15000, "Nightly's own service worker to control the page");
   const caches = await p.evaluate(async () => (await window.caches.keys()).sort());
@@ -386,7 +388,10 @@ await test('Recent: games you play appear under a Recent filter, newest first', 
   const p = await newPage('Recent');
   await p.goto(START);
   await p.waitForSelector('.gcard');
-  ok(await p.locator('.fchip:has-text("Recent")').count() === 0, 'no Recent filter before playing anything');
+  ok(await p.locator('.fchip:has-text("Recent")').count() === 1 && await p.locator('.fchip:has-text("Favourites")').count() === 1, 'Recent and Favourites chips are always there');
+  await p.click('.fchip:has-text("Recent")');
+  ok(await p.locator('.gcard').count() === 0 && /will show up here/.test(await p.innerText('.home')), 'Recent starts empty with a hint');
+  await p.click('.fchip:has-text("All")');
   for (const id of ['connect4', 'letterdash']) {
     await p.evaluate((id) => { location.hash = '#/game/' + id; }, id);
     await p.click('.sheet button:has-text("Play")');
@@ -399,6 +404,13 @@ await test('Recent: games you play appear under a Recent filter, newest first', 
   await p.click('.fchip:has-text("Recent")');
   const names = await p.locator('.gcard h3').allInnerTexts();
   ok(names.length === 2 && /Letter Dash/.test(names[0]) && /Connect Four/.test(names[1]), 'Recent should list the two games, newest first: ' + names);
+  await p.click('.fchip:has-text("All")');
+  await p.locator('.gcard', { hasText: 'Word Bomb' }).locator('.fav').click();
+  await p.click('.fchip:has-text("Favourites")');
+  ok((await p.locator('.gcard h3').allInnerTexts()).join() === 'Word Bomb', 'Favourites should show the starred game');
+  await p.click('.fchip:has-text("All")');
+  await p.locator('.gcard', { hasText: 'Connect Four' }).locator('.cchip', { hasText: 'Board' }).click(); // facts on a card are clickable filters
+  ok((await p.locator('.gcard').count()) > 0 && await p.locator('.fchip.on:has-text("Board")').count() === 1, 'tapping a card\'s category selects that category');
   ok(p.errs.length === 0, 'errors: ' + p.errs.join(' | '));
   await p.ctx.close();
 });

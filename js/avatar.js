@@ -1,5 +1,5 @@
 // Avatars: skribbl-style animated blobs (color + eyes + mouth + accessory) or an uploaded photo.
-// avatar = { c, e, m, a, img? }   (img is a small JPEG data-URL)
+// avatar = { c, e, m, a, img?, r? }   (img is a small JPEG data-URL; r = 1 draws a square-headed robot — computer players)
 import { h } from './util.js';
 import { icon } from './ui.js';
 
@@ -16,6 +16,7 @@ export function sanitizeAvatar(a) {
   const ok = (v, n) => Number.isInteger(v) && v >= 0 && v < n;
   if (!ok(a.c, BODY_COLORS.length) || !ok(a.e, N_EYES) || !ok(a.m, N_MOUTH) || !ok(a.a, N_ACC)) return randomAvatar();
   const out = { c: a.c, e: a.e, m: a.m, a: a.a };
+  if (a.r) out.r = 1;
   if (typeof a.img === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(a.img) && a.img.length < 9000) out.img = a.img;
   return out;
 }
@@ -78,10 +79,41 @@ const ACCS = [
   () => `<ellipse cx="50" cy="30" rx="36" ry="6" fill="#a9743d" stroke="${K}" stroke-width="2"/><path d="M34 30 Q34 6 50 10 Q66 6 66 30Z" fill="#b98448" stroke="${K}" stroke-width="2" stroke-linejoin="round"/>`,
 ];
 
+// ---- robots (computer players): a square metal head, antenna, glowing visor
+const R_EYES = [
+  (g) => `<rect x="34" y="44" width="9" height="13" rx="3" fill="${g}"/><rect x="57" y="44" width="9" height="13" rx="3" fill="${g}"/>`,
+  (g) => `<circle cx="39" cy="51" r="6" fill="${g}"/><circle cx="61" cy="51" r="6" fill="${g}"/><circle cx="41" cy="49" r="2" fill="#fff"/><circle cx="63" cy="49" r="2" fill="#fff"/>`,
+  (g) => `<rect x="31" y="49" width="14" height="4.5" rx="2" fill="${g}"/><rect x="55" y="49" width="14" height="4.5" rx="2" fill="${g}"/>`,
+  (g) => `<rect x="30" y="46" width="40" height="8" rx="4" fill="${g}"/><rect x="44" y="46" width="12" height="8" rx="4" fill="#fff" opacity=".85"/>`,
+  (g) => `<path d="M32 55 L41 46 L45 51" fill="none" stroke="${g}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M68 55 L59 46 L55 51" fill="none" stroke="${g}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`,
+];
+const R_MOUTH = [
+  () => `<rect x="35" y="72" width="30" height="11" rx="3" fill="#2a3446" stroke="${K}" stroke-width="2"/>` + [42, 50, 58].map((x) => `<path d="M${x} 72 L${x} 83" stroke="#8fa0ba" stroke-width="2"/>`).join(''),
+  () => `<path d="M36 74 Q50 86 64 74" fill="none" stroke="#2a3446" stroke-width="4" stroke-linecap="round"/>`,
+  () => `<rect x="38" y="75" width="24" height="5" rx="2.5" fill="#2a3446"/>`,
+  () => `<path d="M34 78 L41 72 L48 78 L55 72 L62 78 L66 74" fill="none" stroke="#2a3446" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+];
+const GLOW = ['#5ef2ff', '#7dff9a', '#ffd23f', '#ff6b8a', '#c79bff'];
+function robotSVG(a) {
+  const col = BODY_COLORS[a.c] || BODY_COLORS[4];
+  const body = shade(col, 0.05), dark = shade(col, -0.35), light = shade(col, 0.5);
+  const glow = GLOW[(a.c + a.e) % GLOW.length];
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<g class="av-body"><ellipse cx="50" cy="95" rx="27" ry="3.6" fill="#000" opacity=".25"/>
+<path d="M50 25 L50 11" stroke="${K}" stroke-width="3.5" stroke-linecap="round"/><circle cx="50" cy="8" r="5.5" fill="${glow}" stroke="${K}" stroke-width="2"/>
+<rect x="9" y="47" width="10" height="24" rx="3.5" fill="${dark}" stroke="${K}" stroke-width="2"/><rect x="81" y="47" width="10" height="24" rx="3.5" fill="${dark}" stroke="${K}" stroke-width="2"/>
+<rect x="17" y="24" width="66" height="66" rx="14" fill="${body}" stroke="${dark}" stroke-width="3.5"/>
+<path d="M22 36 Q22 28 30 28 L48 28" fill="none" stroke="${light}" stroke-width="3.5" stroke-linecap="round" opacity=".8"/>
+<rect x="25" y="37" width="50" height="29" rx="9" fill="#18212f" stroke="${K}" stroke-width="2.5"/>
+<g class="av-eyes">${R_EYES[a.e % R_EYES.length](glow)}</g><g class="av-mouth">${R_MOUTH[a.m % R_MOUTH.length]()}</g>
+${[[24, 30], [76, 30], [24, 84], [76, 84]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.1" fill="${light}" stroke="${dark}" stroke-width="1"/>`).join('')}</g></svg>`;
+}
+
 const cache = new Map();
 export function avatarSVG(a) {
-  const key = `${a.c}.${a.e}.${a.m}.${a.a}`;
+  const key = `${a.r ? 'r' : ''}${a.c}.${a.e}.${a.m}.${a.a}`;
   if (cache.has(key)) return cache.get(key);
+  if (a.r) { const svg = robotSVG(a); cache.set(key, svg); return svg; }
   const col = BODY_COLORS[a.c] || BODY_COLORS[0];
   const dark = shade(col, -0.28), light = shade(col, 0.4);
   const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -98,7 +130,7 @@ const imgCache = new Map();
 /** An <img> of the avatar for drawing on a canvas (cached; may still be loading on first call). */
 export function avatarImage(a) {
   a = a && typeof a === 'object' ? a : { c: 0, e: 0, m: 0, a: 0 };
-  const key = a.img ? a.img : `${a.c}.${a.e}.${a.m}.${a.a}`;
+  const key = a.img ? a.img : `${a.r ? 'r' : ''}${a.c}.${a.e}.${a.m}.${a.a}`;
   let im = imgCache.get(key);
   if (!im) {
     im = new Image();

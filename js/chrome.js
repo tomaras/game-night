@@ -6,6 +6,7 @@ import { avatarEl } from './avatar.js';
 import { THEMES, getThemePref, setThemePref } from './theme.js';
 import { isMuted, setMuted } from './audio.js';
 import { channelInfo } from './channel.js';
+import { CFG } from './net.js';
 
 export const TABS = [
   { id: 'games', label: 'Games', icon: 'sports_esports', hash: '#/' },
@@ -28,8 +29,8 @@ export function createChrome(ctx) {
 
   function paintNav() {
     mount(bottom, ...TABS.map((t) => navButton(t)));
-    mount(rail, h('button.navitem.menu', { onclick: openDrawer, 'aria-label': 'Menu' }, h('span.pill', icon('menu'))), ...TABS.map((t) => navButton(t)), h('div.spacer'),
-      h('button.navitem', { onclick: openDrawer, 'aria-label': 'Settings' }, h('span.pill', icon('settings')), h('span.nl', 'More')));
+    mount(rail, ...TABS.map((t) => navButton(t)), h('div.spacer'),
+      h('button.navitem', { onclick: toggleDrawer, 'aria-label': 'Settings' }, h('span.pill', icon('settings')), h('span.nl', 'Settings')));
   }
 
   // ---------------------------------------------------------------- speed dial
@@ -44,17 +45,24 @@ export function createChrome(ctx) {
   }
   function toggleFab(v) { fabOpen = v ?? !fabOpen; paintFab(); }
 
+  // ---------------------------------------------------------------- the die: menu button that rolls into a red cross and back
+  const xMark = () => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'xm'); s.innerHTML = '<path d="M5 5l14 14M19 5L5 19" fill="none" stroke="#ea4335" stroke-width="3.6" stroke-linecap="round"/>'; return s; };
+  const die = h('button.diebtn', { 'aria-label': 'Menu', 'aria-expanded': 'false', onclick: () => toggleDrawer() },
+    h('span.dieface', logoMark()), h('span.diex', xMark()), CFG.env === 'nightly' ? h('span.moon', { 'aria-hidden': 'true' }, '🌙') : null);
+  const setDie = (open) => { die.classList.toggle('open', open); die.classList.remove('rolling'); void die.offsetWidth; die.classList.add('rolling'); die.setAttribute('aria-expanded', String(open)); };
+
   // ---------------------------------------------------------------- drawer
   let drawerEls = null;
+  const toggleDrawer = () => (drawerEls ? drawerEls.close() : openDrawer());
   function openDrawer() {
     if (drawerEls) return;
-    const close = () => { drawerEls.back.classList.add('out'); drawerEls.panel.classList.add('out'); const d = drawerEls; drawerEls = null; setTimeout(() => { d.back.remove(); d.panel.remove(); }, 200); removeEventListener('keydown', onKey); };
+    setDie(true);
+    const close = () => { if (!drawerEls) return; setDie(false); drawerEls.back.classList.add('out'); drawerEls.panel.classList.add('out'); const d = drawerEls; drawerEls = null; setTimeout(() => { d.back.remove(); d.panel.remove(); }, 200); removeEventListener('keydown', onKey); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     addEventListener('keydown', onKey);
     const item = (ic, label, fn, extra) => h('button.ditem', { onclick: () => { close(); fn(); } }, icon(ic), h('span', label), extra || null);
     const prof = ctx.S.profile;
     const panel = h('aside.drawer', { 'aria-label': 'Menu' },
-      h('div.dhead', h('div.dlogo', logoMark()), h('div.spacer'), iconBtn('close', 'Close menu', close, 'sm')),
       h('button.dprofile', { onclick: () => { close(); ctx.editProfile(); } }, avatarEl({ avatar: prof.avatar }, 'lg'), h('div', h('b', prof.name), h('small', 'Edit name & avatar')), h('span.spacer'), icon('edit')),
       h('div.dsec', 'Go to'),
       ...TABS.map((t) => item(t.icon, t.label, () => ctx.go(t.hash), badges[t.id] ? h('span.chip.red', badges[t.id]) : null)),
@@ -69,16 +77,16 @@ export function createChrome(ctx) {
       h('div.dfoot', ctx.versionText));
     const back = h('div.drawerback', { onclick: close });
     document.body.append(back, panel);
-    drawerEls = { back, panel };
+    drawerEls = { back, panel, close };
   }
 
-  /** "Use the Nightly version" switch (only on the deployed site): on = Nightly, off = Stable. Flipping it reloads into the other version. */
+  /** The "Early access" switch (only on the deployed site): on = newest version, off = the tried-and-tested one. Flipping it reloads into the other version. */
   function channelRows() {
     const info = channelInfo();
     if (!info.canSwitch) return [];
     const sw = switchEl(info.current === 'nightly', async (on) => { if (!(await ctx.switchChannel(on ? 'nightly' : 'stable'))) { sw.querySelector('input').checked = !on; } });
-    return [h('div.drow', icon('bolt'), h('span', 'Nightly version'), h('span.spacer'), sw),
-      h('div.dnote', info.current === 'nightly' ? 'You’re on Nightly: the newest features, and sometimes rough edges. Turn it off to go back to Stable. Rooms are separate from Stable’s, so you can’t play with friends who are on Stable.' : 'Turn on to try the newest features before everyone else. Nightly has its own separate rooms, so you can’t play with friends who are on Stable.')];
+    return [h('div.drow', icon('dark_mode'), h('span', 'Early access'), h('span.spacer'), sw),
+      h('div.dnote', info.current === 'nightly' ? 'You’re trying the newest features, which can be a little rough. Turn it off to go back to the tried-and-tested version. Rooms are separate between the two.' : 'Try the newest features before everyone else. Rooms are separate, so you’ll only meet friends who also have early access on.')];
   }
 
   paintNav();
@@ -88,6 +96,6 @@ export function createChrome(ctx) {
     setActive(id) { active = id; paintNav(); },
     setBadge(id, n) { if ((badges[id] || 0) === n) return; badges[id] = n; paintNav(); },
     setFab(items) { fabItems = items; fabOpen = false; paintFab(); },
-    openDrawer,
+    openDrawer, toggleDrawer, die,
   };
 }
