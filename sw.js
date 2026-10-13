@@ -9,12 +9,14 @@
 // Emergency kill switch: deploy a sw.js that only unregisters itself (see README "If something goes wrong").
 // Users can also open the site with ?reset to wipe the cache and service worker by hand.
 
+const CACHE_PREFIX = 'gn-app-'; // __CACHE_PREFIX__ (Stable and Nightly use different prefixes: they share one site, so they must not delete each other's caches)
 const BUILD = 'local'; // __BUILD__ (stamped at build time)
 const PRECACHE = []; // __PRECACHE__ (stamped at build time)
 
-const APP_CACHE = 'gn-app-' + BUILD;
+const APP_CACHE = CACHE_PREFIX + BUILD;
 const DATA_CACHE = 'gn-data-v1'; // big, rarely-changing files (word list, world map, ROMs): refreshed in the background
 const SCOPE = self.registration.scope;
+const NIGHTLY_PATH = new URL('nightly/', SCOPE).pathname; // the Nightly channel lives in a /nightly/ folder with its own worker
 const url = (p) => new URL(p, SCOPE).href;
 
 self.addEventListener('install', (e) => {
@@ -24,7 +26,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith('gn-app-') && k !== APP_CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if (k.startsWith(CACHE_PREFIX) && k !== APP_CACHE) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -42,6 +44,7 @@ self.addEventListener('fetch', (e) => {
   const u = new URL(req.url);
   if (u.origin !== location.origin) return; // fonts, PeerJS cloud etc. go straight to the network
   if (u.pathname.endsWith('/build.json') || u.pathname.endsWith('/sw.js')) return; // always fresh
+  if (u.pathname.startsWith(NIGHTLY_PATH)) return; // Nightly's pages and files are Nightly's worker's business, never ours
 
   if (req.mode === 'navigate') {
     e.respondWith(caches.match(url('index.html')).then((r) => r || fetch(req)));

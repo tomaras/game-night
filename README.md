@@ -7,7 +7,7 @@ No installs, no accounts, built **phone-first** with a Material-style design (da
 
 ## The games (52)
 
-Every game has a **? rules button** (in the header, even mid-game) with the goal, step-by-step how to play, controls and tips — and **chat, voice and video** are always one tap away. The **Players** filter in the search bar shows only the games that work with exactly the number of people you have right now (tap it, pick 1–12).
+Every game has a **? rules button** (in the header, even mid-game) with the goal, step-by-step how to play, controls and tips — and **chat, voice and video** are always one tap away. The **Players** filter in the search bar shows only the games that work with exactly the number of people you have right now (tap it, pick 1–12), and a **🕘 Recent** filter lists the games you played lately, newest first.
 
 | | Game | Players | Type | What it is |
 |---|---|---|---|---|
@@ -104,35 +104,39 @@ Every game has a **? rules button** (in the header, even mid-game) with the goal
 * Screen sharing needs a desktop browser (Chrome/Edge can also share tab/system **audio**; Firefox/Safari share video only). Phones can watch but not share.
 * Use headphones — otherwise the movie sound leaks into your mic and everyone hears an echo.
 
-## Environments & releases
+## Stable & Nightly
 
-Three places the app can run, each with its **own room numbers** (so testing never touches real players):
+One site, two versions — switch any time in the side menu (**Version → Stable | Nightly**):
 
 | | Where | Rooms use | Updated |
 |---|---|---|---|
+| **Stable** | https://squattersnights.fun/ | `gnight-v1-N` | only when you press **Promote to Stable** |
+| **Nightly** | https://squattersnights.fun/nightly/ (orange ⚡ **Nightly** tag, orange icon) | `gnight-nightly-v1-N` | automatically on every push to `main` |
 | **local** | open the source tree (`python3 -m http.server`) | `gnight-local-v1-N` | as you edit |
-| **dev** | https://tomaras.github.io/game-night-dev/ (orange **DEV** pill, orange icon) | `gnight-dev-v1-N` | automatically on every push to `main` |
-| **prod** | https://squattersnights.fun | `gnight-v1-N` | only when you press **Promote to production** |
+
+Stable and Nightly **share the browser's storage** (your name, avatar, favourites, matches carry over) but have **separate rooms** and separate service workers/caches, so a rough Nightly can't disturb a real game night — it also means people on different versions can't play together (the join error says so). The menu remembers your choice: with Nightly chosen, opening the site's home page takes you to Nightly (invite and match links are never hijacked, and `https://squattersnights.fun/?channel=stable` always gets you back to Stable).
 
 **Everyday flow**
 
 1. Edit, then `git push` to `main`.
-2. GitHub Actions runs the checks (`npm test`: every game module loads, rooms work, the version handshake, offline start, playing the computer, turn-by-turn messages, the Rooms list with join requests and audience, global chat and call switching, recording and stitching, theme and filters, and *updates never interrupt a room*), builds the dev copy and publishes it. Test it on the dev site (on your phone too).
-3. Happy? Run **Actions → Promote to production → Run workflow** (or `gh workflow run promote.yml`). The same checks run again, the site is built for production and published, and the pipeline waits until squattersnights.fun really serves the new build. If it never does, the previous version is restored automatically.
-4. Players get it the next time they are on the home screen — no reinstall, no store review.
+2. GitHub Actions runs the checks (`npm test`: every game module loads, rooms work, the version handshake, offline start, playing the computer, turn-by-turn messages, the Rooms list with join requests and audience, global chat and call switching, recording and stitching, theme, filters, Recent, the Stable/Nightly switch, and *updates never interrupt a room*), then publishes **only the `/nightly/` folder**. Test it on your phone via the menu.
+3. Happy? Run **Actions → Promote to Stable → Run workflow** (or `gh workflow run promote.yml`). The same checks run again, the build is published as the site root (the `/nightly/` folder is left exactly as it is), and the pipeline waits until squattersnights.fun really serves it. If it never does, the previous Stable is restored automatically.
+4. People get it the next time they are on the home screen — no reinstall, no store review.
 
-**Roll back** — every release is tagged `prod-<build>`. Run the promote workflow with `ref` set to an older tag. See what is live with `git log prod-live..main` (changes not yet released).
+**How the two share one site safely.** `scripts/assemble.mjs` puts a build into the site: a Stable publish replaces everything *except* `nightly/`; a Nightly publish replaces *only* `nightly/` (and the workflow double-checks Stable's build id didn't change). `scripts/publish.sh` does it on the `prod` branch (the GitHub Pages source) as one fresh commit, retrying if the other channel published at the same moment. The two workflows share a queue so they take turns.
 
-**How updates stay invisible.** The site is an installable web app (PWA). A new version is downloaded in the background and waits; it is applied with one quick reload only when the user is on the home screen — never inside a room or a game. People on different *builds* can still play together; if a change ever makes old and new unable to play together, bump `PROTO` in `js/net.js` and they're asked to update before joining instead of hitting a broken room.
+**Roll back Stable** — every release is tagged `prod-<build>`. Run the promote workflow with `ref` set to an older tag. See what is live with `git log prod-live..main` (changes not yet in Stable).
 
-**Use it like an app (no app store needed).** Android/Chrome: menu → *Install app* (or the *Install app* button on the home screen). iPhone/iPad: Safari → Share → *Add to Home Screen*. It opens full-screen with its own icon and start-up is instant. (Native App Store / Play Store builds are possible later with Capacitor and would load the same site.)
+**How updates stay invisible.** The site is an installable web app (PWA). A new version is downloaded in the background and waits; it is applied with one quick reload only when the user is on the home screen — never inside a room or a game. Each channel has its own service worker (Nightly's is scoped to `/nightly/`). People on different *builds* of the same channel can still play together; if a change ever makes old and new unable to play together, bump `PROTO` in `js/net.js` and they're asked to update before joining instead of hitting a broken room.
+
+**Use it like an app (no app store needed).** Android/Chrome: menu → *Install app* (or the *Install app* button on the home screen). iPhone/iPad: Safari → Share → *Add to Home Screen*. It opens full-screen with its own icon and start-up is instant. Installing from the Nightly page installs a separate orange "Game Night Nightly" app. (Native App Store / Play Store builds are possible later with Capacitor and would load the same site.)
 
 **If something goes wrong**
 
-* A single device acting oddly: open the site with `?reset` at the end of the address (e.g. `https://squattersnights.fun/?reset`) — wipes its cache and service worker.
+* A single device acting oddly: open the site with `?reset` at the end of the address (e.g. `https://squattersnights.fun/?reset`) — wipes its cache and service worker. (Phones that still have an *old* Stable from before the Nightly switch existed need this once to reach `/nightly/`; after the next promote to Stable it's automatic.)
 * Everyone is stuck on a broken version: roll back (above). In the worst case ship a `sw.js` that only calls `registration.unregister()` — every browser re-checks `sw.js` on each visit and removes the cache.
 
-**One-time setup this repo uses** (already done): `prod` branch is the GitHub Pages source for the repo (custom domain `squattersnights.fun`); `tomaras/game-night-dev` is the dev site's Pages repo, written by CI through a write-only *deploy key* stored as the `DEV_DEPLOY_KEY` secret.
+**One-time setup this repo uses** (already done): the `prod` branch is the GitHub Pages source for the repo (custom domain `squattersnights.fun`). The old test site `tomaras/game-night-dev` is no longer used: each Nightly publish refreshes a tiny page there that forwards visitors to `/nightly/` (it can be deleted, along with the `DEV_DEPLOY_KEY` secret, whenever you like).
 
 ## Run locally
 

@@ -1,0 +1,103 @@
+# Every push to main: run the checks, then publish the build as NIGHTLY at https://squattersnights.fun/nightly/
+# Stable (the site root) is NOT touched — that only changes when you run the "Promote to Stable" workflow.
+name: Deploy to Nightly
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Stable and Nightly publishes write to the same Pages branch, so they take turns.
+concurrency:
+  group: site-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+
+env:
+  SITE_URL: https://squattersnights.fun
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the checks
+        run: npm test
+
+      - name: Build Nightly
+        run: node scripts/build.mjs --env nightly --out dist
+
+      - name: Remember which Stable build is live (it must not change)
+        id: stable
+        run: echo "build=$(curl -fsS "$SITE_URL/build.json?t=$RANDOM" 2>/dev/null | jq -r .build 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to /nightly/
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/publish.sh nightly dist "nightly build $(jq -r .build dist/build.json) (source ${GITHUB_SHA::7})"
+
+      - name: Wait until Nightly is serving this build
+        run: |
+          BUILD=$(jq -r .build dist/build.json)
+          for i in $(seq 1 60); do
+            LIVE=$(curl -fsS "$SITE_URL/nightly/build.json?t=$RANDOM" 2>/dev/null | jq -r .build 2>/dev/null || true)
+            echo "attempt $i: live=$LIVE want=$BUILD"
+            [ "$LIVE" = "$BUILD" ] && { echo "✔ Nightly is live: $SITE_URL/nightly/"; exit 0; }
+            sleep 10
+          done
+          echo "Nightly did not pick up the new build in 10 minutes" >&2
+          exit 1
+
+      - name: Check Stable was left alone
+        if: steps.stable.outputs.build != ''
+        run: |
+          NOW=$(curl -fsS "$SITE_URL/build.json?t=$RANDOM" | jq -r .build)
+          echo "stable before=${{ steps.stable.outputs.build }} now=$NOW"
+          [ "$NOW" = "${{ steps.stable.outputs.build }}" ] || { echo "Stable changed during a Nightly publish!" >&2; exit 1; }
+
+      # The old test site (github.io/game-night-dev) now just forwards people to Nightly, and cleans up its old app cache.
+      - name: Forward the old dev address to Nightly
+        continue-on-error: true
+        env:
+          DEV_DEPLOY_KEY: ${{ secrets.DEV_DEPLOY_KEY }}
+          DEV_REPO: ${{ github.repository_owner }}/game-night-dev
+        run: |
+          [ -n "$DEV_DEPLOY_KEY" ] || exit 0
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEV_DEPLOY_KEY" > ~/.ssh/dev_key
+          chmod 600 ~/.ssh/dev_key
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/dev_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          mkdir stub && cd stub
+          cat > index.html <<HTML
+          <!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Game Night moved</title>
+          <meta http-equiv="refresh" content="0; url=$SITE_URL/nightly/">
+          <p style="font:16px system-ui;padding:2rem">Game Night Nightly now lives at <a href="$SITE_URL/nightly/">$SITE_URL/nightly/</a>.</p>
+          <script>try{navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister()})});caches.keys().then(function(k){k.forEach(function(x){caches.delete(x)})})}catch(e){};location.replace("$SITE_URL/nightly/")</script>
+          HTML
+          # a worker that removes itself, so phones that installed the old dev app stop serving it from cache
+          cat > sw.js <<'JS'
+          self.addEventListener('install', () => self.skipWaiting());
+          self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))).then(() => self.registration.unregister()).then(() => self.clients.matchAll({ type: 'window' })).then((cs) => cs.forEach((c) => c.navigate(c.url)))));
+          JS
+          touch .nojekyll
+          git init -q -b main
+          git config user.name "game-night-bot"; git config user.email "game-night-bot@users.noreply.github.com"
+          git add -A
+          git commit -q -m "forward to $SITE_URL/nightly/"
+          git remote add dev "git@github.com:${DEV_REPO}.git"
+          git push --force dev main

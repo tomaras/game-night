@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Multiplayer party games in the browser (static site, PeerJS).",
   "scripts": {
-    "build:dev": "node scripts/build.mjs --env dev",
+    "build:nightly": "node scripts/build.mjs --env nightly",
     "build:prod": "node scripts/build.mjs --env prod --cname squattersnights.fun",
     "test": "node tests/ci.mjs"
   },

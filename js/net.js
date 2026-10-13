@@ -19,7 +19,7 @@ export const PROTO = 1;
 
 export const CFG = Object.assign(
   {
-    env: 'local', // 'local' | 'dev' | 'prod' — stamped by scripts/build.mjs
+    env: 'local', // 'local' | 'nightly' | 'prod' — stamped by scripts/build.mjs
     build: 'local', // build id, e.g. 20261009.0412-ab12cd3
     prefix: 'gnight-local-v1-', // room namespace; prod uses 'gnight-v1-' (set in config.js)
     maxRooms: 999,

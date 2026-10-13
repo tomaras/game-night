@@ -1,10 +1,10 @@
-# Releases to production (https://squattersnights.fun). Run it from the Actions tab — or `gh workflow run promote.yml`.
-#   • Default: releases the current main (what you have been testing on dev).
+# Promotes a version to STABLE (the site root of https://squattersnights.fun). Run it from the Actions tab — or `gh workflow run promote.yml`.
+#   • Default: promotes the current main (what you have been testing on Nightly, at /nightly/).
 #   • Roll back: run it again with an older release tag, e.g. ref = prod-20261009.0412-ab12cd3.
-# The same checks run again, the site is built for production, published, then the pipeline waits until the live
-# site really serves the new build. If that never happens the previous production version is restored.
-name: Promote to production
-run-name: Promote ${{ inputs.ref }} to production
+# The same checks run again, Stable is built and published, then the pipeline waits until the live site really serves the
+# new build. If that never happens the previous Stable is restored. Nightly (the /nightly/ folder) is never touched.
+name: Promote to Stable
+run-name: Promote ${{ inputs.ref }} to Stable
 
 on:
   workflow_dispatch:
@@ -14,8 +14,9 @@ on:
         required: true
         default: main
 
+# Stable and Nightly publishes write to the same Pages branch, so they take turns.
 concurrency:
-  group: promote
+  group: site-publish
   cancel-in-progress: false
 
 permissions:
@@ -34,29 +35,43 @@ jobs:
       name: production
       url: https://squattersnights.fun
     steps:
+      # the publishing tools always come from main; the version being released is checked out next to them
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
+          path: release
 
       - name: Check this version can be built
-        run: test -f scripts/build.mjs || { echo "This ref predates the release pipeline — pick a newer one." >&2; exit 1; }
+        run: test -f release/scripts/build.mjs || { echo "This ref predates the release pipeline — pick a newer one." >&2; exit 1; }
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: release/package-lock.json
 
       - run: npm ci
+        working-directory: release
 
       - name: Install the test browser
         run: npx playwright install --with-deps chromium
+        working-directory: release
 
       - name: Run the checks
         run: npm test
+        working-directory: release
 
-      - name: Build the production site
-        run: node scripts/build.mjs --env prod --cname "$PROD_CNAME" --out dist
+      - name: Build Stable
+        working-directory: release
+        run: |
+          # versions from before the Stable/Nightly split call this environment "prod" too, so this works for rollbacks
+          node scripts/build.mjs --env prod --cname "$PROD_CNAME" --out dist
 
       - name: Remember what is live now (for automatic rollback)
         id: prev
@@ -64,50 +79,40 @@ jobs:
           git fetch origin prod:refs/remotes/origin/prod 2>/dev/null || true
           echo "sha=$(git rev-parse -q --verify refs/remotes/origin/prod || true)" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to the prod branch
+      - name: Publish Stable (the site root; /nightly/ is left exactly as it is)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          BUILD=$(jq -r .build dist/build.json)
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          cd dist
-          git init -q -b prod
-          git config user.name "game-night-bot"
-          git config user.email "game-night-bot@users.noreply.github.com"
-          git add -A
-          git commit -q -m "production build $BUILD (source ${GITHUB_SHA::7})"
-          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          git -c "http.https://github.com/.extraheader=$AUTH" push --force origin prod
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent || true
+        run: scripts/publish.sh root release/dist "stable build $(jq -r .build release/dist/build.json) (source ${GITHUB_SHA::7})"
 
       - name: Wait until squattersnights.fun is serving this build
         run: |
-          BUILD=$(jq -r .build dist/build.json)
+          BUILD=$(jq -r .build release/dist/build.json)
           for i in $(seq 1 60); do
             LIVE=$(curl -fsS "$PROD_URL/build.json?t=$RANDOM" 2>/dev/null | jq -r .build 2>/dev/null || true)
             echo "attempt $i: live=$LIVE want=$BUILD"
-            [ "$LIVE" = "$BUILD" ] && { echo "✔ production is live: $PROD_URL"; exit 0; }
+            [ "$LIVE" = "$BUILD" ] && { echo "✔ Stable is live: $PROD_URL"; exit 0; }
             sleep 10
           done
-          echo "production did not pick up the new build in 10 minutes" >&2
+          echo "Stable did not pick up the new build in 10 minutes" >&2
           exit 1
 
       - name: Tag this release
+        working-directory: release
         run: |
           BUILD=$(jq -r .build dist/build.json)
-          git tag -f "prod-live" HEAD
-          git push -f origin "refs/tags/prod-live"
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${{ github.token }}" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=$AUTH" tag -f "prod-live" HEAD
+          git -c "http.https://github.com/.extraheader=$AUTH" push -f origin "refs/tags/prod-live"
           if ! git ls-remote --exit-code --tags origin "refs/tags/prod-$BUILD" >/dev/null 2>&1; then
             git tag "prod-$BUILD" HEAD
-            git push origin "refs/tags/prod-$BUILD"
+            git -c "http.https://github.com/.extraheader=$AUTH" push origin "refs/tags/prod-$BUILD"
           fi
 
-      - name: Restore the previous production version (the release failed)
+      - name: Restore the previous Stable (the release failed)
         if: failure() && steps.prev.outputs.sha != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTH" push --force origin "${{ steps.prev.outputs.sha }}:refs/heads/prod" || true
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent || true
-          echo "Previous production version restored." >&2
+          git worktree add /tmp/previous "${{ steps.prev.outputs.sha }}"
+          scripts/publish.sh restore-root /tmp/previous "restore previous stable"
+          echo "Previous Stable restored." >&2

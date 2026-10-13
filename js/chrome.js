@@ -5,6 +5,7 @@ import { icon, iconBtn, logoMark, segmented, switchEl } from './ui.js';
 import { avatarEl } from './avatar.js';
 import { THEMES, getThemePref, setThemePref } from './theme.js';
 import { isMuted, setMuted } from './audio.js';
+import { channelInfo, CHANNELS } from './channel.js';
 
 export const TABS = [
   { id: 'games', label: 'Games', icon: 'sports_esports', hash: '#/' },
@@ -59,6 +60,7 @@ export function createChrome(ctx) {
       ...TABS.map((t) => item(t.icon, t.label, () => ctx.go(t.hash), badges[t.id] ? h('span.chip.red', badges[t.id]) : null)),
       h('div.dsec', 'Appearance'),
       h('div.dtheme', segmented(THEMES.map(([v, label, ic]) => ({ value: v, label, icon: ic })), getThemePref(), (v) => setThemePref(v))),
+      ...channelSection(),
       h('div.dsec', 'Preferences'),
       h('div.drow', icon('volume_up'), h('span', 'Sound effects'), h('span.spacer'), switchEl(!isMuted(), (on) => setMuted(!on))),
       h('div.dsec', 'More'),
@@ -68,6 +70,15 @@ export function createChrome(ctx) {
     const back = h('div.drawerback', { onclick: close });
     document.body.append(back, panel);
     drawerEls = { back, panel };
+  }
+
+  /** Stable / Nightly switch (only on the deployed site). */
+  function channelSection() {
+    const info = channelInfo();
+    if (!info.canSwitch) return [];
+    const seg = segmented(CHANNELS.map((c) => ({ value: c.value, label: c.label, icon: c.icon })), info.current, async (v) => { if (!(await ctx.switchChannel(v))) seg.set(info.current); });
+    return [h('div.dsec', 'Version'), h('div.dtheme', seg),
+      h('div.dnote', info.current === 'nightly' ? 'Nightly gets every change first and can be rough. Rooms are separate from Stable’s, so you can’t play with friends who are on Stable.' : 'Stable is the tried-and-tested version. Nightly has the newest features, with its own separate rooms.')];
   }
 
   paintNav();

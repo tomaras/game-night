@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Builds the deployable site from the source tree.
 //
-//   node scripts/build.mjs --env dev|prod [--out dist] [--cname example.com]
+//   node scripts/build.mjs --env nightly|prod [--out dist] [--cname example.com]
 //
 // The source tree always runs as-is (env "local"); the build only stamps what differs per environment:
-//   • js/config.js     environment, build id and the room namespace (dev rooms never mix with prod rooms)
+//   • js/config.js     environment, build id and the room namespace (Nightly rooms never mix with Stable rooms)
 //   • sw.js            build id + the list of files to cache (so every deploy produces a new service worker)
-//   • manifest + icons "dev" gets an orange DEV icon so an installed test copy can't be mistaken for the real app
+//   • manifest + icons "nightly" gets an orange icon and its own app id, so an installed Nightly can't be mistaken for Stable
+//   • sw.js            its own cache-name prefix, so the two channels (same site, /nightly/ folder) never delete each other's caches
 //   • build.json       what is deployed (the pipeline polls this to confirm a deploy is really live)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (name, def) => { const i = process.argv.indexOf('--' + name); return i > -1 ? process.argv[i + 1] : def; };
 const env = arg('env');
-if (!['dev', 'prod'].includes(env)) { console.error('usage: build.mjs --env dev|prod [--out dist] [--cname domain]'); process.exit(1); }
+if (!['nightly', 'prod'].includes(env)) { console.error('usage: build.mjs --env nightly|prod [--out dist] [--cname domain]'); process.exit(1); }
 const out = path.resolve(ROOT, arg('out', 'dist'));
 const cname = arg('cname', '');
 
@@ -26,7 +27,8 @@ const when = process.env.BUILD_TIME || sh('git log -1 --format=%cd --date=format
 const dirty = !process.env.CI && sh('git status --porcelain').length > 0;
 const build = `${when}-${sha.slice(0, 7)}${dirty ? '-dirty' : ''}`;
 const proto = +(/export const PROTO = (\d+)/.exec(fs.readFileSync(path.join(ROOT, 'js/net.js'), 'utf8'))?.[1] || 0);
-const prefix = env === 'prod' ? 'gnight-v1-' : 'gnight-dev-v1-';
+const prefix = env === 'prod' ? 'gnight-v1-' : 'gnight-nightly-v1-';
+const cachePrefix = env === 'prod' ? 'gn-app-' : 'gn-nightly-';
 
 // 1. every module must at least parse (a typo should never reach a deploy)
 const walk = (dir, filter = () => true) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name), filter) : filter(d.name) ? [path.join(dir, d.name)] : []));
@@ -48,14 +50,14 @@ window.GAME_NIGHT_CONFIG = ${JSON.stringify({ env, build, prefix }, null, 2)};
 
 // 4. icons + manifest per environment
 const icons = path.join(out, 'assets/icons');
-if (env === 'dev') for (const f of fs.readdirSync(path.join(icons, 'dev'))) fs.copyFileSync(path.join(icons, 'dev', f), path.join(icons, f));
+if (env === 'nightly') for (const f of fs.readdirSync(path.join(icons, 'dev'))) fs.copyFileSync(path.join(icons, 'dev', f), path.join(icons, f));
 fs.rmSync(path.join(icons, 'dev'), { recursive: true, force: true });
 const mf = JSON.parse(fs.readFileSync(path.join(out, 'manifest.webmanifest'), 'utf8'));
-if (env === 'dev') { mf.name = 'Game Night (dev)'; mf.short_name = 'GN dev'; mf.id = './?dev'; mf.theme_color = '#ef6c00'; }
+if (env === 'nightly') { mf.name = 'Game Night Nightly'; mf.short_name = 'GN Nightly'; mf.id = './?nightly'; mf.theme_color = '#ef6c00'; }
 fs.writeFileSync(path.join(out, 'manifest.webmanifest'), JSON.stringify(mf, null, 2));
-if (env === 'dev') {
+if (env === 'nightly') {
   let html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
-  html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="robots" content="noindex, nofollow">').replace('<meta name="apple-mobile-web-app-title" content="Game Night">', '<meta name="apple-mobile-web-app-title" content="GN dev">');
+  html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="robots" content="noindex, nofollow">').replace('<meta name="apple-mobile-web-app-title" content="Game Night">', '<meta name="apple-mobile-web-app-title" content="GN Nightly">').replace('<title>Game Night — play with friends</title>', '<title>[NIGHTLY] Game Night</title>');
   fs.writeFileSync(path.join(out, 'index.html'), html);
 }
 
@@ -63,7 +65,7 @@ if (env === 'dev') {
 const skip = (rel) => /^(sw\.js|build\.json|CNAME|\.nojekyll|README\.md)$/.test(rel) || /(^|\/)LICENSE/.test(rel) || /^roms\//.test(rel) || /^vendor\/(words\.txt|countries-110m\.json)$/.test(rel);
 const pre = walk(out).map((f) => path.relative(out, f).split(path.sep).join('/')).filter((r) => !skip(r)).sort();
 let sw = fs.readFileSync(path.join(out, 'sw.js'), 'utf8');
-sw = sw.replace(/const BUILD = '[^']*'; \/\/ __BUILD__.*/, `const BUILD = '${build}';`).replace(/const PRECACHE = \[\]; \/\/ __PRECACHE__.*/, `const PRECACHE = ${JSON.stringify(pre)};`);
+sw = sw.replace(/const CACHE_PREFIX = '[^']*'; \/\/ __CACHE_PREFIX__.*/, `const CACHE_PREFIX = '${cachePrefix}';`).replace(/const BUILD = '[^']*'; \/\/ __BUILD__.*/, `const BUILD = '${build}';`).replace(/const PRECACHE = \[\]; \/\/ __PRECACHE__.*/, `const PRECACHE = ${JSON.stringify(pre)};`);
 if (!sw.includes(build) || !sw.includes('"index.html"')) throw new Error('failed to stamp sw.js');
 fs.writeFileSync(path.join(out, 'sw.js'), sw);
 
@@ -71,7 +73,6 @@ fs.writeFileSync(path.join(out, 'sw.js'), sw);
 fs.writeFileSync(path.join(out, 'build.json'), JSON.stringify({ env, build, proto, sha, builtAt: new Date().toISOString(), files: pre.length }, null, 2));
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 if (cname) fs.writeFileSync(path.join(out, 'CNAME'), cname + '\n');
-if (env === 'dev') fs.writeFileSync(path.join(out, 'README.md'), `# Game Night — dev build\n\nAutomatically deployed from the main repo on every push. Do not edit this repository by hand.\n\nBuild: \`${build}\`\n`);
 
 const size = walk(out).reduce((a, f) => a + fs.statSync(f).size, 0);
 console.log(`built ${env} ${build} (proto ${proto}) → ${path.relative(process.cwd(), out) || '.'}  ${pre.length} cached files, ${(size / 1e6).toFixed(1)} MB total`);

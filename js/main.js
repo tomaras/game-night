@@ -16,6 +16,7 @@ import { icon, iconBtn, logoMark, installRipples, toast, openSheet, confirmDialo
 import { plaza } from './plaza.js';
 import { createRoomPanel, gameName } from './roompanel.js';
 import { channelName } from './lounge.js';
+import { maybeRedirect, switchChannel, channelInfo, channelLabel, otherChannel } from './channel.js';
 import { initTheme, THEMES, getThemePref, setThemePref, onTheme } from './theme.js';
 import { createChrome } from './chrome.js';
 import { LocalRoom } from './local.js';
@@ -28,7 +29,7 @@ installRipples();
 initTheme();
 
 // Non-production builds are tagged everywhere so a test copy can never be mistaken for the real thing.
-const ENV_TAG = CFG.env === 'prod' ? '' : CFG.env === 'dev' ? '[DEV]' : '[LOCAL]';
+const ENV_TAG = CFG.env === 'prod' ? '' : CFG.env === 'nightly' ? '[NIGHTLY]' : '[LOCAL]';
 const setTitle = (t) => { document.title = (ENV_TAG ? ENV_TAG + ' ' : '') + t; };
 
 const $app = document.getElementById('app');
@@ -48,6 +49,7 @@ const S = {
   players: null, // filter: show games playable with exactly this many players
   withBots: readPref('gn.withBots') !== '0',
   favs: new Set(readJSON('gn.favs', [])),
+  recent: readJSON('gn.recent', []), // game ids, most recently played first
   joining: false,
   token: 0,
   ui: null,
@@ -198,6 +200,7 @@ function renderHeader() {
     mount(S.headerEl,
       iconBtn('menu', 'Menu', () => S.chrome.openDrawer(), 'hide-wide'),
       h('a.logo', { href: '#/', 'aria-label': 'Home' }, logoMark()),
+      CFG.env === 'nightly' ? h('span.chantag', { title: 'You are on the Nightly version' }, icon('bolt', 'sm'), 'Nightly') : null,
       joinPill(),
       h('div.spacer'),
       ...(S.comms?.loungeAV ? S.commsBtns.buttons : []),
@@ -277,6 +280,12 @@ async function copyInvite() {
 // ------------------------------------------------------------------ home
 const fitsPlayers = (def, n, withBots) => n == null || (n >= def.min && n <= def.max) || (withBots && !!def.bots && n >= 1 && n <= def.max) || (!!def.solo && n === 1);
 const saveFavs = () => writePref('gn.favs', JSON.stringify([...S.favs]));
+const RECENT = '🕘 Recent';
+/** Remember that this game was just played (shown first under the Recent filter). */
+function touchRecent(id) {
+  S.recent = [id, ...S.recent.filter((x) => x !== id)].slice(0, 12);
+  writePref('gn.recent', JSON.stringify(S.recent));
+}
 
 function gameCard(def, onPick) {
   const fav = h('button.fav' + (S.favs.has(def.id) ? '.on' : ''), {
@@ -313,11 +322,13 @@ function gameBrowser({ onPick, only = null, fixedPlayers, compact = false }) {
   }
   function paint() {
     const q = local.query.trim().toLowerCase();
-    const cats = ['All', ...(S.favs.size && !compact ? ['★ Favourites'] : []), ...CATEGORIES];
+    const cats = ['All', ...(S.recent.some((id) => GAME_BY_ID[id]) ? [RECENT] : []), ...(S.favs.size && !compact ? ['★ Favourites'] : []), ...CATEGORIES];
+    if (!cats.includes(local.filter)) local.filter = 'All';
     mount(chips, cats.map((c) => h('button.fchip' + (c === local.filter ? '.on' : ''), { onclick: () => { local.filter = c; if (!compact) S.filter = c; paint(); } }, c)));
     const list = GAMES.filter((g) => (!only || only(g)) && fitsPlayers(g, local.players, S.withBots)
-      && (local.filter === 'All' || (local.filter === '★ Favourites' ? S.favs.has(g.id) : g.cat === local.filter))
+      && (local.filter === 'All' || (local.filter === RECENT ? S.recent.includes(g.id) : local.filter === '★ Favourites' ? S.favs.has(g.id) : g.cat === local.filter))
       && (!q || (g.name + ' ' + g.tagline + ' ' + (g.tags || []).join(' ') + ' ' + g.cat).toLowerCase().includes(q)));
+    if (local.filter === RECENT) list.sort((a, b) => S.recent.indexOf(a.id) - S.recent.indexOf(b.id));
     mount(grid, list.length ? list.map((g) => gameCard(g, onPick)) : h('div.empty', local.players != null ? `No games for ${local.players} player${local.players === 1 ? '' : 's'}${S.withBots ? '' : ' (computer players off)'} — try another number.` : 'No games match — try another search.'));
     clear.classList.toggle('hide', !local.query);
     pf.classList.toggle('on', local.players != null);
@@ -630,7 +641,7 @@ async function joinRoom(n, { role = 'player', via = 'code' } = {}) {
 function friendlyError(e) {
   if (e.code === 'denied:version' && e.hostNewer) pwa.checkNow?.(); // we're the old one: fetch the new version now
   if (e.code === 'network') return 'Could not reach the matchmaking server. Check your internet connection.';
-  if (e.code === 'notfound') return e.message;
+  if (e.code === 'notfound') return e.message + (channelInfo().canSwitch ? ` Friends on ${channelLabel(otherChannel())}? Rooms are separate — switch in the menu.` : '');
   if (e.code === 'timeout') return e.message + '. Is the host still there?';
   return e.message || 'Something went wrong';
 }
@@ -1135,6 +1146,7 @@ async function startSession(g) {
   }
   if (token !== S.token || S.room !== room) return;
   clear(root);
+  if (!room.isAudience) touchRecent(def.id);
   S.session = new GameSession({ room, def, mod, run: g, root, toast, onSave: onGameSave });
   S.session.updatePlayers();
   if (room.isAudience) watchOnly(root, def);
@@ -1407,7 +1419,7 @@ function boot() {
   S.headerEl = h('header.top');
   S.view = h('main#view');
   S.chrome = createChrome({
-    S, go: (hash) => { if ((location.hash || '#/') === hash) route(); else location.hash = hash; }, editProfile, openAbout, openRecordings: () => openRecordings(S.rec, { toast }),
+    S, switchChannel: async (to) => { if (S.room) { toast('Leave the room first', 'bad'); return false; } const ok = await switchChannel(to); if (!ok) toast(channelLabel(to) + ' isn’t available right now', 'bad'); return ok; }, go: (hash) => { if ((location.hash || '#/') === hash) route(); else location.hash = hash; }, editProfile, openAbout, openRecordings: () => openRecordings(S.rec, { toast }),
     versionText: (CFG.env === 'prod' ? '' : CFG.env + ' · ') + CFG.build + ' · p' + PROTO,
   });
   mount($app, S.headerEl, h('div.body', S.chrome.rail, S.view), S.chrome.bottom, S.chrome.fabHost);
@@ -1441,4 +1453,4 @@ function boot() {
 }
 
 window.__gn = S; // handy for debugging in the console
-boot();
+maybeRedirect().then((leaving) => { if (!leaving) boot(); }, () => boot());
