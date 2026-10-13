@@ -65,7 +65,7 @@ export function start(api) {
   const teamEls = [h('div.pl-team'), h('div.pl-team')];
   const slider = h('input', { type: 'range', min: 8, max: 100, value: 55, 'aria-label': 'Shot power', oninput: (e) => { power = e.target.value / 100; sendAim(); } });
   const shootBtn = h('button.btn.primary.big.pl-shoot', { onclick: () => shoot() }, 'Shoot');
-  const spinEl = h('div.pl-spin', { title: 'Where you hit the cue ball: top = follow, bottom = draw, sides = english' }, h('i'));
+  const spinEl = h('div.pl-spin', { title: 'Spin: top follows, bottom draws, sides curve off cushions' }, h('i'));
   const setSpin = (e) => {
     const r = spinEl.getBoundingClientRect();
     let x = ((e.clientX - r.left) / r.width - 0.5) * 2, y = -((e.clientY - r.top) / r.height - 0.5) * 2;

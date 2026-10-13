@@ -199,7 +199,7 @@ export function start(api) {
           if ((G.phase === 'plant1' || G.phase === 'plant2') && from === active()) {
             const card = p.hand[0];
             if (card === undefined) return;
-            if (!fieldOk(p, m.f, card)) return err('That field has a different kind of bean. Plant in an empty or matching field — or harvest one first.');
+            if (!fieldOk(p, m.f, card)) return err('Different bean there — use an empty or matching field.');
             p.hand.shift();
             p.fields[m.f].cards.push(card);
             G.planted++;
@@ -208,7 +208,7 @@ export function start(api) {
           } else if (G.phase === 'plantTraded') {
             const card = m.card;
             if (!p.pending.includes(card)) return;
-            if (!fieldOk(p, m.f, card)) return err('That field has a different kind of bean. Harvest a field first to make room.');
+            if (!fieldOk(p, m.f, card)) return err('Different bean there — harvest a field first.');
             p.pending.splice(p.pending.indexOf(card), 1);
             p.fields[m.f].cards.push(card);
             checkPending();
@@ -217,7 +217,7 @@ export function start(api) {
         }
         case 'skip': if (G.phase === 'plant2' && from === active()) afterPlant(); break;
         case 'harvest': {
-          if (!canHarvest(p, m.f)) return err('You can’t harvest that field: a single bean can only be harvested if all your fields have one bean.');
+          if (!canHarvest(p, m.f)) return err('A lone bean can only be harvested if every field has one.');
           harvest(from, m.f);
           pruneOffers();
           publish();
@@ -409,7 +409,7 @@ export function start(api) {
       return h('div.bt-field' + (f.n ? '' : '.empty') + (valid ? '.hl' : '') + (target && !valid ? '.locked' : ''), {
         onclick: () => {
           if (!target) return;
-          if (!valid) return api.toast('Different bean in that field — harvest it first, or pick another field.');
+          if (!valid) return api.toast('Different bean there — harvest it or pick another field.');
           api.sfx('card');
           act('plant', { f: fi, card: target.pending ? target.c.id : undefined });
           selPending = null;
@@ -503,7 +503,7 @@ export function start(api) {
       builder = h('div.bt-offer', { style: 'flex-direction:column;align-items:stretch;gap:10px' }, [
         h('div.row', [h('b', 'New offer to'), toSel, h('div.spacer'), h('button.btn.small', { onclick: () => { draft = null; render(); } }, 'Close')]),
         h('div', [h('div.bt-sec', iAmActive ? 'I give — pick face-up cards here and/or cards from your hand below' : 'I give — pick cards from your hand below'), iAmActive ? h('div.bt-row', faceUpPick) : null]),
-        h('div', [h('div.bt-sec', 'I want'), !iAmActive ? h('div.bt-row', { style: 'margin-bottom:6px' }, faceUpPick) : null, typePick, h('div.muted', { style: 'font-size:12px;margin-top:4px' }, 'Leave empty to donate (give a gift). Beans you receive must be planted.')]),
+        h('div', [h('div.bt-sec', 'I want'), !iAmActive ? h('div.bt-row', { style: 'margin-bottom:6px' }, faceUpPick) : null, typePick, h('div.muted', { style: 'font-size:12px;margin-top:4px' }, 'Ask for nothing to make it a gift.')]),
         h('button.btn.primary', {
           disabled: !d.give.size && !d.wantIds.size && !Object.values(d.wantTypes).some((k) => k > 0),
           onclick: () => {
