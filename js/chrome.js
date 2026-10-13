@@ -87,7 +87,7 @@ export function createChrome(ctx) {
     if (!info.canSwitch) return [];
     const sw = switchEl(info.current === 'nightly', async (on) => { if (!(await ctx.switchChannel(on ? 'nightly' : 'stable'))) { sw.querySelector('input').checked = !on; } });
     return [h('div.drow', icon('dark_mode'), h('span', 'Early access'), h('span.spacer'), sw),
-      h('div.dnote', info.current === 'nightly' ? 'You’re trying the newest features, which can be a little rough. Turn it off to go back to the tried-and-tested version. Rooms are separate between the two.' : 'Try the newest features before everyone else. Rooms are separate, so you’ll only meet friends who also have early access on.')];
+      h('div.dnote', 'Rooms are separate between the two versions.')];
   }
 
   paintNav();

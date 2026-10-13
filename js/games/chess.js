@@ -93,7 +93,8 @@ const CSS = `
 export function start(api) {
   const ids = api.players.map((p) => p.id);
   const otb = !!api.opts.otb; // two people, one device: both sides are played on this screen
-  const white = otb ? ids[0] : ids[api.seed % 2];
+  const side = api.opts.side; // the room creator's colour (ids[0]); anything else is random
+  const white = otb ? ids[0] : side === 'white' ? ids[0] : side === 'black' ? ids[1] : ids[api.seed % 2];
   const black = ids.find((i) => i !== white);
   const idOf = (c) => (c === 'w' ? white : black);
   const colorOf = (id) => (id === white ? 'w' : id === black ? 'b' : null);

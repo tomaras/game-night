@@ -203,14 +203,12 @@ export function avatarEditor(initial, onChange) {
       h('span', label),
       h('button.avarrow', { 'aria-label': label + ' next', onclick: () => { av = { ...av, [key]: (av[key] + 1) % n }; delete av.img; change(); } }, icon('chevron_right')),
     ]);
-    rows.replaceChildren(
-      row('Colour', 'c', BODY_COLORS.length), row('Eyes', 'e', N_EYES), row('Mouth', 'm', N_MOUTH), row('Hat', 'a', N_ACC),
-      h('div.row', { style: 'justify-content:center;flex-wrap:wrap;margin-top:6px' }, [
-        h('button.btn.small.tonal', { onclick: () => { av = randomAvatar(); change(); } }, icon('casino'), 'Randomize'),
-        h('button.btn.small.tonal', { onclick: () => file.click() }, icon('image'), 'Use a photo'),
-        av.img ? h('button.btn.small.ghost', { onclick: () => { delete av.img; change(); } }, icon('close'), 'Remove photo') : null,
-      ])
-    );
+    rows.replaceChildren(row('Colour', 'c', BODY_COLORS.length), row('Eyes', 'e', N_EYES), row('Mouth', 'm', N_MOUTH), row('Hat', 'a', N_ACC));
+    stage.append(h('div.avedit-tools', [
+      h('button.iconbtn', { title: 'Randomize', 'aria-label': 'Randomize', onclick: () => { av = randomAvatar(); change(); } }, icon('shuffle')),
+      h('button.iconbtn', { title: 'Use a photo', 'aria-label': 'Use a photo', onclick: () => file.click() }, icon('image')),
+      av.img ? h('button.iconbtn', { title: 'Remove photo', 'aria-label': 'Remove photo', onclick: () => { delete av.img; change(); } }, icon('close')) : null,
+    ]));
   };
   const change = () => { draw(); onChange?.({ ...av }); };
   file.addEventListener('change', async () => {

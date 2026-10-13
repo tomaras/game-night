@@ -50,8 +50,7 @@ export function openCommsSheet(comms, { inRoom, roomNumber, goLounge }) {
     const toggle = (kind, on) => h('button.btn.small' + (on ? '.bad' : '.primary'), { onclick: () => comms.toggle(kind) }, on ? 'Turn off' : 'Turn on');
     mount(body,
       h('h2', 'Voice, video & chat'),
-      h('div.muted', { style: 'font-size:13.5px;margin-top:-6px' }, 'Each one can go to your room or to everybody in the Lounge. Move it any time — calls stay connected.'),
-      h('div.crows',
+            h('div.crows',
         row('mic', 'Microphone', `Sends to ${where(st.scope.mic)}`, h('div.crctl', segmented(SCOPES, st.scope.mic, (v) => comms.setScope('mic', v)), toggle('mic', st.mic))),
         row('videocam', 'Camera', `Sends to ${where(st.scope.cam)}`, h('div.crctl', segmented(SCOPES, st.scope.cam, (v) => comms.setScope('cam', v)), toggle('cam', st.cam))),
         row('chat_bubble', 'Chat', `Typing goes to ${st.scope.chat === 'room' ? (inRoom ? 'your room' : 'no room yet') : 'everyone in the Lounge'}`, h('div.crctl', segmented(SCOPES, st.scope.chat, (v) => comms.setScope('chat', v))))),

@@ -198,7 +198,7 @@ const phone = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch:
 await test('play the computer: solo Connect Four answers your move, offline', async () => {
   const p = await newPage('Solo');
   await p.goto(START + '#/game/connect4');
-  await p.click('.sheet button:has-text("Play vs computer")');
+  await p.click('.sheet button:has-text("Vs computer")');
   await p.click('.sheet button:has-text("Start")');
   await p.waitForSelector('.c4-board');
   await until(() => p.evaluate(() => /Your turn/.test(document.querySelector('.c4-status')?.innerText || '')), 10000, 'your turn (the computer may move first)');
@@ -394,7 +394,7 @@ await test('Recent: games you play appear under a Recent filter, newest first', 
   await p.click('.fchip:has-text("All")');
   for (const id of ['connect4', 'letterdash']) {
     await p.evaluate((id) => { location.hash = '#/game/' + id; }, id);
-    await p.click('.sheet button:has-text("Play")');
+    await p.click('.sheet .galt button:first-child');
     await p.click('.sheet button:has-text("Start")');
     await p.waitForSelector('.game-root');
     await p.click('button[aria-label="Leave room"]');
@@ -420,7 +420,7 @@ await test('chess: over the board on one phone — drag and tap moves, clocks, u
   const p = await newPage('Chess', phone);
   await p.goto(START + '#/game/chess');
   await p.click('.sheet button:has-text("Same device")');
-  await p.locator('.sheet select').selectOption('5+3');
+  await p.locator('.sheet select').nth(1).selectOption('5+3');
   await p.click('.sheet button:has-text("Start")');
   await p.waitForSelector('.ch-board');
   const sq = (s) => p.locator(`[data-sq="${s}"]`);
@@ -447,7 +447,7 @@ await test('chess: over the board on one phone — drag and tap moves, clocks, u
 await test('chess: against the computer with premoves and the evaluation bar; pool: new table, spin and shot', async () => {
   const p = await newPage('Cpu', phone);
   await p.goto(START + '#/game/chess');
-  await p.click('.sheet button:has-text("Play vs computer")');
+  await p.click('.sheet button:has-text("Vs computer")');
   await p.click('.sheet button:has-text("Start")');
   await p.waitForSelector('.ch-board');
   await p.click('.ch-ctl button:has-text("More")');
@@ -457,7 +457,7 @@ await test('chess: against the computer with premoves and the evaluation bar; po
   await p.click('button[aria-label="Leave room"]'); await p.locator('.dialog button.bad').click({ timeout: 2000 }).catch(() => {});
   await p.waitForSelector('.gcard');
   await p.goto(START + '#/game/pool');
-  await p.click('.sheet button:has-text("Play vs computer")');
+  await p.click('.sheet button:has-text("Vs computer")');
   await p.click('.sheet button:has-text("Start")');
   await p.waitForSelector('.pl canvas');
   await until(() => p.locator('.pl-bar').isVisible(), 8000, 'the control bar on my turn');

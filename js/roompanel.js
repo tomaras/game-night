@@ -61,14 +61,14 @@ export function createRoomPanel({ room, chatEl, plaza, toast, copyInvite, onReco
     };
     paint();
     const off = plaza.on('people', paint);
-    openSheet(h('div.col', { style: 'gap:12px' }, h('h2', 'Invite someone'), h('div.muted', 'They get a pop-up with a button to join your room.'), list), { onClose: off });
+    openSheet(h('div.col', { style: 'gap:12px' }, h('h2', 'Invite someone'), list), { onClose: off });
   }
 
   function peopleView() {
     const st = room.state;
     return h('div.pp', requestsBlock(),
       h('div.pp-sec', h('div.kt-title', `Players · ${st.players.length}`), st.players.map((p) => personRow(p, 'player'))),
-      st.aud ? h('div.pp-sec', h('div.kt-title', `Watching · ${st.audience.length}`), st.audience.length ? st.audience.map((p) => personRow(p, 'aud')) : h('div.muted', { style: 'font-size:13px' }, 'Nobody is watching yet. People can watch from the room list or your watch link.')) : null,
+      st.aud ? h('div.pp-sec', h('div.kt-title', `Watching · ${st.audience.length}`), st.audience.length ? st.audience.map((p) => personRow(p, 'aud')) : h('div.muted', { style: 'font-size:13px' }, 'Nobody yet')) : null,
       inviteBlock(),
       room.isAudience ? h('div.pp-sec', h('button.btn.primary.block', { onclick: () => { room.askToPlay(); toast('Asked the host for a seat', 'good'); } }, icon('sports_esports'), 'Ask to play')) : null);
   }
@@ -89,10 +89,10 @@ export function createRoomPanel({ room, chatEl, plaza, toast, copyInvite, onReco
         qrOpen ? h('div.muted', { style: 'font-size:12.5px;text-align:center' }, 'Point a phone camera at it to join.') : null),
       st.aud ? h('div.pp-sec', h('button.btn.tonal.block', { onclick: () => copy(watchLink(room.number), 'Watch link copied') }, icon('visibility'), 'Copy a watch-only link')) : null,
       h('div.pp-sec', h('div.kt-title', host ? 'Room settings' : 'Room settings (set by the host)'),
-        setting('Show in the room list', 'Anyone online can see this room and its players.', host ? switchEl(st.pub, (v) => room.setSetting('pub', v)) : h('span.chip', st.pub ? 'Listed' : 'Hidden')),
-        setting('Who can join', st.access === 'ask' ? 'People from the room list ask first. Friends with the code walk right in.' : st.access === 'open' ? 'Anyone can come in.' : 'Nobody new can join.',
+        setting('Show in the room list', '', host ? switchEl(st.pub, (v) => room.setSetting('pub', v)) : h('span.chip', st.pub ? 'Listed' : 'Hidden')),
+        setting('Who can join', '',
           host ? segmented([{ value: 'open', label: 'Open' }, { value: 'ask', label: 'Ask' }, { value: 'locked', label: 'Locked' }], st.access, (v) => room.setSetting('access', v)) : h('span.chip', { open: 'Open', ask: 'Ask first', locked: 'Locked' }[st.access])),
-        setting('Allow watching', 'People can sit in the audience: they see the game and chat, but don’t play.', host ? switchEl(st.aud, (v) => room.setSetting('aud', v)) : h('span.chip', st.aud ? 'Yes' : 'No'))),
+        setting('Allow watching', '', host ? switchEl(st.aud, (v) => room.setSetting('aud', v)) : h('span.chip', st.aud ? 'Yes' : 'No'))),
       h('div.pp-sec', openComms ? h('button.btn.tonal.block', { onclick: openComms }, icon('headset'), 'Voice, video & chat…') : null, onRecord ? h('button.btn.tonal.block', { onclick: onRecord }, icon('fiber_manual_record'), 'Record…') : null),
       h('div.muted', { style: 'font-size:12px;text-align:center;margin-top:8px' }, `${CFG.env === 'prod' ? '' : CFG.env === 'nightly' ? '🌙 ' : CFG.env + ' · '}${CFG.build}`));
   }

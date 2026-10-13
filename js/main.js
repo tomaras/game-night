@@ -124,7 +124,7 @@ function askProfile({ title = 'Your profile', sub = '', confirm = 'Save' } = {})
 }
 
 async function editProfile() {
-  const p = await askProfile({ title: 'Edit your profile', sub: 'Everyone in the room sees changes instantly.' });
+  const p = await askProfile({ title: 'Edit your profile' });
   if (p) {
     S.room?.setProfile(p);
     plaza.setProfile(p);
@@ -156,21 +156,15 @@ const currentDef = () => { const st = S.room?.state; return GAME_BY_ID[st?.game?
 
 function openAbout() {
   openSheet(h('div.help', { style: { '--gc': '#1a73e8' } }, [
-    h('h2', 'How Game Night works'),
-    h('h4', 'Play in 3 steps'),
-    h('ol', [
-      'Pick a game and tap Create room. You get a room number — 1, 2, 3 … the lowest free one.',
-      'Send friends the invite link, or tell them the number. They enter it on the home screen and pick a name and avatar.',
-      'The host presses Start. Tap the ? button any time to see the rules, and 🎤 / 📹 to talk or show your face.',
-    ].map((x) => h('li', x))),
-    h('h4', 'Good to know'),
+    h('h2', 'About'),
     h('ul', [
-      'Everything runs peer-to-peer between your browsers. There is no game server and nothing is stored.',
-      'Lose connection? Reopen the link within 45 seconds and you’ll get your seat (and game) back.',
-      'Works best on a phone in portrait. Keep the screen awake — the host’s device runs the game.',
+      'Rooms are peer-to-peer between your browsers: no game server, nothing stored.',
+      'If you drop out, reopen the link within 45 seconds to get your seat back.',
+      'The host’s device runs the game, so keep its screen awake.',
     ].map((x) => h('li', { style: { '--c': '#34a853' } }, x))),
     h('h4', 'This app'),
     appSection(),
+    h('p.muted', { style: 'font-size:12.5px;margin-top:14px' }, 'Retro Console uses jsnes and free homebrew by Damian Yerrick.'),
   ].flat()));
 }
 
@@ -184,8 +178,8 @@ function appSection() {
     else if (pwa.supported && CFG.env !== 'local') rows.push(h('div.sw-row', h('span', 'You’re on the latest version'), h('button.btn.tonal.small', { onclick: async (e) => { e.target.textContent = 'Checking…'; const r = await pwa.checkNow?.(); e.target.textContent = r ? 'Update found!' : 'Up to date ✓'; } }, 'Check for updates')));
     if (!pwa.standalone) {
       if (pwa.installEvent) rows.push(h('div.sw-row', h('span', 'Install it like an app'), h('button.btn.primary.small', { onclick: () => promptInstall() }, icon('download'), 'Install')));
-      else if (isIOS()) rows.push(h('div.sw-row.col', h('span', 'Install on iPhone / iPad'), h('small.muted', 'Open this page in Safari, tap the Share button, then “Add to Home Screen”.')));
-      else rows.push(h('div.sw-row.col', h('span', 'Install as an app'), h('small.muted', 'Use your browser menu → “Install app” / “Add to Home screen”.')));
+      else if (isIOS()) rows.push(h('div.sw-row.col', h('span', 'Install on iPhone / iPad'), h('small.muted', 'Safari → Share → Add to Home Screen')));
+      else rows.push(h('div.sw-row.col', h('span', 'Install as an app'), h('small.muted', 'Browser menu → Install app')));
     }
     mount(box, ...rows);
   };
@@ -349,7 +343,7 @@ function renderGamesTab() {
   renderHeader();
   S.chrome.setActive('games');
   const browser = gameBrowser({ onPick: openGameSheet });
-  mount(S.view, h('div.home', [browser.el, installChip(), h('div.footnote', 'Rooms are peer-to-peer: nothing is stored on a server. Retro Console uses jsnes and free homebrew by Damian Yerrick.')]));
+  mount(S.view, h('div.home', [browser.el, installChip()]));
   S.chrome.setFab(fabActions(browser));
 }
 const renderHome = renderGamesTab;
@@ -373,7 +367,7 @@ function fabActions(browser) {
 async function scanQr() {
   let stream, stop = false;
   const video = h('video', { autoplay: true, playsinline: true, muted: true, style: 'width:100%;border-radius:18px;background:#000;max-height:60dvh' });
-  const sheet = openSheet(h('div.col', { style: 'gap:12px' }, h('h2', 'Scan a QR invite'), video, h('div.muted', 'Point the camera at the QR code on your friend’s screen.')), { onClose: () => { stop = true; stream?.getTracks().forEach((t) => t.stop()); } });
+  const sheet = openSheet(h('div.col', { style: 'gap:12px' }, h('h2', 'Scan a QR invite'), video), { onClose: () => { stop = true; stream?.getTracks().forEach((t) => t.stop()); } });
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     video.srcObject = stream; await video.play();
@@ -415,24 +409,22 @@ function installChip() {
 }
 
 function openGameSheet(def) {
-  const help = def.help || {};
-  const sheet = openSheet(h('div.help', { style: { '--gc': def.color } }, [
+  const sheet = openSheet(h('div.help.gsheet', { style: { '--gc': def.color } }, [
     h('h2', def.name),
     h('div.hd', [h('div.tile.emo', def.emoji), h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 2).map((t) => h('span.chip', t))])])]),
     videoCard(def),
-    h('div.goal', help.goal || def.desc),
-    h('h4', 'How to play'),
-    h('ol', (help.steps || def.howto).map((x) => h('li', x))),
-    help.controls && help.controls.length ? [h('h4', 'Controls'), h('div.keys', help.controls.map((c) => h('span', h('kbd', c[0]), ' ' + c[1])))] : null,
-    h('div.sticky', [
+    h('div.sticky.gacts', [
       h('button.btn.primary.big.block', { onclick: () => { sheet.close(); createRoom(def.id); } }, icon('add'), 'Create a room'),
-      def.bots || def.solo || def.async || def.otb ? h('div.row.wrap', { style: 'justify-content:center;margin-top:10px;gap:8px' }, [
-        def.bots || def.solo ? h('button.btn.tonal', { onclick: () => { sheet.close(); startSolo(def); } }, icon('smart_toy'), def.bots ? 'Play vs computer' : 'Play alone') : null,
-        def.otb ? h('button.btn.tonal', { onclick: () => { sheet.close(); startOtb(def); } }, icon('groups'), 'Same device') : null,
-        def.async ? h('button.btn.tonal', { onclick: () => { sheet.close(); startMatch(def); } }, icon('sms'), 'Turn by turn') : null,
-      ]) : null,
+      (() => {
+        const alt = [
+          def.bots || def.solo ? ['smart_toy', def.bots ? 'Vs computer' : 'Play alone', () => startSolo(def)] : null,
+          def.otb ? ['groups', 'Same device', () => startOtb(def)] : null,
+          def.async ? ['sms', 'Turn by turn', () => startMatch(def)] : null,
+        ].filter(Boolean);
+        return alt.length ? h('div.galt', { style: `--n:${alt.length}` }, alt.map(([ic, label, fn]) => h('button.btn.tonal.gbtn', { onclick: () => { sheet.close(); fn(); } }, icon(ic), h('span', label)))) : null;
+      })(),
     ]),
-  ].flat().filter(Boolean)));
+  ].filter(Boolean)));
 }
 
 /** Setup sheet for playing against the computer, then an offline local room that starts immediately. */
@@ -442,7 +434,7 @@ function startSolo(def) {
   const cfg = { bots: def.bots ? Math.max(minBots, Math.min(maxBots, def.soloBots !== undefined ? def.soloBots : Math.max(1, minBots))) : 0, level: 'normal', opts: fillOpts(def, {}) };
   const body = h('div.col', { style: 'gap:14px' });
   const paint = () => mount(body,
-    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.bots ? 'You vs the computer — works offline' : 'Just you — works offline')])]),
+    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.bots ? 'You vs the computer' : 'Just you')])]),
     def.bots && (maxBots > minBots || minBots === 0) ? h('label.opt', 'Computer opponents', h('div.numgrid', { style: 'grid-template-columns:repeat(auto-fill,minmax(44px,1fr))' }, Array.from({ length: maxBots - minBots + 1 }, (_, i) => minBots + i).map((n) => h('button.numchip' + (cfg.bots === n ? '.on' : ''), { onclick: () => { cfg.bots = n; paint(); } }, n)))) : null,
     !def.bots || def.botLevels === false ? null : h('label.opt', 'Difficulty', segmented(LEVELS, cfg.level, (v) => { cfg.level = v; })),
     ...(def.options || []).map((op) => {
@@ -648,7 +640,7 @@ async function importMatch(token) {
 }
 
 // ------------------------------------------------------------------ connecting
-function showBusy(text, { sub = 'Connecting peer-to-peer…', cancel } = {}) {
+function showBusy(text, { sub = '', cancel } = {}) {
   S.mode = 'none';
   mount(S.view, h('div.waitscreen', h('div', [h('div.spinner'), h('h3', { style: 'font-size:20px' }, text), h('p.muted', { style: 'margin-top:6px' }, sub), cancel ? h('button.btn.tonal', { style: 'margin-top:18px', onclick: cancel }, 'Cancel') : null])));
 }
@@ -657,7 +649,7 @@ async function createRoom(gameId) {
   if (S.room || S.joining) return;
   S.joining = true;
   try {
-    const prof = await askProfile({ title: 'Create a room', sub: 'Pick a name and look — your friends will see them.', confirm: 'Create room' });
+    const prof = await askProfile({ title: 'Create a room', confirm: 'Create room' });
     if (!prof) return;
     showBusy('Finding a free room…');
     const room = await Room.create(S.profile);
@@ -680,12 +672,12 @@ async function joinRoom(n, { role = 'player', via = 'code' } = {}) {
   const ref = {};
   try {
     const watch = role === 'audience';
-    const prof = await askProfile({ title: watch ? `Watch room ${n}` : `Join room ${n}`, sub: watch ? 'You’ll see the game and the chat, without playing.' : 'Pick a name and a look — you can change them any time.', confirm: watch ? 'Watch' : 'Join room' });
+    const prof = await askProfile({ title: watch ? `Watch room ${n}` : `Join room ${n}`, confirm: watch ? 'Watch' : 'Join room' });
     if (!prof) { history.replaceState(null, '', '#/'); renderHome(); return; }
     plaza.setProfile(prof);
     const cancel = () => { cancelled = true; ref.cancel?.(); };
     showBusy(watch ? `Opening room ${n}…` : `Joining room ${n}…`, { cancel });
-    const room = await Room.join(n, S.profile, { role, via, ref, onPending: () => showBusy('Waiting for the host…', { sub: `Room ${n}’s host has been asked to let you in.`, cancel }) });
+    const room = await Room.join(n, S.profile, { role, via, ref, onPending: () => showBusy('Waiting for the host…', { cancel }) });
     if (cancelled) { room.leave(); return; }
     enterRoom(room);
     history.replaceState(null, '', '#/room/' + n + (watch ? '/watch' : ''));
@@ -1064,7 +1056,7 @@ function updateLobby() {
   const link = roomLink(room.number);
 
   if (room.local) {
-    mount(L.invite, h('div.lbl', 'Playing offline'), h('div', { style: 'font:800 28px var(--font);margin:6px 0' }, 'You vs the computer'), h('div.muted', { style: 'font-size:14px' }, 'No internet needed. Want friends to join? Create an online room from the home screen.'));
+    mount(L.invite, h('div.lbl', 'Playing offline'), h('div', { style: 'font:800 28px var(--font);margin:6px 0' }, 'You vs the computer'));
   } else mount(L.invite,
     h('div.invtop',
       h('div.invnum', h('div.lbl', 'Room'), h('div.bignum', room.number)),
@@ -1095,8 +1087,7 @@ function updateLobby() {
   const def = GAME_BY_ID[st.gameId];
   if (!def) {
     mount(L.game,
-      h('h2', { style: 'font-size:22px' }, 'Pick a game'),
-      h('p.muted', { style: 'margin:6px 0 14px' }, room.isHost ? 'What are we playing tonight?' : 'The host is choosing a game…'),
+      h('h2', { style: 'font-size:22px;margin-bottom:12px' }, room.isHost ? 'Pick a game' : 'The host is choosing a game…'),
       room.isHost ? h('button.btn.primary.big', { onclick: openPicker }, icon('sports_esports'), 'Choose a game') : h('div.spinner')
     );
     mount(L.start);
@@ -1105,15 +1096,14 @@ function updateLobby() {
   const online = st.players.filter((p) => p.online).length;
   const opts = fillOpts(def, st.opts);
   let problem = null;
-  if (online < def.min) problem = `Needs at least ${def.min} players — you have ${online}. Share the invite link!`;
-  else if (online > def.max) problem = `This game supports up to ${def.max} players — there are ${online} in the room.`;
+  if (online < def.min) problem = `Needs ${def.min} players (${online} here)`;
+  else if (online > def.max) problem = `Up to ${def.max} players (${online} here)`;
   mount(L.game,
     h('div.gsel', { style: { '--gc': def.color } }, [
       h('div.tile.emo', def.emoji),
       h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)]),
     ]),
     h('div.row.wrap', { style: 'margin-top:12px;gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 3).map((t) => h('span.chip', t))]),
-    h('p', { style: 'margin-top:12px;line-height:1.5;color:var(--on2)' }, def.desc),
     h('div.row.wrap', { style: 'margin-top:14px' }, [
       h('button.btn.tonal', { onclick: () => openRules(def) }, icon('menu_book'), 'How to play'),
       room.isHost ? h('button.btn.outline', { onclick: openPicker }, icon('swap_horiz'), 'Change game') : null,
@@ -1180,7 +1170,7 @@ function showWait(g) {
   mount(S.ui.stage, h('div.waitscreen', h('div', [
     h('div.emo', { style: 'font-size:72px' }, def?.emoji || '🎮'),
     h('h2', `${def?.name || 'A game'} is in progress`),
-    h('p.muted', { style: 'margin:8px 0 18px' }, 'You’ll be dealt in when the host starts the next round. Say hi in the chat!'),
+    h('p.muted', { style: 'margin:8px 0 18px' }, 'You’ll join the next round.'),
     h('div.spinner'),
   ])));
 }
@@ -1221,9 +1211,6 @@ async function startSession(g) {
   S.session.updatePlayers();
   if (room.isAudience) watchOnly(root, def);
   updateResults();
-  // first time in this game on this device? show the rules briefly
-  const seen = readPref('gn.seen.' + def.id);
-  if (!seen) { writePref('gn.seen.' + def.id, '1'); setTimeout(() => { if (S.session && S.mode === 'game') toast('Tip: tap the ? button any time for the rules'); }, 1200); }
 }
 
 /** The audience sees what the players see, but can't touch it. If a game can't draw itself without a seat, show a friendly stand-in. */

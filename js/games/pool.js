@@ -272,7 +272,7 @@ export function start(api) {
       );
     }
     const sh = api.player(S.shooter);
-    msgEl.textContent = S.over ? S.msg : S.phase === 'sim' ? '…' : (S.shooter === api.me ? (S.inHand ? 'Ball in hand — drag the cue ball to place it, then aim and shoot!' : 'Your shot — drag on the table to aim, set power, then shoot!') : `${sh?.name || '?'} is lining up a shot…`) + (S.msg ? '  ' + S.msg : '');
+    msgEl.textContent = S.over ? S.msg : S.phase === 'sim' ? '…' : (S.shooter === api.me ? (S.inHand ? 'Ball in hand — place the cue ball' : 'Your shot') : `${sh?.name || '?'} is shooting…`) + (S.msg ? '  ' + S.msg : '');
     bar.style.display = myTurn() ? '' : 'none';
   }
 

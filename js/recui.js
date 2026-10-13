@@ -53,7 +53,7 @@ async function playClip(clip, toast) {
     let i = 0;
     const next = () => { if (i >= clip.segs.length) return; const u = URL.createObjectURL(clip.segs[i++].blob); urls.push(u); el.src = u; el.play().catch(() => {}); };
     el.addEventListener('ended', next);
-    note.textContent = 'Playing in parts (this browser records in a format that can’t be joined).';
+    note.textContent = 'Plays in parts on this browser';
     next();
   }
 }
@@ -65,12 +65,12 @@ export function openRecordings(rec, { toast }) {
   const paint = () => {
     const s = rec.settings, st = rec.active;
     const ctl = h('div.reccard' + (st ? '.live' : ''),
-      h('div.row', { style: 'gap:10px' }, h('div.cic.rec', icon('fiber_manual_record')), h('div.grow', h('b', st ? `Recording · ${fmtDur(rec.buffered * 1000)} buffered` : 'Instant replay'), h('div.muted', { style: 'font-size:12.5px;line-height:1.35' }, st ? `Keeping the last ${s.minutes} min. Tap Save to keep them as a clip.` : 'Keep the last few minutes in the background, and save them when something great happens.'))),
+      h('div.row', { style: 'gap:10px' }, h('div.cic.rec', icon('fiber_manual_record')), h('div.grow', h('b', st ? `Recording · ${fmtDur(rec.buffered * 1000)} buffered` : 'Instant replay'), h('div.muted', { style: 'font-size:12.5px;line-height:1.35' }, st ? `Last ${s.minutes} min` : 'Save the last few minutes'))),
       rec.note ? h('div.warnbox', icon('info'), rec.note) : null,
       h('label.opt', 'How far back', segmented(MINUTES.map((m) => ({ value: m, label: m + ' min' })), s.minutes, (v) => rec.set({ minutes: v }))),
-      h('div.pp-set', h('div', h('b', 'Screen video'), h('div.muted', { style: 'font-size:12.5px' }, screenOk ? 'Records this tab — you’ll be asked to allow it once.' : 'Not supported on this device (sound only).')), switchEl(s.video && screenOk, (v) => rec.set({ video: v }))),
-      h('div.pp-set', h('div', h('b', 'Screen sound'), h('div.muted', { style: 'font-size:12.5px' }, 'Game sounds and everyone’s voices.')), switchEl(s.screen, (v) => rec.set({ screen: v }))),
-      h('div.pp-set', h('div', h('b', 'My microphone'), h('div.muted', { style: 'font-size:12.5px' }, 'Your own voice, even if the mic is muted in a call.')), switchEl(s.mic, (v) => rec.set({ mic: v }))),
+      h('div.pp-set', h('div', h('b', 'Screen video'), screenOk ? null : h('div.muted', { style: 'font-size:12.5px' }, 'Not supported here')), switchEl(s.video && screenOk, (v) => rec.set({ video: v }))),
+      h('div.pp-set', h('b', 'Screen sound'), switchEl(s.screen, (v) => rec.set({ screen: v }))),
+      h('div.pp-set', h('b', 'My microphone'), switchEl(s.mic, (v) => rec.set({ mic: v }))),
       h('div.pp-set', h('div', h('b', 'Taps & cursor'), h('div.muted', { style: 'font-size:12.5px' }, s.video && screenOk ? 'Show where you touch or point, so it appears in the video.' : 'Needs screen video.')), switchEl(s.taps, (v) => rec.set({ taps: v }))),
       !canRecordAudio() ? h('div.warnbox', icon('info'), 'This browser can’t record.') : null,
       h('div.row.wrap', { style: 'gap:8px;margin-top:4px' },
