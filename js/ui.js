@@ -125,7 +125,7 @@ export function openDialog({ title, text, content, actions }) {
       title ? h('h3', title) : null,
       text ? h('p', text) : null,
       content || null,
-      h('div.actions', actions.map((a) => h('button.btn' + (a.kind ? '.' + a.kind : '.ghost'), { onclick: () => done(a.value) }, a.label))),
+      h('div.actions', actions.map((a) => h('button.btn' + (a.kind ? '.' + a.kind : ''), { onclick: () => done(a.value) }, a.label))),
     ]));
     document.body.append(back);
   });

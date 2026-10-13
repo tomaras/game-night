@@ -14,7 +14,7 @@ export function applyTheme() {
   const t = resolveTheme();
   document.documentElement.dataset.theme = t;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = t === 'dark' ? '#1A237E' : '#303F9F';
+  if (meta) meta.content = t === 'dark' ? '#121117' : '#F6F3EE';
   const cs = document.querySelector('meta[name="color-scheme"]');
   if (cs) cs.content = t === 'dark' ? 'dark' : 'light';
   listeners.forEach((fn) => { try { fn(t); } catch { /* */ } });

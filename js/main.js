@@ -187,17 +187,13 @@ function appSection() {
 }
 
 // ------------------------------------------------------------------ header / app bar
-/** The app bar takes the colour of the game you're in (brand indigo elsewhere); the status bar follows a shade darker. */
+/** In a game the translucent app bar picks up a tint of the game's colour; the status bar matches the page. */
 function setBar(color) {
   const dark = document.documentElement.dataset.theme === 'dark';
-  if (color) { const n = parseInt(color.slice(1), 16), lum = (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; color = lum > 0.5 ? shade(color, -0.3) : lum > 0.42 ? shade(color, -0.18) : color; }
-  if (color) S.headerEl.style.setProperty('--bar', dark ? shade(color, -0.28) : color); else S.headerEl.style.removeProperty('--bar');
+  if (color) { S.headerEl.style.setProperty('--bar', `color-mix(in srgb, ${color} ${dark ? 16 : 12}%, color-mix(in srgb, var(--bg) 88%, transparent))`); S.headerEl.style.setProperty('--gc', color); }
+  else { S.headerEl.style.removeProperty('--bar'); S.headerEl.style.removeProperty('--gc'); }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = color ? shade(color, dark ? -0.45 : -0.2) : dark ? '#1A237E' : '#303F9F';
-}
-function shade(hex, k) {
-  const n = parseInt(hex.slice(1), 16), f = (c) => Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k);
-  return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => f(c).toString(16).padStart(2, '0')).join('');
+  if (meta) meta.content = dark ? '#121117' : '#F6F3EE';
 }
 function renderHeader() {
   const room = S.room;
