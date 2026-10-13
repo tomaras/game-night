@@ -140,12 +140,9 @@ function openRules(def) {
   const help = def.help || {};
   const steps = help.steps || def.howto || [];
   const sect = (title, list, ordered) => (list && list.length ? [h('h4', title), h(ordered ? 'ol' : 'ul', list.map((x) => h('li', { style: { '--c': def.color } }, x)))] : []);
-  openSheet(h('div.help', { style: { '--gc': def.color } }, [
-    h('h2', def.name),
-    h('div.hd', [
-      h('div.tile.emo', def.emoji),
-      h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))])]),
-    ]),
+  openSheet(h('div.help.gsheet', { style: { '--gc': def.color } }, [
+    h('div.gsel', [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)])]),
+    h('div.row.wrap.gchips', [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))]),
     videoCard(def),
     h('div.goal', help.goal || def.desc),
     ...sect('How to play', steps, true),
@@ -254,9 +251,9 @@ function openRoomMenu(anchor) {
     { icon: isMuted() ? 'volume_off' : 'volume_up', label: isMuted() ? 'Turn sound on' : 'Turn sound off', onClick: () => { setMuted(!isMuted()); toast(isMuted() ? 'Sound off' : 'Sound on'); } },
     { icon: 'menu_book', label: 'Rules & how to play', onClick: () => openRules(currentDef()) },
     room.local ? null : { icon: 'headset', label: 'Voice, video & chat…', onClick: openComms },
-    S.rec?.active ? { icon: 'save_alt', label: `Save last ${S.rec.settings.minutes} min as a clip`, onClick: async () => { try { const r = await S.rec.save(); toast(r.stitched ? 'Stitched onto your earlier clip ✓' : 'Clip saved ✓', 'good'); } catch (e) { toast(e.message, 'bad'); } } } : { icon: 'fiber_manual_record', label: 'Record…', onClick: () => openRecordings(S.rec, { toast }) },
+    S.rec?.active ? { icon: 'save_alt', label: `Save last ${S.rec.settings.minutes} min as a clip`, onClick: async () => { try { const r = await S.rec.save(); toast(r.stitched ? 'Stitched onto your earlier clip ✓' : 'Clip saved ✓', 'good'); } catch (e) { toast(e.message, 'bad'); } } } : { icon: 'videocam', label: 'Record…', onClick: () => openRecordings(S.rec, { toast }) },
     room.local ? null : { icon: 'tune', label: 'Room settings & invite', onClick: () => openPanel('room') },
-    room.isHost && st.phase !== 'lobby' ? { icon: 'stop', label: 'End game → back to lobby', onClick: async () => { if (await confirmDialog('End this game?', 'Everyone goes back to the lobby.', { ok: 'End game', danger: true })) room.toLobby(); } } : null,
+    room.isHost && st.phase !== 'lobby' ? { icon: 'stop', label: 'End game', onClick: async () => { if (await confirmDialog('End this game?', 'Everyone goes back to the lobby.', { ok: 'End game', danger: true })) room.toLobby(); } } : null,
     '-',
     { icon: 'logout', label: 'Leave room', danger: true, onClick: () => requestLeave() },
   ].filter(Boolean));
@@ -282,7 +279,7 @@ function touchRecent(id) {
 /** "1–10" (or "1" …): a computer opponent makes any bot game playable alone, so those start at 1 with a tiny robot on the 1. */
 const playerRange = (def) => { const lo = def.bots || def.solo ? 1 : def.min; return { lo, hi: def.max, robot: !!def.bots }; };
 const rangeText = (def) => { const r = playerRange(def); return r.lo === r.hi ? String(r.lo) : `${r.lo}–${r.hi}`; };
-const rangeEl = (def) => { const r = playerRange(def); return h('span.rng', r.lo === r.hi ? String(r.lo) : r.lo + '–' + r.hi, r.robot ? h('span.rbt', { title: 'Can be played against the computer' }, icon('smart_toy')) : null); };
+const rangeEl = (def) => { const r = playerRange(def); return h('span.rng', r.lo === r.hi ? String(r.lo) : r.lo + '–' + r.hi); };
 
 function gameCard(def, onPick, { onCat, onPlayers } = {}) {
   const fav = h('button.fav' + (S.favs.has(def.id) ? '.on' : ''), {
@@ -292,9 +289,9 @@ function gameCard(def, onPick, { onCat, onPlayers } = {}) {
   const chipBtn = (cls, title, fn, ...kids) => h('button.chip.cchip' + cls, { type: 'button', title, onclick: (e) => { e.stopPropagation(); fn?.(e.currentTarget); } }, ...kids);
   return h('div.gcard', { role: 'button', tabindex: 0, style: { '--gc': def.color }, onclick: () => onPick(def), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(def); } } }, [
     fav,
-    h('div.ghead', h('div.tile.emo', def.emoji), h('h3', def.name)),
+    h('div.ghead', h('div.tile.emo', def.emoji, h('span.tbadges', playerRange(def).robot ? h('i', { title: 'Can be played against the computer' }, icon('smart_toy')) : null, def.async ? h('i.m', { title: 'Can be played turn by turn by message' }, icon('sms')) : null)), h('h3', def.name)),
     h('p', def.tagline),
-    h('div.meta', [chipBtn('', 'Filter by number of players', onPlayers, icon('group'), rangeEl(def)), chipBtn('', 'Show ' + def.cat + ' games', () => onCat?.(def.cat), def.cat), def.async ? h('span.chip.purple', { title: 'Can be played turn by turn by message' }, icon('sms', 'sm')) : null]),
+    h('div.meta', [chipBtn('', 'Filter by number of players', onPlayers, icon('group'), rangeEl(def)), chipBtn('', 'Show ' + def.cat + ' games', () => onCat?.(def.cat), def.cat)]),
   ]);
 }
 
@@ -440,7 +437,7 @@ function startSolo(def) {
   const body = h('div.col', { style: 'gap:14px' });
   const paint = () => mount(body,
     h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.bots ? 'You vs the computer' : 'Just you')])]),
-    def.bots && (maxBots > minBots || minBots === 0) ? h('label.opt', 'Computer opponents', h('div.numgrid', { style: 'grid-template-columns:repeat(auto-fill,minmax(44px,1fr))' }, Array.from({ length: maxBots - minBots + 1 }, (_, i) => minBots + i).map((n) => h('button.numchip' + (cfg.bots === n ? '.on' : ''), { onclick: () => { cfg.bots = n; paint(); } }, n)))) : null,
+    def.bots && (maxBots > minBots || minBots === 0) ? h('label.opt', 'Computer opponents', h('div.numgrid', { style: 'grid-template-columns:repeat(auto-fit,minmax(44px,1fr))' }, Array.from({ length: maxBots - minBots + 1 }, (_, i) => minBots + i).map((n) => h('button.numchip' + (cfg.bots === n ? '.on' : ''), { onclick: () => { cfg.bots = n; paint(); } }, n)))) : null,
     !def.bots || def.botLevels === false ? null : h('label.opt', 'Difficulty', segmented(LEVELS, cfg.level, (v) => { cfg.level = v; })),
     ...(def.options || []).map((op) => {
       const choices = op.choices.map((c) => (typeof c === 'object' ? c : { value: c, label: String(c) }));
@@ -1264,7 +1261,10 @@ function updateResults() {
   const ranking = res.ranking || [];
   const winners = res.winners || (ranking[0] ? [ranking[0].id] : []);
   const iWon = winners.includes(room.me);
-  const el = h('div.resultsback', h('div.results', [
+  const peekBtn = h('button.iconbtn.rpeek', { 'aria-label': 'See the board', title: 'See the board', onclick: () => el.classList.add('peek') }, icon('visibility'));
+  const back = h('button.btn.tonal.rback', { onclick: () => el.classList.remove('peek') }, icon('emoji_events'), 'Results');
+  const el = h('div.resultsback', { hidden: true }, back, h('div.results', [
+    peekBtn,
     h('div.trophy', icon(iWon ? 'emoji_events' : 'celebration')),
     h('h2', res.title || 'Game over!'),
     res.subtitle ? h('div.sub', res.subtitle) : null,
@@ -1292,7 +1292,12 @@ function updateResults() {
   ]));
   ui.resultsEl = el;
   ui.stage.append(el);
-  if (iWon) { sfx('win'); celebrate(el); } else sfx('good');
+  // Let the final move land (a winning line, a last card, a pot) before the card covers the table.
+  setTimeout(() => {
+    if (!el.isConnected) return;
+    el.hidden = false;
+    if (iWon) { sfx('win'); celebrate(el); } else sfx('good');
+  }, 1400);
 }
 
 function playAgain() {
