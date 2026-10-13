@@ -738,3 +738,20 @@ body:not([data-tab="games"]) .envpill { display: none; }
 .cquick button { flex: none; height: 34px; min-width: 40px; padding: 0 10px; border-radius: 999px; border: 0; background: var(--s2); font: 700 14px var(--font); color: var(--on); cursor: pointer; }
 .crow2 { display: flex; align-items: center; gap: 6px; } .crow2 input { flex: 1; min-width: 0; border-radius: 999px; padding-left: 16px; }
 .chatfloat { display: none; }
+
+/* ---------- tighter lobby + profile editor + filter alignment ---------- */
+.invite { padding: 12px 14px; }
+.invtop { display: flex; align-items: center; gap: 14px; }
+.invnum { text-align: center; min-width: 74px; } .invnum .lbl { font-size: 11px; letter-spacing: 1px; }
+.invite .invnum .bignum { font-size: 52px; margin: 0; line-height: 1; }
+.invbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.invbody .link { margin: 0; padding: 6px 10px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-row.tight { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--on) 10%, transparent); font-size: 14px; }
+.avedit { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 8px 12px; }
+.avedit-stage { padding: 6px; border-radius: 22px; } .avedit .av.xl { --s: 96px; }
+.avedit-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; width: auto; }
+.avedit-rows > .row { grid-column: 1 / -1; }
+.avedit-row { width: auto; font-size: 13.5px; } .avedit .avarrow { width: 30px; height: 30px; }
+@media (min-width: 900px) { .filters { margin: 12px auto 12px; padding: 2px 0; } }
+.filters { margin-top: 12px; margin-bottom: 10px; }
+.avedit { grid-template-columns: 100px 1fr; gap: 6px 8px; } .avedit .av.xl { --s: 88px; } .avedit-row { gap: 2px; font-size: 13px; } .avedit .avarrow { width: 28px; height: 28px; }

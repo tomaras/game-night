@@ -1039,18 +1039,18 @@ function updateLobby() {
   if (room.local) {
     mount(L.invite, h('div.lbl', 'Playing offline'), h('div', { style: 'font:800 28px var(--font);margin:6px 0' }, 'You vs the computer'), h('div.muted', { style: 'font-size:14px' }, 'No internet needed. Want friends to join? Create an online room from the home screen.'));
   } else mount(L.invite,
-    h('div.lbl', 'Room code'),
-    h('div.bignum', room.number),
-    h('div.muted', { style: 'font-size:14px' }, 'Friends enter this number — or open your link:'),
-    h('div.link', link),
-    h('div.row.wrap', [
-      h('button.btn.primary', { onclick: copyInvite }, icon('link'), 'Copy link'),
-      navigator.share ? h('button.btn.tonal', { onclick: () => navigator.share({ title: 'Game Night', text: `Join my game room ${room.number}!`, url: link }).catch(() => {}) }, icon('share'), 'Share') : null,
-      h('button.btn.tonal', { onclick: async () => { await copyText(String(room.number)); toast('Room number copied', 'good'); } }, icon('content_copy'), 'Code'),
-    ]),
+    h('div.invtop',
+      h('div.invnum', h('div.lbl', 'Room'), h('div.bignum', room.number)),
+      h('div.invbody',
+        h('div.link', link.replace(/^https?:\/\//, '')),
+        h('div.row', { style: 'gap:6px;flex-wrap:wrap' }, [
+          h('button.btn.primary.small', { onclick: copyInvite }, icon('link'), 'Copy link'),
+          navigator.share ? h('button.btn.tonal.small', { onclick: () => navigator.share({ title: 'Game Night', text: `Join my game room ${room.number}!`, url: link }).catch(() => {}) }, icon('share'), 'Share') : null,
+          h('button.btn.tonal.small', { onclick: () => openPanel('room') }, icon('qr_code_2'), 'QR'),
+        ]))),
     room.isHost
-      ? h('div.sw-row', h('span.row', icon('lock'), 'Lock room (no new players)'), switchEl(st.locked, (v) => room.setLocked(v)))
-      : st.locked ? h('div.row', { style: 'margin-top:12px;color:var(--on2);font-size:13px' }, icon('lock', 'sm'), 'Room is locked') : null
+      ? h('div.sw-row.tight', h('span.row', icon('lock', 'sm'), 'Lock room (no new players)'), switchEl(st.locked, (v) => room.setLocked(v)))
+      : st.locked ? h('div.row', { style: 'margin-top:8px;color:var(--on2);font-size:13px' }, icon('lock', 'sm'), 'Room is locked') : null
   );
 
   mount(L.players,
