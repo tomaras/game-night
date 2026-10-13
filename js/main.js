@@ -144,7 +144,7 @@ function openRules(def) {
     h('h2', def.name),
     h('div.hd', [
       h('div.tile.emo', def.emoji),
-      h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 2).map((t) => h('span.chip', t))])]),
+      h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))])]),
     ]),
     videoCard(def),
     h('div.goal', help.goal || def.desc),
@@ -416,7 +416,7 @@ function installChip() {
 function openGameSheet(def) {
   const sheet = openSheet(h('div.help.gsheet', { style: { '--gc': def.color } }, [
     h('h2', def.name),
-    h('div.hd', [h('div.tile.emo', def.emoji), h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 2).map((t) => h('span.chip', t))])])]),
+    h('div.hd', [h('div.tile.emo', def.emoji), h('div', [h('div.muted', { style: 'margin-bottom:6px' }, def.tagline), h('div.row.wrap', { style: 'gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))])])]),
     videoCard(def),
     h('div.sticky.gacts', [
       h('button.btn.primary.big.block', { onclick: () => { sheet.close(); createRoom(def.id); } }, icon('add'), 'Create a room'),
@@ -625,7 +625,7 @@ function renderMatchesTab() {
         iconBtn('delete', 'Delete match', async () => { if (await confirmDialog('Delete this match?', 'It’s only removed from this device.', { ok: 'Delete', danger: true })) { deleteMatch(m.id); renderMatchesTab(); } }, 'sm')));
   };
   mount(S.view, h('div.home',
-    all.length ? groups.map(([t, l]) => h('div.msec', h('div.kt-title', t), h('div.mlist', l.map(card)))) : h('div.empty', h('div', { style: 'font-size:54px' }, '💬'), h('p', 'No matches yet. Start one with the + button — then text your move to a friend.'))));
+    all.length ? groups.map(([t, l]) => h('div.msec', h('div.kt-title', t), h('div.mlist', l.map(card)))) : h('div.empty', h('div', { style: 'font-size:54px' }, '💬'), h('p', 'No matches yet'))));
   S.chrome.setFab([{ label: 'New match', icon: 'add_circle', onClick: () => pickGame({ title: 'Turn-by-turn match', only: (g) => g.async, onPick: (d) => startMatch(d) }) }, ...fabActions(null).filter((a) => a.label !== 'Turn by turn' && a.label !== 'Create a room')]);
 }
 
@@ -1067,8 +1067,8 @@ function updateLobby() {
       h('div.invnum', h('div.lbl', 'Room'), h('div.bignum', room.number)),
       h('div.invbody',
         h('div.link', link.replace(/^https?:\/\//, '')),
-        h('div.row', { style: 'gap:6px;flex-wrap:wrap' }, [
-          h('button.btn.primary.small', { onclick: copyInvite }, icon('link'), 'Copy link'),
+        h('div.invacts', { style: `--n:${navigator.share ? 3 : 2}` }, [
+          h('button.btn.primary.small', { onclick: copyInvite }, icon('link'), 'Copy'),
           navigator.share ? h('button.btn.tonal.small', { onclick: () => navigator.share({ title: 'Game Night', text: `Join my game room ${room.number}!`, url: link }).catch(() => {}) }, icon('share'), 'Share') : null,
           h('button.btn.tonal.small', { onclick: () => openPanel('room') }, icon('qr_code_2'), 'QR'),
         ]))),
@@ -1108,7 +1108,7 @@ function updateLobby() {
       h('div.tile.emo', def.emoji),
       h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)]),
     ]),
-    h('div.row.wrap', { style: 'margin-top:12px;gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).slice(0, 3).map((t) => h('span.chip', t))]),
+    h('div.row.wrap', { style: 'margin-top:12px;gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 3).map((t) => h('span.chip', t))]),
     h('div.row.wrap', { style: 'margin-top:14px' }, [
       h('button.btn.tonal', { onclick: () => openRules(def) }, icon('menu_book'), 'How to play'),
       room.isHost ? h('button.btn.outline', { onclick: openPicker }, icon('swap_horiz'), 'Change game') : null,
@@ -1401,7 +1401,7 @@ function renderLoungeTab() {
   S.chrome.setBadge('lounge', 0);
   renderHeader();
   S.chrome.setActive('lounge');
-  S.chrome.setFab(fabActions(null));
+  S.chrome.setFab(null);
   const pane = h('div.lpane');
   const chat = chatView({ placeholder: 'Message everyone online…', send: (t) => plaza.sendChat(t), onName: globalNameMenu, empty: 'Nobody has said anything yet — be the first 👋' });
   chat.reset(plaza.chat('lounge'));

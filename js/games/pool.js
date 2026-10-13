@@ -19,7 +19,7 @@ const CSS = `
 .pl-team .tn { font-weight:800; font-size:12.5px; display:flex; gap:6px; align-items:center; min-width:0; }
 .pl-team .tn .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pl-team .tn .chip { height:20px; padding:0 8px; font-size:10.5px; flex:none; }
-.pl-tray { display:flex; gap:2px; min-height:19px; flex-wrap:wrap; }
+.pl-tray { display:flex; gap:2px; min-height:19px; flex-wrap:wrap; } .pl-tray:empty { display:none; }
 .pl-mini { width:18px; height:18px; border-radius:50%; display:inline-grid; place-items:center; font-size:8.5px; font-weight:900; color:#111; box-shadow:inset -2px -2px 3px rgba(0,0,0,.28), inset 1px 1px 2px rgba(255,255,255,.5); }
 .pl-mini i { width:9px; height:9px; border-radius:50%; background:#fff; display:grid; place-items:center; font-style:normal; line-height:1; }
 .pl-wrap { flex:1 1 0; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
