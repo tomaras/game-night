@@ -2,6 +2,7 @@
 // and decorate your palace wall. 2–4 players. Careful: leftover tiles fall on the floor and cost points!
 import { h } from '../util.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const COL = ['#1e88e5', '#fbc02d', '#e53935', '#8e24aa', '#26a69a'];
 const SYM = ['●', '▲', '■', '◆', '★'];
@@ -114,6 +115,46 @@ export function start(api) {
       if (H.facs.every((f) => !f.length) && !H.center.length) return endRound();
       H.turn = (H.turn + 1) % N;
       pub();
+    });
+    // ---- computer players: pick the take that scores best on the wall now/soon, minus floor penalties
+    const floorCost = (b, add) => { const f = b.floor.length + (b.marker ? 1 : 0); let c = 0; for (let i = f; i < f + add; i++) c += PEN[Math.min(i, 6)]; return c; };
+    const wallPts = (b, line, color) => {
+      const c = wallCol(line, color);
+      let hz = 1, vt = 1;
+      for (let x = c - 1; x >= 0 && b.wall[line][x]; x--) hz++;
+      for (let x = c + 1; x < 5 && b.wall[line][x]; x++) hz++;
+      for (let y = line - 1; y >= 0 && b.wall[y][c]; y--) vt++;
+      for (let y = line + 1; y < 5 && b.wall[y][c]; y++) vt++;
+      return hz > 1 && vt > 1 ? hz + vt : Math.max(hz, vt);
+    };
+    const botTake = (id) => {
+      const lvl = api.level, b = H.boards[id];
+      const opts = [];
+      const sources = [...H.facs.map((f, i) => ({ src: 'f', idx: i, pool: f })), { src: 'c', idx: 0, pool: H.center }];
+      for (const { src, idx, pool } of sources) {
+        for (const color of new Set(pool)) {
+          const n = pool.filter((x) => x === color).length;
+          const mk = src === 'c' && H.marker ? 1 : 0;
+          opts.push({ src, idx, color, line: 'floor', v: -floorCost(b, n + mk) - 0.2 });
+          for (let line = 0; line < 5; line++) {
+            const L = b.lines[line], cap = line + 1;
+            if (L.length >= cap || (L.length && L[0] !== color) || b.wall[line][wallCol(line, color)]) continue;
+            const placed = Math.min(n, cap - L.length), over = n - placed + mk, fill = L.length + placed;
+            const v = (fill === cap ? wallPts(b, line, color) + 1.5 : (fill / cap) * 1.4 + (L.length ? 0.4 : 0)) - floorCost(b, over);
+            opts.push({ src, idx, color, line, v });
+          }
+        }
+      }
+      if (!opts.length) return;
+      let pick;
+      if (lvl === 'easy') { const good = opts.filter((o) => o.line !== 'floor'); pick = (good.length ? good : opts)[Math.floor(Math.random() * (good.length ? good.length : opts.length))]; }
+      else pick = opts.slice().sort((x, y) => y.v - x.v + (Math.random() - 0.5) * (lvl === 'hard' ? 0.2 : 1.2))[0];
+      api.botDo(id, 'take', { src: pick.src, idx: pick.idx, color: pick.color, line: pick.line });
+    };
+    botLoop(api, () => {
+      if (H.phase !== 'play' || !api.isBot(ids[H.turn])) return null;
+      const id = ids[H.turn];
+      return { delay: thinkMs(api.level, 900, 1300), run: () => { if (H.phase === 'play' && ids[H.turn] === id) botTake(id); } };
     });
     function endRound() {
       const d = {};

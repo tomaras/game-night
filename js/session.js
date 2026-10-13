@@ -10,7 +10,8 @@ import { makeRng } from './util.js';
 import { sfx } from './audio.js';
 
 export class GameSession {
-  constructor({ room, def, mod, run, root, toast }) {
+  constructor({ room, def, mod, run, root, toast, onSave }) {
+    this.onSave = onSave;
     this.room = room;
     this.def = def;
     this.run = run;
@@ -40,6 +41,21 @@ export class GameSession {
       player: (id) => players.find((p) => p.id === id),
       get activePlayers() { return players.filter((p) => !p.left); },
       get iAmPlayer() { return true; },
+
+      // ---- computer players (host only runs their brains)
+      get solo() { return !!room.local; },
+      get level() { return room.state?.botLevel || 'normal'; },
+      isBot: (id) => !!players.find((p) => p.id === id)?.bot || (!!room.autopilot && room.isHost),
+      get bots() { return players.filter((p) => p.bot || (room.autopilot && room.isHost)).map((p) => p.id); },
+      /** Make bot `id` perform an action: runs the host's handler exactly as if that player had sent the message. */
+      botDo(id, k, d) {
+        if (self.dead || !room.isHost) return;
+        const fn = self._handlers.get(k);
+        if (fn) { try { fn(d, id); } catch (e) { console.error(`[${def.id}] bot ${k}`, e); } }
+      },
+      restore: run.restore || null, // a saved position to resume from (turn-by-turn matches)
+      async: !!run.async,
+      save(snapshot) { if (!self.dead) self.onSave?.(snapshot); }, // a turn-based game reports its position after each move
 
       on(type, fn) { self._handlers.set(type, fn); },
       toHost(k, d) { if (!self.dead) room.gToHost(k, d); },

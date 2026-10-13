@@ -101,7 +101,7 @@ export function start(api) {
     api.cleanup(() => clearTimeout(H.timer));
     function question() {
       H.n++;
-      if (H.n > total || live().length <= 1) return finish();
+      if (H.n > total || live().length < (ids.length > 1 ? 2 : 1)) return finish(); // alone, you play until you run out of lives or questions
       if (H.n % 4 === 0) return doors();
       const [q, opts, a] = H.qs[H.n - 1];
       const order = shuffled([0, 1, 2, 3], rng);

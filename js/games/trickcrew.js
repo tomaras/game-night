@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const SUITS = { b: ['Blue', '#1a73e8'], g: ['Green', '#2e9e4f'], p: ['Pink', '#e5399b'], y: ['Yellow', '#f9ab00'], r: ['Rocket', '#37474f'] };
 const SUIT_ORDER = ['b', 'g', 'p', 'y', 'r'];
@@ -144,6 +145,33 @@ export function start(api) {
       H.winner = win.p;
       pub();
       H.timer = setTimeout(() => resolve(win), 1700);
+    });
+    // ---- computer crew mates: play legal cards that steer each trick toward whoever owes a task card in it
+    const botCard = (id) => {
+      const lvl = api.level, hand = H.hands[id];
+      const lead = H.trick.length ? suitOf(H.trick[0].c) : null;
+      let legal = hand.filter((c) => !lead || suitOf(c) === lead);
+      if (!legal.length) legal = hand.slice();
+      const curWin = () => { let w = H.trick[0]; for (const t of H.trick.slice(1)) if (beats(t.c, w.c, lead)) w = t; return w; };
+      const taskOf = (c) => H.tasks.find((t) => !t.done && t.c === c);
+      const left = N - H.trick.length - 1;
+      let best = null;
+      for (const c of legal) {
+        const wins = !H.trick.length || beats(c, curWin().c, lead);
+        const winner = wins ? id : curWin().p;
+        const cards = H.trick.map((t) => t.c).concat(c);
+        let sc = Math.random() * (lvl === 'easy' ? 5 : 0.5);
+        for (const x of cards) { const t = taskOf(x); if (!t) continue; sc += t.owner === winner ? (left === 0 ? 12 : 6) : (left === 0 ? -15 : -5); }
+        if (lvl !== 'easy') sc -= (suitOf(c) === 'r' ? 3 : 0) + numOf(c) * 0.15; // keep rockets and big cards until they matter
+        if (taskOf(c) && taskOf(c).owner === id) sc += 1;
+        if (!best || sc > best.sc) best = { c, sc };
+      }
+      return best.c;
+    };
+    botLoop(api, () => {
+      if (H.phase !== 'play' || !api.isBot(ids[H.turn])) return null;
+      const id = ids[H.turn];
+      return { delay: thinkMs(api.level, 700, 900), run: () => { if (H.phase === 'play' && ids[H.turn] === id && H.hands[id].length) api.botDo(id, 'play', { c: botCard(id) }); } };
     });
     function resolve(win) {
       let fail = null;

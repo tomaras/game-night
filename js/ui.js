@@ -125,9 +125,26 @@ export function openMenu(anchor, items) {
 /** M3 segmented button group. options: [{value,label}] */
 export function segmented(options, value, onChange) {
   const el = h('div.seg');
-  const paint = () => el.replaceChildren(...options.map((o) => h('button' + (String(o.value) === String(value) ? '.on' : ''), { type: 'button', onclick: () => { value = o.value; onChange(o.value); paint(); } }, o.label)));
+  const paint = () => el.replaceChildren(...options.map((o) => h('button' + (String(o.value) === String(value) ? '.on' : ''), { type: 'button', title: o.title || '', onclick: () => { value = o.value; onChange(o.value); paint(); } }, o.icon ? icon(o.icon, 'sm') : null, o.label)));
   paint();
+  el.set = (v) => { value = v; paint(); };
   return el;
+}
+
+/** A small floating panel anchored to a button (filters, quick settings). Closes on outside tap / Escape. */
+export function openPopover(anchor, content, { align = 'left', width } = {}) {
+  const r = anchor.getBoundingClientRect();
+  const close = () => { m.remove(); removeEventListener('pointerdown', away, true); removeEventListener('keydown', key); };
+  const away = (e) => { if (!m.contains(e.target) && !anchor.contains(e.target)) close(); };
+  const key = (e) => { if (e.key === 'Escape') close(); };
+  const m = h('div.popover', { style: width ? { width: width + 'px' } : '' }, content);
+  document.body.append(m);
+  const w = m.offsetWidth, hh = m.offsetHeight;
+  const left = align === 'right' ? r.right - w : r.left;
+  m.style.left = Math.max(8, Math.min(innerWidth - w - 8, left)) + 'px';
+  m.style.top = Math.max(8, Math.min(innerHeight - hh - 8, r.bottom + 6)) + 'px';
+  setTimeout(() => { addEventListener('pointerdown', away, true); addEventListener('keydown', key); }, 0);
+  return close;
 }
 
 export function switchEl(checked, onChange) {

@@ -221,6 +221,12 @@ export function start(api) {
         }
         if (p.kick && p.cd <= 0 && d < PR + BR + 9) { b.vx += nx * 640; b.vy += ny * 640; p.cd = 0.28; p.flash = 1; G.ev.push('shoot'); }
       }
+      // safety net: nothing may ever leave the pitch (a hard shove into a wall can push the ball past it in one step)
+      const mouth = Math.abs(b.y - CY) < GH - 2;
+      const xlo = mouth ? -D + BR : BR, xhi = mouth ? W + D - BR : W - BR;
+      if (b.y < BR) { b.y = BR; b.vy = Math.abs(b.vy) * 0.8; } else if (b.y > H - BR) { b.y = H - BR; b.vy = -Math.abs(b.vy) * 0.8; }
+      if (b.x < xlo && !(mouth && b.x > -BR)) { b.x = xlo; b.vx = Math.abs(b.vx) * 0.8; } else if (b.x > xhi && !(mouth && b.x < W + BR)) { b.x = xhi; b.vx = -Math.abs(b.vx) * 0.8; }
+      for (const id of ids) { const q = G.p[id]; q.x = Math.max(PR, Math.min(W - PR, q.x)); q.y = Math.max(PR, Math.min(H - PR, q.y)); }
       const sp = Math.hypot(b.vx, b.vy); if (sp > 1100) { b.vx *= 1100 / sp; b.vy *= 1100 / sp; }
       // goals
       if (G.state === 'play' && Math.abs(b.y - CY) < GH + 2) {
@@ -244,6 +250,44 @@ export function start(api) {
       const ranking = ids.slice().sort((a, b) => (team[a] === t ? 0 : 1) - (team[b] === t ? 0 : 1)).map((id) => ({ id, score: `${TNAME[team[id]]} ${G.sc[team[id]]}–${G.sc[1 - team[id]]}`, note: '' }));
       api.endGame({ title: t < 0 ? 'It’s a draw!' : `${TNAME[t]} team wins!`, subtitle: `${G.sc[0]} – ${G.sc[1]}`, ranking, winners: t < 0 ? [] : ids.filter((id) => team[id] === t) });
     }
+    // ---- computer players: the closest one on each team chases the ball and shoots, the others guard the goal
+    let stall = 0, yieldTo = null;
+    api.interval(() => {
+      if (G.state !== 'play' || G.over) return;
+      const b = G.b, lvl = api.level;
+      // deadlock breaker: if the ball has barely moved for ~1 s while players crowd it, one bot backs off and comes round
+      stall = Math.hypot(b.vx, b.vy) < 30 ? stall + 1 : 0;
+      if (stall > 16) { stall = 0; const bots = ids.filter((i) => api.isBot(i)); yieldTo = bots.length ? { id: bots[Math.floor(Math.random() * bots.length)], n: 14, side: Math.random() < 0.5 ? -1 : 1 } : null; }
+      const speed = lvl === 'easy' ? 0.62 : lvl === 'hard' ? 1 : 0.85;
+      for (const t of [0, 1]) {
+        const mates = ids.filter((i) => team[i] === t);
+        if (!mates.some((i) => api.isBot(i))) continue;
+        const goalX = t === 0 ? W : 0, ownX = t === 0 ? 0 : W;
+        const dist = (i) => Math.hypot(G.p[i].x - b.x, G.p[i].y - b.y);
+        const chaser = mates.slice().sort((a, c) => dist(a) - dist(c))[0];
+        for (const id of mates) {
+          if (!api.isBot(id)) continue;
+          const p = G.p[id];
+          let tx, ty, kick = false;
+          if (yieldTo && yieldTo.id === id && yieldTo.n > 0) { // back off and circle round the ball
+            yieldTo.n--;
+            tx = b.x + (t === 0 ? -1 : 1) * 70; ty = b.y + yieldTo.side * 110;
+          } else if (id === chaser || mates.length === 1 && Math.abs(b.x - ownX) > W * 0.4) {
+            const gx = goalX - b.x, gy = CY - b.y, gl = Math.hypot(gx, gy) || 1;
+            const near = Math.hypot(p.x - b.x, p.y - b.y) < PR + BR + (lvl === 'easy' ? 8 : 20);
+            const behind = (p.x - b.x) * (gx / gl) + (p.y - b.y) * (gy / gl) < -4; // I'm on the far side of the ball from the goal
+            if (near && behind) { tx = b.x; ty = b.y; kick = true; }
+            else { tx = b.x - (gx / gl) * (PR + BR + 16); ty = b.y - (gy / gl) * (PR + BR + 16); }
+          } else { // guard: sit between the ball and our own goal
+            tx = ownX + (t === 0 ? 1 : -1) * Math.min(150, Math.abs(b.x - ownX) * 0.5 + 60);
+            ty = Math.max(CY - 80, Math.min(CY + 80, b.y)) + (mates.indexOf(id) % 2 ? 30 : -30);
+          }
+          const dx = tx - p.x, dy = ty - p.y, l = Math.hypot(dx, dy);
+          p.ix = l < 8 ? 0 : (dx / l) * speed; p.iy = l < 8 ? 0 : (dy / l) * speed;
+          p.hold = kick && (lvl !== 'easy' || Math.random() < 0.5);
+        }
+      }
+    }, 60);
     api.on('in', ({ x, y }, from) => { const p = G.p[from]; if (p) { p.ix = clamp(+x || 0, -1, 1); p.iy = clamp(+y || 0, -1, 1); } });
     api.on('kick', ({ on }, from) => { const p = G.p[from]; if (p) { p.hold = !!on; if (on) p.kickT = 0.2; } });
     let lastT = performance.now();

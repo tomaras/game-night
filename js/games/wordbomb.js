@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop } from '../bots.js';
 
 const CSS = `
 .wb { align-items:center; }
@@ -77,6 +78,7 @@ export function start(api) {
       const txt = await (await fetch(new URL('../../vendor/words.txt', import.meta.url))).text();
       const words = txt.split(/\s+/).filter((w) => /^[a-z]{3,}$/.test(w));
       H.dict = new Set(words);
+      H.words = words;
       const cnt = new Map();
       for (const w of words) { const seen = new Set(); for (let L = 2; L <= 3; L++) for (let i = 0; i + L <= w.length; i++) seen.add(w.slice(i, i + L)); for (const s of seen) cnt.set(s, (cnt.get(s) || 0) + 1); }
       const [lo2, lo3] = diff === 'easy' ? [1800, 700] : diff === 'hard' ? [150, 60] : [500, 220];
@@ -130,6 +132,24 @@ export function start(api) {
       H.turn = nextAlive(from);
       newSyl();
       pub();
+    });
+    // ---- computer players: find a word with the syllable in the dictionary, after a believable pause (and sometimes freeze)
+    const decided = new Map();
+    botLoop(api, () => {
+      if (H.phase !== 'play' || !H.words || !api.isBot(H.turn)) return null;
+      const key = H.turn + '|' + H.syl + '|' + H.used.size;
+      if (!decided.has(key)) decided.set(key, Math.random() < (api.level === 'easy' ? 0.3 : api.level === 'hard' ? 0.03 : 0.1) ? 'freeze' : 'go');
+      if (decided.get(key) === 'freeze') return null; // lets the fuse burn down — humans do that too
+      const id = H.turn, syl = H.syl;
+      const base = api.level === 'easy' ? 4200 : api.level === 'hard' ? 1300 : 2600;
+      return { delay: base + Math.random() * base, run: () => {
+        if (H.phase !== 'play' || H.turn !== id || H.syl !== syl) return;
+        const fits = H.words.filter((w) => w.includes(syl) && !H.used.has(w));
+        if (!fits.length) return;
+        const pool = api.level === 'easy' ? fits.sort((a2, b2) => a2.length - b2.length).slice(0, 25) : api.level === 'hard' ? fits.filter((w) => w.length >= 6).slice(0, 400) : fits;
+        const w = (pool.length ? pool : fits)[Math.floor(Math.random() * (pool.length ? pool.length : fits.length))];
+        api.botDo(id, 'word', { w });
+      } };
     });
     api.onRejoin(() => pub());
     api.onLeave((id) => { if (H.phase === 'play' && H.turn === id) { H.turn = nextAlive(id); newSyl(); } if (alive().length <= 1 && H.phase !== 'over') { H.phase = 'over'; clearTimeout(H.timer); pub(); api.timeout(finish, 1200); } else pub(); });

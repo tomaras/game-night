@@ -10,6 +10,7 @@
 
 import { Emitter, sleep, uid } from './util.js';
 import { sanitizeAvatar } from './avatar.js';
+import { makeBot } from './bots.js';
 
 /** Wire-protocol version. Bump it ONLY when a change makes old and new clients unable to play together
  *  (message shapes, game rules the host and guests must agree on). People on different protocol versions
@@ -183,7 +184,7 @@ export class Room extends Emitter {
     room._v = 0;
     room._runSeq = 0;
     room._players = [];
-    room._st = { number, hostId: 'p1', gameId: null, opts: {}, locked: false, phase: 'lobby', game: null, results: null };
+    room._st = { number, hostId: 'p1', gameId: null, opts: {}, locked: false, phase: 'lobby', game: null, results: null, botLevel: 'normal' };
     const me = room._addPlayer(room.clientId, profile);
     me.pid = peer.id;
     room.me = me.id;
@@ -392,14 +393,40 @@ export class Room extends Emitter {
     this._send(this.conns.get(pid), { t: 'kick' });
     this._removePlayer(pid, 'kick');
   }
-  startGame(gameId, opts, playerIds) {
+  startGame(gameId, opts, playerIds, extra = {}) {
     if (!this.isHost) return;
     const st = this._st;
     st.gameId = gameId;
     st.opts = { ...opts };
     st.phase = 'playing';
     st.results = null;
-    st.game = { runId: ++this._runSeq, gameId, opts: { ...opts }, seed: (Math.random() * 2 ** 32) >>> 0, playerIds: [...playerIds] };
+    st.game = { runId: ++this._runSeq, gameId, opts: { ...opts }, seed: (Math.random() * 2 ** 32) >>> 0, playerIds: [...playerIds], ...extra };
+    this._publish();
+  }
+
+  // ---- computer players (they live only in the host's player list; no connection)
+  addBot(level) {
+    if (!this.isHost) return null;
+    const id = 'b' + (++this._seq);
+    const b = makeBot(this._players, id, level || this._st.botLevel || 'normal');
+    const used = new Set(this._players.map((p) => p.color));
+    b.color = COLORS.find((c) => !used.has(c)) || b.color;
+    this._players.push(b);
+    this._publish();
+    return id;
+  }
+  removeBot(id) {
+    if (!this.isHost) return;
+    const i = this._players.findIndex((p) => p.id === id && p.bot);
+    if (i < 0) return;
+    this._players.splice(i, 1);
+    this._publish();
+    this.emit('left', id);
+  }
+  setBotLevel(level) {
+    if (!this.isHost) return;
+    this._st.botLevel = level;
+    for (const p of this._players) if (p.bot) p.level = level;
     this._publish();
   }
   endGame(result) {

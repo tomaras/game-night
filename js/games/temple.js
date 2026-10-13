@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock } from '../kit.js';
+import { botLoop } from '../bots.js';
 
 const HAZ = { spider: ['🕷️', '#7b1fa2', 'Spiders'], snake: ['🐍', '#2e7d32', 'Snakes'], fire: ['🔥', '#e65100', 'Fire'], rock: ['🪨', '#6d4c41', 'Rockfall'], mummy: ['🧟', '#00838f', 'Mummies'] };
 const TREASURES = [1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17];
@@ -130,6 +131,25 @@ export function start(api) {
       clearTimeout(H.timer);
       H.timer = setTimeout(() => resolve(true), 10500);
     }
+    // ---- computer players: compare the odds of a second hazard with what they stand to lose
+    botLoop(api, () => {
+      if (H.phase !== 'decide') return null;
+      const id = inside().find((i) => api.isBot(i) && !(i in H.choices));
+      if (!id) return null;
+      return { delay: 1200 + Math.random() * 3800, run: () => {
+        if (H.phase !== 'decide' || id in H.choices || !H.ps[id].in) return;
+        const hot = Object.values(H.haz).filter((n) => n === 1).length; // hazards that have shown once: a second one ends the round
+        const risk = Math.min(0.95, (hot * 2) / Math.max(1, H.deck.length));
+        const carry = H.ps[id].carry, n = inside().length;
+        const lvl = api.level;
+        const gain = (7.5 / n) * (1 - risk) + (n === 1 ? H.pot * 0.5 : 0);
+        const greed = lvl === 'easy' ? 1.6 : lvl === 'hard' ? 0.9 : 1.15;
+        let leave = risk * carry * greed > gain || (carry >= 18 && risk > 0.12);
+        if (n === 1 && H.pot > 0 && carry > 3) leave = true; // alone with spare gems on the path: grab them and go
+        if (lvl === 'easy' && Math.random() < 0.2) leave = !leave;
+        api.botDo(id, 'choice', { stay: !leave });
+      } };
+    });
     api.on('choice', ({ stay }, from) => {
       if (H.phase !== 'decide' || !H.ps[from].in) return;
       H.choices[from] = !!stay;

@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const CARDS = {
   1: ['Guard', '🛡️', 'Name a card (not Guard). If your target holds it, they’re out.', '#34a853', 5],
@@ -151,6 +152,64 @@ export function start(api) {
       pub();
       if (peekCard) api.sendTo(from, 'peek', peekCard);
       H.timer = setTimeout(finishTurn, peekCard ? 3800 : 2000);
+    });
+    // ---- computer players: count the cards still unseen, remember what a Priest showed them, keep the high card
+    const know = {}; // know[botId][targetId] = { card, nd } (valid until the target plays again)
+    const known = (id, t) => { const k = know[id]?.[t]; return k && H.alive[t] && H.disc[t].length === k.nd ? k.card : null; };
+    const unseen = (id) => {
+      const left = {};
+      for (const [n, v] of Object.entries(CARDS)) left[n] = v[4];
+      for (const i of ids) for (const c of H.disc[i] || []) left[c]--;
+      for (const c of H.removed) left[c]--;
+      for (const c of H.hands[id]) left[c]--;
+      return left;
+    };
+    const botTurn = (id) => {
+      const lvl = api.level, hand = H.hands[id];
+      if (hand.length < 2) return;
+      const targets = live().filter((t) => t !== id && !H.prot[t]);
+      const forced = hand.includes(7) && (hand.includes(5) || hand.includes(6));
+      let opts = hand.map((c, i) => ({ c, keep: hand[1 - i] }));
+      let choices = forced ? opts.filter((o) => o.c === 7) : opts.filter((o) => o.c !== 8);
+      if (!choices.length) choices = opts;
+      const left = unseen(id);
+      const score = (o) => {
+        const { c, keep } = o;
+        let sc = keep * 1.4 + Math.random() * (lvl === 'easy' ? 6 : 0.8);
+        if (c === 1) sc += targets.length ? 3 : -3;
+        else if (c === 2) sc += targets.length ? 2 : -3;
+        else if (c === 3) sc += targets.length ? (keep >= 5 ? 3.5 : keep <= 2 ? -5 : 0.5) : -3;
+        else if (c === 4) sc += keep >= 6 ? 4 : 2.5;
+        else if (c === 5) sc += targets.length ? 1.5 : keep === 8 ? -99 : 0;
+        else if (c === 6) sc += targets.length ? (keep <= 3 ? 3 : -2.5) : -3;
+        else if (c === 7) sc += 1;
+        for (const t of targets) { const k = known(id, t); if (k !== null) { if (c === 3 && k < keep) sc += 8; if (c === 1 && k >= 2) sc += 9; if (c === 6 && k > keep) sc += 5; } }
+        return sc;
+      };
+      const pickC = lvl === 'easy' && Math.random() < 0.5 ? choices[Math.floor(Math.random() * choices.length)] : choices.slice().sort((a2, b2) => score(b2) - score(a2))[0];
+      const c = pickC.c, keep = pickC.keep;
+      let target, guess;
+      const pickTarget = (pref) => (targets.slice().sort((a2, b2) => pref(b2) - pref(a2) + (Math.random() - 0.5))[0]);
+      if (c === 1 && targets.length) {
+        const kt = targets.find((t) => known(id, t) !== null && known(id, t) >= 2);
+        target = kt || pickTarget(() => 0);
+        if (kt) guess = known(id, kt);
+        else {
+          const pool = [];
+          for (let n = 2; n <= 8; n++) for (let k = 0; k < Math.max(0, left[n]); k++) pool.push(n);
+          guess = lvl === 'easy' || !pool.length ? 2 + Math.floor(Math.random() * 7) : lvl === 'hard' ? +Object.entries(left).filter(([n]) => n >= 2).sort((a2, b2) => b2[1] - a2[1])[0][0] : pool[Math.floor(Math.random() * pool.length)];
+        }
+      } else if (c === 2 && targets.length) target = pickTarget(() => 0);
+      else if (c === 3 && targets.length) target = pickTarget((t) => { const k = known(id, t); return k !== null ? (k < keep ? 5 : -5) : 0; });
+      else if (c === 5) { target = targets.length ? pickTarget((t) => { const k = known(id, t); return k === 8 ? 9 : k !== null ? k : 3; }) : (keep === 8 ? undefined : id); }
+      else if (c === 6 && targets.length) target = pickTarget((t) => { const k = known(id, t); return k !== null ? k : 3; });
+      api.botDo(id, 'play', { c, target, guess });
+      if (c === 2 && target && H.alive[target]) (know[id] = know[id] || {})[target] = { card: H.hands[target][0], nd: H.disc[target].length };
+    };
+    botLoop(api, () => {
+      if (H.phase !== 'play' || !api.isBot(ids[H.turn])) return null;
+      const id = ids[H.turn];
+      return { delay: thinkMs(api.level, 900, 1400), run: () => { if (H.phase === 'play' && ids[H.turn] === id) botTurn(id); } };
     });
     function endRound() {
       clearTimeout(H.timer);

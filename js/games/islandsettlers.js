@@ -3,6 +3,7 @@
 import { h, makeRng } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const R = 38, SQ = Math.sqrt(3);
 const RES = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
@@ -512,6 +513,121 @@ export function start(api) {
       pub();
       api.timeout(autoplay, 50);
     }
+    // ---- computer players: value every vertex by dice odds + resource variety, spend greedily on city > settlement > road/dev
+    const pips = (n) => (n ? 6 - Math.abs(7 - n) : 0);
+    const vVal = (v) => { let sc = 0; const kinds = new Set(); for (const i of T.V[v].hexes) { const hx = board.hexes[i]; sc += pips(hx.n); if (hx.t !== 'desert') kinds.add(hx.t); } return sc + kinds.size * 1.4; };
+    const need = (ti) => { // what the bot is saving for: [cost, missing resources]
+      const me = ti, res = P[me].res;
+      const hasS = Object.values(H.b).some(([o, t]) => o === me && t === 'S');
+      const wantCity = hasS && (piece(me, 'C') < 4) && (res.ore >= 2 || res.wheat >= 1); // cities pay best
+      const target = wantCity && (res.wheat + res.ore >= 3 || !T.V.some((_, v) => canSettle(H.b, H.r, me, v))) ? COST.city : COST.settle;
+      const missing = RES.filter((r) => (res[r] || 0) < (target[r] || 0));
+      return { target, missing };
+    };
+    const plan = (i) => {
+      const id = ids[i], lvl = api.level, res = P[i].res, delay = thinkMs(lvl, 700, 900);
+      const act = (m) => api.botDo(id, 'act', m);
+      if (H.phase === 'setup' && H.turn === i) {
+        return { delay, run: () => {
+          if (H.phase !== 'setup' || H.turn !== i) return;
+          if (H.step === 'settle') {
+            const cs = T.V.map((_, v) => v).filter((v) => settleFree(H.b, v));
+            const v = cs.map((x) => [vVal(x) + Math.random() * (lvl === 'easy' ? 8 : 1.5), x]).sort((a2, b2) => b2[0] - a2[0])[0][1];
+            act({ k: 'setup', at: v });
+          } else {
+            const es = T.E.map((e, k) => k).filter((k) => H.r[k] === undefined && (T.E[k].a === H.last || T.E[k].b === H.last));
+            const far = (k) => (T.E[k].a === H.last ? T.E[k].b : T.E[k].a);
+            const best = es.map((k) => [vVal(far(k)) * (settleFree(H.b, far(k)) ? 1 : 0.4) + Math.random(), k]).sort((a2, b2) => b2[0] - a2[0])[0][1];
+            act({ k: 'setup', at: best });
+          }
+        } };
+      }
+      if (H.phase === 'discard' && H.need[id]) {
+        return { delay, run: () => {
+          if (H.phase !== 'discard' || !H.need[id]) return;
+          const give = zero(); let n = H.need[id];
+          const pool = { ...res };
+          while (n > 0) { const r = RES.slice().sort((a2, b2) => pool[b2] - pool[a2])[0]; if (!pool[r]) break; pool[r]--; give[r]++; n--; }
+          act({ k: 'discard', res: give });
+        } };
+      }
+      if (H.turn !== i) {
+        // answer a trade offer from someone else when it clearly helps
+        const o = H.offer;
+        if (H.phase === 'main' && o && o.from !== i && can(res, o.get)) {
+          const nd = need(i).missing;
+          if (RES.some((r) => o.give[r] > 0 && nd.includes(r)) && total(o.give) >= total(o.get) && !RES.some((r) => o.get[r] > 0 && nd.includes(r))) return { delay: 1400, run: () => { if (H.offer === o) act({ k: 'accept' }); } };
+        }
+        return null;
+      }
+      if (H.phase === 'roll') {
+        const kn = P[i].dev.find((d) => d.k === 'knight' && !d.fresh);
+        if (kn && !H.devPlayed && Object.entries(H.b).some(([v, [o]]) => o === i && T.V[v].hexes.includes(H.robber))) return { delay, run: () => act({ k: 'dev', d: 'knight' }) };
+        return { delay, run: () => act({ k: 'roll' }) };
+      }
+      if (H.phase === 'robber') {
+        return { delay, run: () => {
+          if (H.phase !== 'robber' || H.turn !== i) return;
+          const mineOn = (hex) => Object.entries(H.b).some(([v, [o]]) => o === i && T.V[v].hexes.includes(hex));
+          const score = (hex) => {
+            if (hex === H.robber || mineOn(hex)) return -99;
+            let sc = pips(board.hexes[hex].n);
+            for (const v of T.hexes[hex].v) { const b2 = H.b[v]; if (b2 && b2[0] !== i) sc += (b2[1] === 'C' ? 2 : 1) * 1.6 + vpPub(b2[0]) * 0.3; }
+            return sc;
+          };
+          const hex = T.hexes.map((_, k) => k).sort((a2, b2) => score(b2) - score(a2) + (Math.random() - 0.5) * (lvl === 'easy' ? 8 : 1))[0];
+          act({ k: 'robber', hex });
+        } };
+      }
+      if (H.phase === 'steal') return { delay, run: () => { if (H.phase === 'steal' && H.turn === i) act({ k: 'steal', victim: H.victims.slice().sort((a2, b2) => total(P[b2].res) - total(P[a2].res))[0] }); } };
+      if (H.phase === 'main') {
+        return { delay, run: () => {
+          if (H.phase !== 'main' || H.turn !== i) return;
+          // free roads from a Road Building card
+          if (H.free > 0) {
+            const es = T.E.map((_, k) => k).filter((k) => canRoad(H.b, H.r, i, k));
+            if (es.length) { const far = (k) => [T.E[k].a, T.E[k].b].map((v) => (settleFree(H.b, v) ? vVal(v) : 0)); return act({ k: 'build', t: 'road', at: es.sort((a2, b2) => Math.max(...far(b2)) - Math.max(...far(a2)))[0] }); }
+            return act({ k: 'end' });
+          }
+          const myS = Object.entries(H.b).filter(([, [o, t]]) => o === i && t === 'S').map(([v]) => +v);
+          const spots = T.V.map((_, v) => v).filter((v) => canSettle(H.b, H.r, i, v));
+          // 1. city
+          if (can(res, COST.city) && myS.length && piece(i, 'C') < 4) return act({ k: 'build', t: 'city', at: myS.sort((a2, b2) => vVal(b2) - vVal(a2))[0] });
+          // 2. settlement
+          if (can(res, COST.settle) && spots.length && piece(i, 'S') < 5) return act({ k: 'build', t: 'settle', at: spots.sort((a2, b2) => vVal(b2) - vVal(a2))[0] });
+          // development cards: a knight when the robber squats on us, otherwise year of plenty / monopoly for what we lack
+          const playable = P[i].dev.filter((d) => !d.fresh && d.k !== 'vp');
+          if (!H.devPlayed && playable.length) {
+            const nd = need(i).missing;
+            const k = playable.find((d) => d.k === 'knight' && Object.entries(H.b).some(([v, [o]]) => o === i && T.V[v].hexes.includes(H.robber))) || playable.find((d) => d.k === 'yop' && nd.length) || playable.find((d) => d.k === 'knight' && P[i].kn >= 1) || playable.find((d) => d.k === 'mono' && nd.length);
+            if (k) { if (k.d === 'yop' || k.k === 'yop') return act({ k: 'dev', d: 'yop', a: nd[0], b: nd[1] || nd[0] }); if (k.k === 'mono') return act({ k: 'dev', d: 'mono', a: nd[0] }); return act({ k: 'dev', d: k.k }); }
+          }
+          // 3. spend on a road toward good ground when there is nowhere to settle yet
+          const roads = Object.values(H.r).filter((o) => o === i).length;
+          if (!spots.length && can(res, COST.road) && roads < 14) {
+            const es = T.E.map((_, k) => k).filter((k) => canRoad(H.b, H.r, i, k));
+            const far = (k) => Math.max(...[T.E[k].a, T.E[k].b].map((v) => (settleFree(H.b, v) ? vVal(v) : 0)));
+            if (es.length) return act({ k: 'build', t: 'road', at: es.sort((a2, b2) => far(b2) - far(a2) + Math.random())[0] });
+          }
+          // 4. dev card when flush
+          if (can(res, COST.dev) && H.deck.length && lvl !== 'easy' && total(res) >= 5) return act({ k: 'buyDev' });
+          // 5. bank trade: turn a surplus into what the next purchase is missing
+          const { target, missing } = need(i);
+          if (missing.length) {
+            for (const g of RES.slice().sort((a2, b2) => res[b2] - res[a2])) {
+              const rate = rateFor(H.b, board.ports, i, g);
+              if (!missing.includes(g) && res[g] - (target[g] || 0) >= rate) return act({ k: 'bank', give: g, get: missing[0] });
+            }
+          }
+          act({ k: 'end' });
+        } };
+      }
+      return null;
+    };
+    botLoop(api, () => {
+      for (let i = 0; i < ids.length; i++) if (api.isBot(ids[i]) && !left(i)) { const p = plan(i); if (p) return p; }
+      return null;
+    }, 350);
     if (window.__gnDebug) window.__isl = { H, P, pub, checkWin, vpAll, T };
     api.onRejoin(() => pub());
     api.onLeave((id) => {

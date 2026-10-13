@@ -24,7 +24,7 @@ const CSS = `
 .bk canvas { display:block; border-radius:8px; background:#0c0e18; box-shadow:0 8px 22px rgba(31,41,55,.22); }
 .bk-side { display:flex; flex-direction:column; gap:8px; width:96px; }
 .bk-box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:6px; text-align:center; font-size:12px; font-weight:800; color:var(--muted); }
-.bk-box b { display:block; color:#fff; font-size:18px; font-variant-numeric:tabular-nums; }
+.bk-box b { display:block; color:var(--on); font-size:18px; font-variant-numeric:tabular-nums; }
 .bk-garb { position:absolute; left:-9px; bottom:0; width:6px; background:#ef4444; border-radius:3px; transition:height .15s; }
 .bk-opps { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:560px; }
 .bk-opp { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:5px; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
@@ -295,13 +295,15 @@ export function start(api) {
   // ------------------------------------------------------------ host
   if (api.isHost) {
     const G = { alive: new Set(ids), order: [], over: false, stats: {} };
+    const bb = {}; // the computer players' hidden boards
     api.on('board', (m, from) => { api.broadcast('b', { id: from, b: m.b, a: m.a }, from); });
     api.on('atk', ({ n }, from) => {
       if (G.over || !G.alive.has(from)) return;
       const targets = [...G.alive].filter((id) => id !== from);
       if (!targets.length) return;
       const t = targets[Math.floor(Math.random() * targets.length)];
-      api.sendTo(t, 'garb', { n: Math.min(8, Math.max(0, Math.floor(+n))) });
+      const amt = Math.min(8, Math.max(0, Math.floor(+n)));
+      if (bb[t]) bb[t].pending += amt; else api.sendTo(t, 'garb', { n: amt });
     });
     function out(id, st) {
       if (!G.alive.delete(id)) return;
@@ -310,17 +312,86 @@ export function start(api) {
       if (G.alive.size <= 1 && ids.length > 1 && !G.over) {
         G.over = true;
         const w = [...G.alive][0];
-        const ranking = [...(w ? [w] : []), ...G.order.slice().reverse()].map((id2) => ({ id: id2, score: G.stats[id2]?.lines ?? '—', note: 'lines' }));
+        const ranking = [...(w ? [w] : []), ...G.order.slice().reverse()].map((id2) => ({ id: id2, score: G.stats[id2]?.lines ?? bb[id2]?.lines ?? '—', note: 'lines' }));
         api.broadcast('over', {});
         api.timeout(() => api.endGame({ title: w ? `${api.player(w).name} is the last one standing!` : 'Everyone topped out!', ranking, winners: w ? [w] : [] }), 1800);
       }
     }
     api.on('dead', (st, from) => out(from, st));
     api.onLeave((id) => out(id));
+    // ---- computer players: a hidden board per bot; for every piece play the placement with the best score
+    const rotsOf = (type) => { const out = []; let m = PIECES[type].m; for (let k = 0; k < (type === 'O' ? 1 : 4); k++) { out.push(m); m = rot(m); } return out; };
+    const fitsIn = (grid, m, px, py) => {
+      for (let y = 0; y < m.length; y++) for (let x = 0; x < m[y].length; x++) if (m[y][x]) { const gx = px + x, gy = py + y; if (gx < 0 || gx >= COLS || gy >= ROWS) return false; if (gy >= 0 && grid[gy][gx]) return false; }
+      return true;
+    };
+    const lockInto = (grid, m, px, py, colour) => { const g = grid.map((r) => r.slice()); for (let y = 0; y < m.length; y++) for (let x = 0; x < m[y].length; x++) if (m[y][x] && py + y >= 0) g[py + y][px + x] = colour; return g; };
+    const clearRows = (g) => { let n = 0; for (let r = ROWS - 1; r >= 0; r--) if (g[r].every(Boolean)) { g.splice(r, 1); g.unshift(new Array(COLS).fill(0)); n++; r++; } return n; };
+    const rate = (g, cleared) => {
+      const hts = new Array(COLS).fill(0); let holes = 0;
+      for (let c = 0; c < COLS; c++) { let seen = false; for (let r = 0; r < ROWS; r++) { if (g[r][c]) { if (!seen) { hts[c] = ROWS - r; seen = true; } } else if (seen) holes++; } }
+      const agg = hts.reduce((a, b) => a + b, 0);
+      let bump = 0; for (let c = 0; c < COLS - 1; c++) bump += Math.abs(hts[c] - hts[c + 1]);
+      return -0.51 * agg + 0.76 * cleared - 0.36 * holes - 0.18 * bump + (cleared >= 4 ? 3 : 0);
+    };
+    function bestPlacement(sim, type) {
+      const cands = [];
+      for (const m of rotsOf(type)) for (let px = -2; px < COLS; px++) {
+        if (!fitsIn(sim.grid, m, px, -1)) continue;
+        let py = -1; while (fitsIn(sim.grid, m, px, py + 1)) py++;
+        const g = lockInto(sim.grid, m, px, py, PIECES[type].c);
+        const cleared = clearRows(g);
+        cands.push({ m, px, py, sc: rate(g, cleared) });
+      }
+      cands.sort((a, b) => b.sc - a.sc);
+      if (!cands.length) return null;
+      const pool = api.level === 'easy' ? Math.min(cands.length, 6) : api.level === 'normal' ? Math.min(cands.length, 2) : 1;
+      return cands[Math.floor(Math.random() * Math.random() * pool)];
+    }
+    function sendBotBoard(id, sim) { api.botDo(id, 'board', { b: sim.grid.slice(2).map((r) => r.join('')).join(''), a: sim.alive ? 1 : 0 }); }
+    function botPiece(id, sim) {
+      while (sim.q.length < 2) { if (!sim.bag.length) sim.bag = sim.rng.shuffle(Object.keys(PIECES)); sim.q.push(sim.bag.pop()); }
+      const type = sim.q.shift();
+      const pl = bestPlacement(sim, type);
+      if (!pl) return botDie(id, sim);
+      let g = lockInto(sim.grid, pl.m, pl.px, pl.py, PIECES[type].c);
+      const cleared = clearRows(g);
+      if (cleared) {
+        sim.combo++; sim.lines += cleared; sim.score += [0, 100, 300, 500, 800][cleared];
+        let atk = ATTACK[cleared] + (sim.combo >= 2 ? 1 : 0);
+        const cancel = Math.min(sim.pending, atk); sim.pending -= cancel; atk -= cancel;
+        sim.grid = g;
+        if (atk > 0) api.botDo(id, 'atk', { n: atk });
+      } else {
+        sim.combo = -1; sim.grid = g;
+        if (sim.pending > 0) { // incoming garbage arrives when you don't clear a line
+          const hole = Math.floor(Math.random() * COLS);
+          for (let i = 0; i < sim.pending; i++) { sim.grid.shift(); sim.grid.push(Array.from({ length: COLS }, (_, c) => (c === hole ? 0 : 8))); }
+          sim.pending = 0;
+        }
+      }
+      if (sim.grid[0].some(Boolean) || sim.grid[1].some(Boolean)) return botDie(id, sim);
+      sendBotBoard(id, sim);
+    }
+    function botDie(id, sim) { sim.alive = false; sendBotBoard(id, sim); api.botDo(id, 'dead', { lines: sim.lines, score: sim.score }); }
+    function startBots() {
+      const every = { easy: 1300, normal: 700, hard: 340 }[api.level] || 700;
+      for (const id of ids) if (api.isBot(id) && !(id === api.me)) bb[id] = { grid: Array.from({ length: ROWS }, () => new Array(COLS).fill(0)), bag: [], q: [], pending: 0, combo: -1, lines: 0, score: 0, alive: true, rng: makeRng(api.seed ^ (String(id).charCodeAt(1) * 104729)), next: performance.now() + 800 };
+      if (!Object.keys(bb).length) return;
+      api.interval(() => {
+        if (G.over) return;
+        const now = performance.now();
+        for (const [id, sim] of Object.entries(bb)) {
+          if (!sim.alive || !G.alive.has(id) || now < sim.next) continue;
+          sim.next = now + every * (0.85 + Math.random() * 0.3);
+          botPiece(id, sim);
+        }
+      }, 60);
+    }
     let n = 3;
     api.timeout(function cd() {
       api.broadcast('cd', { n });
-      if (n-- > 0) api.timeout(cd, 900); else api.broadcast('go', {});
+      if (n-- > 0) api.timeout(cd, 900); else { api.broadcast('go', {}); startBots(); }
     }, 700);
   }
 }

@@ -189,6 +189,34 @@ export function start(api) {
       wall('T', b.y - BR < 0, () => { b.y = BR; b.vy = Math.abs(b.vy); });
       wall('B', b.y + BR > S, () => { b.y = S - BR; b.vy = -Math.abs(b.vy); });
     }
+    // ---- computer players: track the ball, predicting where it will arrive (bounces included)
+    const reflect = (c) => { const L = S - 2 * BR; let u = (((c - BR) % (2 * L)) + 2 * L) % (2 * L); if (u > L) u = 2 * L - u; return u + BR; };
+    const botSpeed = { easy: 9, normal: 17, hard: 27 }[api.level] || 17; // max pixels the paddle target moves per 40 ms tick
+    const botErr = { easy: 90, normal: 40, hard: 18 }[api.level] || 40;
+    const aimK = { easy: 0, normal: 0.25, hard: 0.5 }[api.level] || 0.25; // hit with the paddle's edge to send the ball off at an angle
+    const wob = {};
+    api.interval(() => {
+      if (G.over) return;
+      const b = G.ball;
+      for (const id of ids) {
+        if (!api.isBot(id) || G.lives[id] <= 0) continue;
+        const side = sideOf[id], horiz = side === 'T' || side === 'B';
+        const coord = horiz ? b.x : b.y, vel = horiz ? b.vx : b.vy;
+        const perp = horiz ? b.y : b.x, perpV = horiz ? b.vy : b.vx;
+        const plane = side === 'L' || side === 'T' ? PM + PT : S - PM - PT;
+        const approaching = G.serve <= 0 && (side === 'L' || side === 'T' ? perpV < -1 : perpV > 1);
+        let want;
+        if (approaching) {
+          const t = Math.abs((perp - plane) / perpV);
+          const fast = Math.pow(Math.max(1, Math.hypot(b.vx, b.vy) / 330), 1.3); // the faster the ball, the sloppier the read
+          if (!(id in wob) || Math.random() < 0.03) wob[id] = (Math.random() - 0.5) * 2 * botErr * fast + (Math.random() < 0.5 ? -1 : 1) * aimK * PLEN / 2;
+          want = (api.level === 'easy' ? coord : reflect(coord + vel * t)) + wob[id];
+        } else want = S / 2 + (coord - S / 2) * 0.3; // wait near the middle, leaning toward the ball
+        want = clamp(want, PLEN / 2, S - PLEN / 2);
+        const cur = G.tgt[id];
+        G.tgt[id] = cur + clamp(want - cur, -botSpeed, botSpeed);
+      }
+    }, 40);
     api.on('t', ({ t }, from) => { if (from in G.tgt) G.tgt[from] = clamp(+t || S / 2, PLEN / 2, S - PLEN / 2); });
     let last = performance.now();
     api.interval(() => {

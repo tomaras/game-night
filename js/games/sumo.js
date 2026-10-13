@@ -208,6 +208,30 @@ export function start(api) {
       const l = Math.hypot(dx, dy);
       p.vx += (dx / l) * 470; p.vy += (dy / l) * 470; p.dash = 1; G.ev.push('shoot');
     });
+    // ---- computer players: get on the centre side of an opponent and shove them outward; never wander near the edge
+    api.interval(() => {
+      if (G.state !== 'play' || G.over) return;
+      const live = ids.map((id) => G.p[id]).filter((p) => p && p.alive && !p.fall);
+      const lvl = api.level;
+      for (const p of live) {
+        const id = ids.find((i) => G.p[i] === p);
+        if (!api.isBot(id)) continue;
+        const others = live.filter((o) => o !== p);
+        const dc = Math.hypot(p.x - CX, p.y - CY);
+        let tx = CX, ty = CY;
+        if (others.length && dc < G.pr - (lvl === 'easy' ? 40 : 65)) {
+          const n = others.reduce((a, o) => (Math.hypot(o.x - p.x, o.y - p.y) < Math.hypot(a.x - p.x, a.y - p.y) ? o : a));
+          const oc = Math.hypot(n.x - CX, n.y - CY) || 1;
+          const back = lvl === 'hard' ? 38 : lvl === 'normal' ? 18 : 0; // approach from the centre side so the shove pushes them out
+          tx = n.x - ((n.x - CX) / oc) * back; ty = n.y - ((n.y - CY) / oc) * back;
+          if (lvl === 'easy' && Math.random() < 0.25) { tx = p.x + (Math.random() - 0.5) * 200; ty = p.y + (Math.random() - 0.5) * 200; }
+          const d = Math.hypot(n.x - p.x, n.y - p.y);
+          if (d < 105 && p.dash <= 0 && Math.random() < (lvl === 'easy' ? 0.06 : lvl === 'hard' ? 0.5 : 0.25)) api.botDo(id, 'dash');
+        }
+        const dx = tx - p.x, dy = ty - p.y, l = Math.hypot(dx, dy) || 1;
+        p.ix = dx / l; p.iy = dy / l;
+      }
+    }, 90);
     let lastT = performance.now();
     api.interval(() => {
       if (G.state === 'wait' || G.over) return;

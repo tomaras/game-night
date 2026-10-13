@@ -4,6 +4,8 @@ import { h } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { icon, confirmDialog } from '../ui.js';
 import { Chess } from '../../vendor/chess.js';
+import { chooseMoveAsync, stopChessWorker } from '../engines/chessai.js';
+import { thinkMs } from '../bots.js';
 
 const START = { p: 8, n: 2, b: 2, r: 2, q: 1 };
 const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9 };
@@ -223,7 +225,18 @@ export function start(api) {
       const c = g.turn();
       flag = setTimeout(() => finish(c === 'w' ? 'b' : 'w', `${api.player(idOf(c)).name} ran out of time`), H.clock[c] + 100);
     };
-    api.cleanup(() => clearTimeout(flag));
+    api.cleanup(() => { clearTimeout(flag); stopChessWorker(); });
+    // ---- computer player: search, then play through the normal 'move' handler
+    const maybeBot = () => {
+      if (H.over) return;
+      const c = g.turn(), id = idOf(c);
+      if (!api.isBot(id)) return;
+      api.timeout(async () => {
+        if (H.over || g.turn() !== c) return;
+        const m = await chooseMoveAsync(g.fen(), api.level);
+        if (m && !H.over && g.turn() === c) api.botDo(id, 'move', m);
+      }, thinkMs(api.level, 300, 400));
+    };
     api.on('move', ({ from, to, promotion }, pid) => {
       if (H.over || pid !== idOf(g.turn())) return;
       const c = g.turn();
@@ -242,6 +255,7 @@ export function start(api) {
       if (g.isThreefoldRepetition()) return finish(null, 'Draw by repetition');
       if (g.isDraw()) return finish(null, 'Draw (50-move rule)');
       armFlag();
+      maybeBot();
     });
     api.on('resign', (_, pid) => { if (!H.over && (pid === white || pid === black)) finish(pid === white ? 'b' : 'w', `${api.player(pid).name} resigned`); });
     api.on('drawoffer', (_, pid) => { if (!H.over && (pid === white || pid === black)) { H.drawOffer = pid === white ? 'w' : 'b'; publish(); } });
@@ -251,7 +265,7 @@ export function start(api) {
     });
     api.onRejoin((id) => publish(id));
     api.onLeave((id) => { if (!H.over && (id === white || id === black)) finish(id === white ? 'b' : 'w', 'Opponent left the game'); });
-    api.timeout(() => publish(), 300);
+    api.timeout(() => { publish(); maybeBot(); }, 300);
   }
   render();
 }

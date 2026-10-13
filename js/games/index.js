@@ -701,6 +701,41 @@ const EXTRA_HELP = {
 };
 for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {}) };
 
+// Capabilities beyond the basic live room:
+//   bots  — has a computer brain, so it can be played alone / with computer players filling empty seats
+//   async — can be played turn by turn by sharing a link (a text message), not only live
+const CAPS = {
+  connect4: { bots: true },
+  chess: { bots: true },
+  colorrush: { bots: true },
+  rowrumble: { bots: true },
+  sushitrain: { bots: true },
+  liars: { bots: true },
+  poker: { bots: true },
+  pong: { bots: true },
+  snake: { bots: true },
+  sumo: { bots: true },
+  puckfootball: { bots: true },
+  tanks: { bots: true },
+  typeracer: { bots: true },
+  bomber: { bots: true },
+  blocks: { bots: true },
+  pool: { bots: true },
+  royalletters: { bots: true },
+  tilemosaic: { bots: true },
+  temple: { bots: true },
+  wonderrivals: { bots: true },
+  islandsettlers: { bots: true },
+  redline: { bots: true },
+  copilots: { bots: true },
+  trickcrew: { bots: true },
+  wordbomb: { bots: true },
+  // fine to play alone (no computer opponents needed): your score / survival is the game
+  letterdash: { solo: true, min: 1 },
+  triviatrap: { solo: true, min: 1 },
+};
+for (const g of GAMES) if (CAPS[g.id]) Object.assign(g, CAPS[g.id]);
+
 // Home-screen order: the requested line-up first (in order), then the Jackbox-style games, then the originals
 const ORDER = ['telephone', 'wordspies', 'captions', 'rowrumble', 'sketch', 'dialitin', 'petals', 'drawbattle', 'uniqueclues', 'wordbomb', 'spyplace', 'codecrack', 'shadowquest', 'royalletters', 'tunneltraitors', 'islandsettlers', 'trickcrew', 'temple', 'trainheist', 'letterdash', 'redline', 'sushitrain', 'onenightwolf', 'puckfootball', 'tilemosaic', 'pinplace', 'copilots', 'wonderrivals', 'jigsaw', 'colorrush', 'quipclash', 'tshirt', 'triviatrap', 'fibquiz', 'champdraw', 'alienamong', 'movie', 'beans', 'pool', 'poker', 'chess', 'liars', 'imposter', 'bomber', 'tanks', 'snake', 'blocks', 'sumo', 'pong', 'typeracer', 'retro', 'connect4'];
 GAMES.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));

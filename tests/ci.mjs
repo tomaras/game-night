@@ -53,7 +53,7 @@ const newPage = async (name = 'Player') => {
 };
 const createRoom = async (p, gameId = 'connect4') => {
   await p.goto(START.replace('index.html', 'index.html') + `#/game/${gameId}`);
-  await p.click('button:has-text("Create a room")');
+  await p.click('.sheet button:has-text("Create a room")');
   await p.click('.sheet button.primary:has-text("Create room")');
   await p.waitForSelector('.lobby', { timeout: 20000 });
   return (await p.textContent('.bignum')).trim();

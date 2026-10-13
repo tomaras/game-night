@@ -182,6 +182,21 @@ export function start(api) {
         api.endGame({ title: `${nameOf(ranking[0].id)} is the fastest fingers!`, subtitle: `${rounds} round${rounds > 1 ? 's' : ''}`, ranking, winners: [ranking[0].id] });
       }, 6000);
     }
+    // ---- computer racers: each types at its own steady speed (± a little), reporting progress like a human client would
+    const bt = {};
+    const baseWpm = { easy: 26, normal: 46, hard: 74 }[api.level] || 46;
+    api.interval(() => {
+      if (H.state !== 'race') return;
+      const text = texts[H.round - 1];
+      for (const id of ids) {
+        if (!api.isBot(id) || H.done[id]) continue;
+        const b = bt[id] && bt[id].round === H.round ? bt[id] : (bt[id] = { round: H.round, t0: performance.now(), wpm: baseWpm * (0.85 + Math.random() * 0.3) });
+        const secs = (performance.now() - b.t0) / 1000;
+        const c = Math.min(text.length, Math.floor(secs * b.wpm * 5 / 60));
+        if (c >= text.length) api.botDo(id, 'done', { wpm: Math.round(b.wpm), acc: 92 + Math.round(Math.random() * 7), ms: Math.round(secs * 1000) });
+        else api.botDo(id, 'p', { c, wpm: Math.round(b.wpm) });
+      }
+    }, 200);
     let lastRelay = 0;
     api.on('p', ({ c, wpm }, from) => {
       if (H.state !== 'race' || H.done[from]) return;

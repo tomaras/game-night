@@ -3,9 +3,18 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const TURN_MS = 45000;
+/** P(Binomial(n, p) >= k) — the chance that at least k of the n unseen dice show the bid face. */
+function binomTail(n, p, k) {
+  if (k <= 0) return 1;
+  if (k > n) return 0;
+  let term = Math.pow(1 - p, n), cdf = term; // P(X = 0)
+  for (let i = 0; i < k - 1; i++) { term *= ((n - i) / (i + 1)) * (p / (1 - p)); cdf += term; }
+  return Math.max(0, 1 - cdf);
+}
 
 /** Perudo bidding order: is `next` a legal raise over `prev`? */
 function validBid(prev, next, wild) {
@@ -136,6 +145,32 @@ export function start(api) {
     }
     api.on('bid', (b, from) => { if (!H.over) bid(from, b); });
     api.on('liar', (_, from) => { if (!H.over) liar(from); });
+    // ---- computer players: weigh the odds that the standing bid is true, then call it or raise safely
+    botLoop(api, () => {
+      if (H.over || H.phase !== 'bid' || !api.isBot(cur())) return null;
+      const id = cur();
+      return { delay: thinkMs(api.level, 900, 1400), run: () => {
+        if (H.over || H.phase !== 'bid' || cur() !== id) return;
+        const mine = H.dice[id] || [];
+        const total = ids.reduce((a, i) => a + H.counts[i], 0);
+        const unknown = total - mine.length;
+        const own = (f) => mine.filter((d) => d === f || (wild && d === 1 && f !== 1)).length;
+        const pf = (f) => (wild && f !== 1 ? 2 / 6 : 1 / 6);
+        const prob = (q, f) => binomTail(unknown, pf(f), q - own(f));
+        if (H.bid) {
+          const th = api.level === 'easy' ? 0.1 : api.level === 'hard' ? 0.36 : 0.26;
+          if (prob(H.bid.q, H.bid.f) < th + (Math.random() - 0.5) * 0.08) return api.botDo(id, 'liar');
+        }
+        let best = null;
+        for (let q = H.bid ? H.bid.q : 1; q <= total; q++) for (let f = 1; f <= 6; f++) {
+          if (!validBid(H.bid, { q, f }, wild)) continue;
+          const sc = prob(q, f) - (q - (H.bid ? H.bid.q : 1)) * 0.012 + Math.random() * (api.level === 'easy' ? 0.3 : 0.06) + (f !== 1 && own(f) ? 0.04 : 0);
+          if (!best || sc > best.sc) best = { q, f, sc };
+        }
+        if (!best) return api.botDo(id, 'liar');
+        api.botDo(id, 'bid', { q: best.q, f: best.f });
+      } };
+    });
     api.onRejoin((id) => publish(id));
     api.onLeave((id) => {
       if (H.over) return;

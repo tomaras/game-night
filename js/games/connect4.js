@@ -1,5 +1,6 @@
 // Connect Four — 2 players. Host validates moves; everyone renders the broadcast state.
 import { h } from '../util.js';
+import { thinkMs } from '../bots.js';
 
 const R = 6, C = 7;
 const CSS = `
@@ -82,6 +83,16 @@ export function start(api) {
 
   if (api.isHost) {
     const send = () => api.broadcast('state', st);
+    // ---- computer player
+    const maybeBot = () => {
+      if (st.winner >= 0 || st.draw) return;
+      const id = order[st.turn];
+      if (!api.isBot(id)) return;
+      api.timeout(() => {
+        if (order[st.turn] !== id || st.winner >= 0 || st.draw) return;
+        api.botDo(id, 'drop', { c: bestColumn(st.board, st.turn + 1, api.level) });
+      }, thinkMs(api.level, 500, 700));
+    };
     api.on('drop', ({ c }, from) => {
       if (st.winner >= 0 || st.draw || order[st.turn] !== from || !(c >= 0 && c < C)) return;
       let r = R - 1;
@@ -93,6 +104,7 @@ export function start(api) {
       else if (st.board.every(Boolean)) st.draw = true;
       else st.turn ^= 1;
       send();
+      maybeBot();
       if (st.winner >= 0 || st.draw) {
         api.timeout(() => {
           const rank = st.draw ? order : [order[st.winner], order[1 - st.winner]];
@@ -112,6 +124,7 @@ export function start(api) {
       }
     });
     send();
+    maybeBot();
   }
   render();
 }
@@ -130,4 +143,61 @@ function findLine(b, r, c) {
     if (line.length >= 4) return line;
   }
   return null;
+}
+
+// ---------------------------------------------------------------- the computer's brain: alpha-beta search
+const ORDER = [3, 2, 4, 1, 5, 0, 6]; // look at the centre first (better pruning, better play)
+function windowScore(a, b, c, d, me) {
+  const opp = 3 - me;
+  let m = 0, o = 0, e = 0;
+  for (const v of [a, b, c, d]) { if (v === me) m++; else if (v === opp) o++; else e++; }
+  if (m && o) return 0;
+  if (m === 4) return 10000; if (o === 4) return -10000;
+  if (m === 3) return 60; if (m === 2) return 10; if (o === 3) return -70; if (o === 2) return -8;
+  return 0;
+}
+function evaluate(b, me) {
+  let sc = 0;
+  for (let r = 0; r < R; r++) if (b[r * C + 3] === me) sc += 6; else if (b[r * C + 3]) sc -= 6;
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    if (c + 3 < C) sc += windowScore(b[r * C + c], b[r * C + c + 1], b[r * C + c + 2], b[r * C + c + 3], me);
+    if (r + 3 < R) sc += windowScore(b[r * C + c], b[(r + 1) * C + c], b[(r + 2) * C + c], b[(r + 3) * C + c], me);
+    if (r + 3 < R && c + 3 < C) sc += windowScore(b[r * C + c], b[(r + 1) * C + c + 1], b[(r + 2) * C + c + 2], b[(r + 3) * C + c + 3], me);
+    if (r + 3 < R && c - 3 >= 0) sc += windowScore(b[r * C + c], b[(r + 1) * C + c - 1], b[(r + 2) * C + c - 2], b[(r + 3) * C + c - 3], me);
+  }
+  return sc;
+}
+const dropRow = (b, c) => { for (let r = R - 1; r >= 0; r--) if (!b[r * C + c]) return r; return -1; };
+function search(b, depth, alpha, beta, turn, me) {
+  // returns the score from `me`'s point of view
+  const cols = ORDER.filter((c) => !b[c]);
+  if (!cols.length) return 0;
+  if (depth === 0) return evaluate(b, me);
+  let best = turn === me ? -Infinity : Infinity;
+  for (const c of cols) {
+    const r = dropRow(b, c);
+    b[r * C + c] = turn;
+    let v;
+    if (findLine(b, r, c)) v = (turn === me ? 1 : -1) * (100000 + depth); // faster wins score higher
+    else v = search(b, depth - 1, alpha, beta, 3 - turn, me);
+    b[r * C + c] = 0;
+    if (turn === me) { best = Math.max(best, v); alpha = Math.max(alpha, v); } else { best = Math.min(best, v); beta = Math.min(beta, v); }
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+export function bestColumn(board, me, level = 'normal') {
+  const b = board.slice();
+  const cols = ORDER.filter((c) => !b[c]);
+  if (level === 'easy' && Math.random() < 0.35) return cols[Math.floor(Math.random() * cols.length)];
+  const depth = level === 'easy' ? 2 : level === 'hard' ? 7 : 5;
+  let bestC = cols[0], bestV = -Infinity;
+  for (const c of cols) {
+    const r = dropRow(b, c);
+    b[r * C + c] = me;
+    const v = findLine(b, r, c) ? 1e6 : search(b, depth - 1, -Infinity, Infinity, 3 - me, me) + (level === 'easy' ? Math.random() * 40 : 0);
+    b[r * C + c] = 0;
+    if (v > bestV) { bestV = v; bestC = c; }
+  }
+  return bestC;
 }

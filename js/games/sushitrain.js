@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock } from '../kit.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const T = {
   tempura: ['Tempura', '🍤', '#ff7043', '2 tempura = 5 pts'],
@@ -134,6 +135,36 @@ export function start(api) {
       if (m.chop) { if (sel.length !== 2 || !H.tabs[from].includes('chop')) return; } else if (sel.length !== 1) return;
       H.picks[from] = { ids: sel.map((c) => c.id), chop: !!m.chop };
       if (ids.filter((i) => !api.player(i).left).every((i) => H.picks[i])) { clearTimeout(H.timer); H.timer = setTimeout(resolve, 400); } else pub({ keep: true });
+    });
+    // ---- computer players: take the card that adds the most points to their plate
+    const cardValue = (t, tab, level) => {
+      const c = (k) => tab.filter((x) => x === k).length;
+      const nig = c('egg') + c('salmon') + c('squid');
+      const freeWasabi = Math.max(0, c('wasabi') - nig);
+      switch (t) {
+        case 'tempura': return c('tempura') % 2 ? 5 : 2.5;
+        case 'sashimi': return c('sashimi') % 3 === 2 ? 10 : c('sashimi') % 3 === 1 ? 4 : 3;
+        case 'dumpling': return DUMP[Math.min(5, c('dumpling') + 1)] - DUMP[Math.min(5, c('dumpling'))];
+        case 'maki3': return 3.4; case 'maki2': return 2.5; case 'maki1': return 1.4;
+        case 'egg': case 'salmon': case 'squid': return NIGIRI[t] * (freeWasabi ? 3 : 1) + (t === 'squid' ? 0.5 : 0);
+        case 'wasabi': return level === 'hard' ? 2.2 + (H.hands[ids[0]]?.length || 0) * 0.15 : 2.5;
+        case 'pudding': return level === 'hard' ? 3.2 : 2.5;
+        case 'chop': return 1.2;
+        default: return 1;
+      }
+    };
+    botLoop(api, () => {
+      if (H.phase !== 'pick') return null;
+      const id = ids.find((i) => api.isBot(i) && !api.player(i).left && !H.picks[i]);
+      if (!id) return null;
+      return { delay: thinkMs(api.level, 500, 1200), run: () => {
+        if (H.phase !== 'pick' || H.picks[id]) return;
+        const hand = H.hands[id];
+        if (!hand.length) return;
+        const noise = api.level === 'easy' ? 4 : api.level === 'normal' ? 0.8 : 0.2;
+        const best = hand.slice().sort((a, b) => cardValue(b.t, H.tabs[id], api.level) - cardValue(a.t, H.tabs[id], api.level) + (Math.random() - 0.5) * noise)[0];
+        api.botDo(id, 'pick', { ids: [best.id], chop: false });
+      } };
     });
     function resolve() {
       clearTimeout(H.timer);

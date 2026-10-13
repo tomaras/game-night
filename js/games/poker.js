@@ -2,6 +2,7 @@
 // Host deals and enforces all rules; hole cards are only ever sent to their owner (until showdown).
 import { h, clamp } from '../util.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const RANKS = '23456789TJQKA';
 const SUITS = { s: '♠', h: '♥', d: '♦', c: '♣' };
@@ -268,6 +269,55 @@ export function start(api) {
     }
 
     api.on('act', (m, from) => { if (!H.over) act(from, m || {}); });
+
+    // ---- computer players: estimate winning chances by simulating random opponents, compare with the pot odds
+    const equity = (hole, board, opps, samples) => {
+      const known = new Set([...hole, ...board]);
+      const rest = [...RANKS].flatMap((r) => [...'shdc'].map((su) => r + su)).filter((c) => !known.has(c));
+      let wins = 0;
+      for (let t = 0; t < samples; t++) {
+        const need = 5 - board.length + opps * 2;
+        for (let i = 0; i < need; i++) { const j = i + Math.floor(Math.random() * (rest.length - i)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+        const full = board.concat(rest.slice(0, 5 - board.length));
+        const mine = bestHand([...hole, ...full]);
+        let beat = 1;
+        for (let o = 0; o < opps; o++) {
+          const k = 5 - board.length + o * 2;
+          const c = cmp(mine, bestHand([rest[k], rest[k + 1], ...full]));
+          if (c < 0) { beat = 0; break; }
+          if (c === 0) beat = Math.min(beat, 0.5);
+        }
+        wins += beat;
+      }
+      return wins / samples;
+    };
+    const decide = (id) => {
+      const lvl = api.level;
+      const toCall = H.cur - (H.bet[id] || 0), chips = H.chips[id], pot = potTotal();
+      const opps = Math.max(1, inHand().filter((x) => x !== id).length);
+      let eq = equity(H.hole[id], H.board, opps, lvl === 'easy' ? 50 : lvl === 'hard' ? 260 : 130);
+      if (lvl === 'easy') eq = Math.max(0, Math.min(1, eq + (Math.random() - 0.5) * 0.3));
+      const agg = lvl === 'easy' ? -0.04 : lvl === 'hard' ? 0.07 : 0.03;
+      const maxTo = (H.bet[id] || 0) + chips;
+      const raiseTo = (frac) => Math.min(maxTo, Math.max(H.cur + H.minRaise, H.cur + Math.round(pot * frac)));
+      if (toCall <= 0) {
+        if (eq > 0.64 - agg || (lvl === 'hard' && Math.random() < 0.07 && opps === 1)) return maxTo > H.cur ? { a: 'raise', to: raiseTo(0.4 + eq * 0.5) } : { a: 'check' };
+        return { a: 'check' };
+      }
+      const potOdds = toCall / (pot + toCall);
+      if (eq > 0.8 - agg && maxTo > H.cur) return { a: 'raise', to: raiseTo(0.6 + (eq - 0.8) * 2) };
+      if (eq > potOdds + 0.06 - agg || (lvl === 'easy' && toCall <= H.bb && Math.random() < 0.5)) return { a: 'call' };
+      return { a: 'fold' };
+    };
+    botLoop(api, () => {
+      if (H.over || !['preflop', 'flop', 'turn', 'river'].includes(H.phase)) return null;
+      const id = ids[H.turn];
+      if (!id || !api.isBot(id)) return null;
+      return { delay: thinkMs(api.level, 900, 1500), run: () => {
+        if (H.over || ids[H.turn] !== id || !['preflop', 'flop', 'turn', 'river'].includes(H.phase)) return;
+        api.botDo(id, 'act', decide(id));
+      } };
+    });
     api.onRejoin((id) => publish(id));
     api.onLeave((id) => {
       if (H.over) return;

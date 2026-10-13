@@ -2,6 +2,7 @@
 import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs, chance } from '../bots.js';
 
 const COLS = { r: '#e5383b', y: '#f6b400', g: '#2b9348', b: '#2f6fed', w: '#23233a' };
 const COLNAME = { r: 'Red', y: 'Yellow', g: 'Green', b: 'Blue' };
@@ -171,6 +172,44 @@ export function start(api) {
       giveCards(t, 2);
       log(`🚨 ${nameOf(from)} caught ${nameOf(t)} without calling UNO — draws 2!`);
       publish();
+    });
+    // ---- computer players
+    const COLORS_ = 'rygb';
+    const handColor = (hand, except) => {
+      const n = { r: 0, y: 0, g: 0, b: 0 };
+      for (const c of hand) if (c !== except && n[c.c] !== undefined) n[c.c]++;
+      const best = Math.max(...Object.values(n));
+      const top = COLORS_.split('').filter((k) => n[k] === best);
+      return top[Math.floor(Math.random() * top.length)];
+    };
+    botLoop(api, () => {
+      if (H.over || H.between) return null;
+      // a bot that spots someone who forgot to call UNO catches them
+      if (H.unoRisk) {
+        const catcher = ids.find((i) => i !== H.unoRisk && api.isBot(i) && !api.player(i).left);
+        if (catcher && chance(api.level, 0.25, 0.6, 0.9)) return { delay: 1200 + Math.random() * 1500, run: () => api.botDo(catcher, 'catch') };
+      }
+      const id = cur();
+      if (!api.isBot(id)) return null;
+      return {
+        delay: thinkMs(api.level, 600, 800),
+        run: () => {
+          if (H.over || H.between || cur() !== id) return;
+          const hand = H.hands[id];
+          const opts = hand.filter((c) => playable(c) && (H.drawn === null || H.drawn === c.id));
+          if (!opts.length) return api.botDo(id, H.drawn === null ? 'draw' : 'pass');
+          const nextId = (() => { let i = H.turn; do { i = (i + H.dir + ids.length) % ids.length; } while (api.player(ids[i]).left); return ids[i]; })();
+          const threat = (H.hands[nextId] || []).length <= 2;
+          let card;
+          if (api.level === 'easy') card = opts[Math.floor(Math.random() * opts.length)];
+          else {
+            const score = (c) => (c.c === 'w' ? (threat || opts.length === 1 ? 5 : -10) : 0) + (/[SRDF]/.test(c.v) ? (threat ? 12 : 4) : 0) + (c.c === H.color ? 3 : 0) + (api.level === 'hard' ? hand.filter((x) => x.c === c.c).length : 0) + Math.random();
+            card = opts.slice().sort((a, b) => score(b) - score(a))[0];
+          }
+          if (hand.length === 2 && chance(api.level, 0.5, 0.9, 1)) api.botDo(id, 'uno');
+          api.botDo(id, 'play', { id: card.id, color: card.c === 'w' ? handColor(hand, card) : undefined });
+        },
+      };
     });
     api.onRejoin((id) => publish(id));
     api.onLeave((id) => {

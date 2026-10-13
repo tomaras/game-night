@@ -198,9 +198,38 @@ export function start(api) {
       f: G.foods,
       ev: G.ev.length ? [...new Set(G.ev)] : undefined,
     });
+    // ---- computer players: stay alive first (flood-fill so they never trap themselves), then chase food
+    function botSteer(s) {
+      const lvl = api.level;
+      const blocked = new Set();
+      for (const o of G.snakes) if (o.alive) o.body.forEach((b, i) => { if (!(i === o.body.length - 1 && !o.grow)) blocked.add(b[0] + ',' + b[1]); });
+      const ok = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !blocked.has(x + ',' + y);
+      const area = (x, y, limit) => {
+        const seen = new Set([x + ',' + y]), q = [[x, y]];
+        while (q.length && seen.size < limit) {
+          const [cx, cy] = q.pop();
+          for (const [dx, dy] of DIRV) { const nx = cx + dx, ny = cy + dy, k = nx + ',' + ny; if (ok(nx, ny) && !seen.has(k)) { seen.add(k); q.push([nx, ny]); } }
+        }
+        return seen.size;
+      };
+      const [hx, hy] = s.body[0];
+      const enemyHeads = G.snakes.filter((o) => o !== s && o.alive).map((o) => o.body[0]);
+      let best = null;
+      for (const d of [s.dir, (s.dir + 1) % 4, (s.dir + 3) % 4]) {
+        const nx = hx + DIRV[d][0], ny = hy + DIRV[d][1];
+        if (!ok(nx, ny)) continue;
+        const room = Math.min(area(nx, ny, s.body.length * 3 + 6), s.body.length * 3 + 6);
+        const fd = G.foods.length ? Math.min(...G.foods.map((f) => Math.abs(f[0] - nx) + Math.abs(f[1] - ny))) : 0;
+        let sc = room * 12 - fd * (lvl === 'easy' ? 0.4 : 1.4) + Math.random() * (lvl === 'easy' ? 12 : 2);
+        if (lvl !== 'easy' && enemyHeads.some((e) => Math.abs(e[0] - nx) + Math.abs(e[1] - ny) <= 1)) sc -= 40; // don't play chicken with another head
+        if (lvl === 'hard' && d === s.dir) sc += 1;
+        if (!best || sc > best.sc) best = { d, sc };
+      }
+      if (best && best.d !== s.dir) s.queue = [best.d];
+    }
     api.interval(() => {
       if (G.state === 'wait' || G.over) return;
-      if (G.state === 'play') step();
+      if (G.state === 'play') { for (const s of G.snakes) if (s.alive && api.isBot(s.id)) botSteer(s); step(); }
       api.broadcast('snap', snapshot());
       G.ev = [];
     }, tickMs);

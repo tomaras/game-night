@@ -237,6 +237,49 @@ export function start(api) {
       t.shots++; t.reload = 0.28;
       G.ev.push('shoot');
     });
+    // ---- computer players: hunt the nearest tank, shoot when lined up, blast through bricks that block the way
+    const brain = {};
+    if (window.__gnDebug) window.__tk = { G, brain };
+    const lineClear = (x1, y1, x2, y2) => {
+      const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 8));
+      for (let i = 1; i < n; i++) if (solidAt(x1 + ((x2 - x1) * i) / n, y1 + ((y2 - y1) * i) / n)) return false;
+      return true;
+    };
+    api.interval(() => {
+      if (G.over) return;
+      const lvl = api.level;
+      for (const id of ids) {
+        const t = G.tanks[id];
+        if (!api.isBot(id) || !t.alive) continue;
+        const B = brain[id] || (brain[id] = { lx: t.x, ly: t.y, stuck: 0, detour: 0, dd: 0 });
+        if (lvl === 'easy' && Math.random() < 0.4) continue; // slower reactions
+        const enemies = Object.values(G.tanks).filter((o) => o.alive && o.id !== id);
+        if (!enemies.length) { t.want = -1; continue; }
+        const e = enemies.reduce((a, o) => (Math.hypot(o.x - t.x, o.y - t.y) < Math.hypot(a.x - t.x, a.y - t.y) ? o : a));
+        const dx = e.x - t.x, dy = e.y - t.y;
+        if (t.want >= 0 && Math.hypot(t.x - B.lx, t.y - B.ly) < 2) B.stuck++; else B.stuck = 0;
+        B.lx = t.x; B.ly = t.y;
+        const shoot = () => { if (t.reload <= 0 && Math.random() < (lvl === 'easy' ? 0.35 : lvl === 'hard' ? 1 : 0.7)) api.botDo(id, 'fire'); };
+        // lined up with a clear shot? (tight = bullet will really hit; loose = close, so sidestep to line it up)
+        const T = HALF * 0.55, L = HALF * 2.4;
+        let fd = -1, adj = -1;
+        if (Math.abs(dy) < L && lineClear(t.x, t.y, e.x, t.y)) { if (Math.abs(dy) < T) fd = dx > 0 ? 1 : 3; else adj = dy > 0 ? 2 : 0; }
+        else if (Math.abs(dx) < L && lineClear(t.x, t.y, t.x, e.y)) { if (Math.abs(dx) < T) fd = dy > 0 ? 2 : 0; else adj = dx > 0 ? 1 : 3; }
+        if (fd >= 0) { if (t.dir !== fd) t.want = fd; else { t.want = -1; shoot(); } continue; }
+        if (adj >= 0 && B.stuck < 4) { t.want = adj; continue; }
+        if (B.detour > 0) { B.detour--; t.want = B.dd; if (B.detour % 3 === 0) shoot(); continue; }
+        if (B.stuck > 5) { B.detour = 7; B.dd = Math.floor(Math.random() * 4); B.stuck = 0; continue; }
+        // move along the longer axis first, else the shorter one
+        const pref = Math.abs(dx) > Math.abs(dy) ? [dx > 0 ? 1 : 3, dy > 0 ? 2 : 0] : [dy > 0 ? 2 : 0, dx > 0 ? 1 : 3];
+        let moved = false;
+        for (const d of pref) {
+          const ahead = solidAt(t.x + DIRV[d][0] * (HALF + 5), t.y + DIRV[d][1] * (HALF + 5));
+          if (ahead === 0) { t.want = d; moved = true; break; }
+          if (ahead === 1 && d === pref[0]) { if (t.dir === d) { t.want = -1; shoot(); } else t.want = d; moved = true; break; } // brick: face it and fire
+        }
+        if (!moved) { B.detour = 6; B.dd = Math.floor(Math.random() * 4); }
+      }
+    }, 110);
     const snapshot = () => ({
       t: ids.map((id) => { const t = G.tanks[id]; return [id, +t.x.toFixed(1), +t.y.toFixed(1), t.dir, t.alive ? 1 : 0, t.inv > 0 ? 1 : 0]; }),
       b: G.bullets.map((b) => [+b.x.toFixed(1), +b.y.toFixed(1)]),

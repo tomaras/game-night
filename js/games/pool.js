@@ -1,6 +1,7 @@
 // 8-Ball Pool — 2 to 4 players (2 teams). The host simulates the physics and streams ball positions;
 // the shooter aims (drag on the table), sets power and shoots. Simplified standard 8-ball rules.
 import { h, canvasPoint, clamp, fitCanvas } from '../util.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const W = 1000, HT = 500, R = 11, M = 44; // table size, ball radius, rail margin
 const CW = W + M * 2, CH = HT + M * 2;
@@ -436,6 +437,95 @@ export function start(api) {
       publish();
       acc = 0; last = performance.now();
       H.timer = setInterval(loop, 8);
+    });
+    // ---- computer player: ghost-ball geometry finds the shots, the real physics engine tries them out
+    function simulate(a, p, cx, cy) {
+      const saved = { balls, ev, first, shotPocketed, out };
+      balls = saved.balls.map((b) => ({ ...b }));
+      const cue = balls.find((b) => b.id === 0);
+      if (cx !== undefined) { cue.x = cx; cue.y = cy; }
+      cue.vx = Math.cos(a) * p * MAXV; cue.vy = Math.sin(a) * p * MAXV;
+      first = null; shotPocketed = []; out = []; ev = [];
+      for (let i = 0; i < 240 * 9 && balls.some((b) => !b.in && (b.vx || b.vy)); i++) stepPhysics(1 / 240);
+      const res = { first, poc: shotPocketed.slice(), cueIn: shotPocketed.includes(0) };
+      balls = saved.balls; ev = saved.ev; first = saved.first; shotPocketed = saved.shotPocketed; out = saved.out;
+      return res;
+    }
+    const segDist = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1; const t = clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1); return Math.hypot(px - (ax + dx * t), py - (ay + dy * t)); };
+    function botTargets(team) {
+      const g = H.groups[team];
+      const mine = g ? balls.filter((b) => !b.in && groupOf(b.id) === g) : [];
+      if (g && !mine.length) return balls.filter((b) => !b.in && b.id === 8);
+      return g ? mine : balls.filter((b) => !b.in && b.id !== 0 && b.id !== 8);
+    }
+    function candidates(cue, targets) {
+      const out2 = [];
+      for (const t of targets) for (const pk of POCKETS) {
+        const dx = pk.x - t.x, dy = pk.y - t.y, dl = Math.hypot(dx, dy) || 1;
+        const gx = t.x - (dx / dl) * 2 * R, gy = t.y - (dy / dl) * 2 * R;
+        if (gx < R || gx > W - R || gy < R || gy > HT - R) continue;
+        const cx2 = gx - cue.x, cy2 = gy - cue.y, cl = Math.hypot(cx2, cy2) || 1;
+        const cos = (cx2 * dx + cy2 * dy) / (cl * dl);
+        if (cos < 0.22) continue; // too thin a cut
+        let blocked = false;
+        for (const o of balls) {
+          if (o.in || o.id === 0 || o.id === t.id) continue;
+          if (segDist(o.x, o.y, cue.x, cue.y, gx, gy) < 2 * R - 1 || segDist(o.x, o.y, t.x, t.y, pk.x, pk.y) < 2 * R - 1) { blocked = true; break; }
+        }
+        if (blocked) continue;
+        out2.push({ a: Math.atan2(cy2, cx2), d: cl + dl, cos, target: t.id, p: clamp(0.3 + (cl + dl) / 1500, 0.3, 0.92), sc: cos * 2 - (cl + dl) * 0.0016 });
+      }
+      return out2.sort((x, y) => y.sc - x.sc);
+    }
+    function chooseShot() {
+      const lvl = api.level, team = H.team, id = shooterId();
+      let cue = balls.find((b) => b.id === 0), hand;
+      if (H.inHand) { // ball in hand: put the cue ball on the table somewhere clear and open
+        let best = null;
+        for (let i = 0; i < 14; i++) {
+          const x = R + 20 + Math.random() * (W * 0.55), y = R + 20 + Math.random() * (HT - 2 * R - 40);
+          if (balls.some((b) => b.id !== 0 && !b.in && Math.hypot(b.x - x, b.y - y) < R * 2.6)) continue;
+          const cs = candidates({ x, y }, botTargets(team));
+          const sc = cs.length ? cs[0].sc : -9;
+          if (!best || sc > best.sc) best = { x, y, sc };
+        }
+        if (best) { hand = { cx: best.x, cy: best.y }; cue = { x: best.x, y: best.y }; }
+      }
+      if (H.isBreak) { const apex = balls.filter((b) => b.id !== 0).sort((a2, b2) => a2.x - b2.x)[0]; return { a: Math.atan2(apex.y - cue.y, apex.x - cue.x) + (Math.random() - 0.5) * 0.03, p: lvl === 'easy' ? 0.7 : 0.95, ...hand }; }
+      const targets = botTargets(team);
+      let cands = candidates(cue, targets);
+      if (!cands.length) { // no clean pot: hit the nearest legal ball, gently
+        const t = targets.slice().sort((a2, b2) => Math.hypot(a2.x - cue.x, a2.y - cue.y) - Math.hypot(b2.x - cue.x, b2.y - cue.y))[0] || balls.find((b) => b.id !== 0 && !b.in);
+        return { a: Math.atan2(t.y - cue.y, t.x - cue.x) + (Math.random() - 0.5) * 0.04, p: 0.45, ...hand };
+      }
+      if (lvl === 'easy') { const c = cands[Math.floor(Math.random() * Math.min(cands.length, 4))]; return { a: c.a + (Math.random() - 0.5) * 0.16, p: clamp(c.p + (Math.random() - 0.5) * 0.3, 0.25, 1), ...hand }; }
+      const tries = [];
+      const n = lvl === 'hard' ? 8 : 3;
+      for (const c of cands.slice(0, n)) for (const dp of lvl === 'hard' ? [-0.12, 0, 0.12] : [0]) tries.push({ a: c.a, p: clamp(c.p + dp, 0.2, 1), target: c.target });
+      let best = null;
+      for (const tr of tries) {
+        const r = simulate(tr.a, tr.p, hand?.cx, hand?.cy);
+        const g = H.groups[team];
+        const own = r.poc.filter((i) => i !== 0 && i !== 8 && (!g || groupOf(i) === g)).length;
+        const foes = r.poc.filter((i) => i !== 0 && i !== 8 && g && groupOf(i) !== g).length;
+        const legalFirst = r.first !== null && (targets.some((t) => t.id === r.first));
+        const eightBad = r.poc.includes(8) && !(g && !balls.some((b) => !b.in && groupOf(b.id) === g));
+        const sc = own * 10 - foes * 6 - (r.cueIn ? 30 : 0) - (legalFirst ? 0 : 25) - (eightBad ? 80 : 0) + (r.poc.includes(8) && !eightBad && !r.cueIn ? 100 : 0) + Math.random();
+        if (!best || sc > best.sc) best = { ...tr, sc };
+      }
+      return { a: best.a + (Math.random() - 0.5) * (lvl === 'hard' ? 0.006 : 0.02), p: best.p, ...hand };
+    }
+    let poolBusy = false;
+    botLoop(api, () => {
+      if (H.over || H.phase !== 'aim' || poolBusy || !api.isBot(shooterId())) return null;
+      const id = shooterId();
+      return { delay: thinkMs(api.level, 700, 800), run: () => {
+        if (H.over || H.phase !== 'aim' || shooterId() !== id) return;
+        poolBusy = true;
+        const shot = chooseShot();
+        api.broadcast('aimr', { a: shot.a, p: shot.p }, id); // let everyone watch the cue swing round
+        api.timeout(() => { poolBusy = false; if (!H.over && H.phase === 'aim' && shooterId() === id) api.botDo(id, 'shot', shot); }, 800);
+      } };
     });
     api.cleanup(() => clearInterval(H.timer));
     api.onRejoin((id) => publish(id));

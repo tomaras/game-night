@@ -1,6 +1,7 @@
 // Co-Pilots — a cooperative two-player landing game (Sky-Team-style). Pilot and co-pilot roll secret dice,
 // place them one at a time in the cockpit, and must land the plane without talking about their numbers!
 import { h } from '../util.js';
+import { botLoop, thinkMs } from '../bots.js';
 import { icon } from '../ui.js';
 
 const MAXR = 8, LAND_AT = 6;
@@ -103,6 +104,47 @@ export function start(api) {
       if (Object.keys(H.placed).length >= 8) { H.phase = 'resolve'; sendPub(); H.timer = setTimeout(resolve, 1200); return; }
       H.turn = 1 - H.turn;
       sendPub();
+    });
+    // ---- computer co-pilot: score every (die, slot) pair against what the round needs
+    const botPlace = (seat) => {
+      const lvl = api.level, other = 1 - seat;
+      const sharedUsed = Object.entries(H.placed).filter(([k, v]) => SLOTS.find((x) => x.id === k).seat === -1 && v.seat === seat).length;
+      const nextPlane = (() => { for (let sp = H.pos + 1; sp <= LAND_AT; sp++) if (H.planes[sp] > 0) return sp; return LAND_AT + 1; })();
+      const safeAdv = Math.max(1, Math.min(3, nextPlane - H.pos - 1));
+      const partner = (a, b) => (H.placed[seat === 0 ? a : b] ? H.placed[seat === 0 ? a : b].v : H.placed[seat === 0 ? b : a]?.v);
+      let best = null;
+      H.dice[seat].forEach((v, di) => {
+        if (v === null) return;
+        for (const sl of SLOTS) {
+          if (H.placed[sl.id]) continue;
+          if (sl.seat !== -1 && sl.seat !== seat) continue;
+          if (sl.seat === -1 && sharedUsed >= 2) continue;
+          let sc = 0;
+          if (sl.grp === 'gear') sc = v >= 3 ? 6 + (H.gear < H.need ? 3 : 0) - (v - 3) * 0.2 : -7;
+          else if (sl.grp === 'radio') { const t = H.planes[v] > 0 && v > H.pos; sc = t ? 8 + (v - H.pos <= 2 ? 3 : 0) : -2.5; if (v <= H.pos) sc -= 2; }
+          else if (sl.grp === 'axis') {
+            const pv = partner('axP', 'axC');
+            if (pv !== undefined) { const diff = seat === 0 ? v - pv : pv - v; const shift = Math.sign(diff) * Math.floor(Math.abs(diff) / 2); sc = 6 - Math.abs(H.axis + shift) * 3.5; }
+            else sc = 3 - Math.abs(v - 3.5) * 1.2 - Math.abs(H.axis) * 0.3;
+          } else if (sl.grp === 'eng') {
+            const pv = partner('enP', 'enC');
+            if (pv !== undefined) { const E = v + pv, adv = E <= 4 ? 1 : E <= 8 ? 2 : 3; sc = 6 - Math.abs(adv - safeAdv) * 4 - (H.pos + adv >= LAND_AT && (H.gear < H.need || Math.abs(H.axis) > 1) ? 6 : 0); }
+            else sc = 3 - Math.abs(v - (safeAdv === 1 ? 2 : safeAdv === 2 ? 3.5 : 5)) * 0.9;
+          }
+          sc += Math.random() * (lvl === 'easy' ? 7 : lvl === 'hard' ? 0.25 : 1.2);
+          if (!best || sc > best.sc) best = { i: di, slot: sl.id, sc };
+        }
+      });
+      return best;
+    };
+    botLoop(api, () => {
+      if (H.phase !== 'place' || !api.isBot(seats[H.turn])) return null;
+      const seat = H.turn;
+      return { delay: thinkMs(api.level, 800, 1200), run: () => {
+        if (H.phase !== 'place' || H.turn !== seat) return;
+        const b = botPlace(seat);
+        if (b) api.botDo(seats[seat], 'place', { i: b.i, slot: b.slot });
+      } };
     });
     function lose(msg, detail) { H.phase = 'end'; H.sfx = 'lose'; sendPub({ end: { win: false, msg, detail } }); H.timer = setTimeout(() => finish(false, msg), 5000); }
     function resolve() {

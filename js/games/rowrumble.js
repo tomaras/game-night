@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock, waiting } from '../kit.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const bulls = (n) => (n === 55 ? 7 : n % 11 === 0 ? 5 : n % 10 === 0 ? 3 : n % 5 === 0 ? 2 : 1);
 const COL = { 1: ['#ffffff', '#1b1c20'], 2: ['#ffe9a8', '#5b4300'], 3: ['#ffc58a', '#6b2f00'], 5: ['#ff9e94', '#6b100a'], 7: ['#c9a3ff', '#3b0f8a'] };
@@ -142,6 +143,39 @@ export function start(api) {
       if (alive().every((i) => H.picks[i] !== undefined)) { clearTimeout(H.timer); api.timeout(resolve, 500); }
     });
     api.on('row', ({ r }, from) => { if (H.phase === 'choose' && H.chooser === from && r >= 0 && r < 4) takeRow(H.pending, r); });
+    // ---- computer players
+    const rowBulls = (r) => r.reduce((a, n) => a + bulls(n), 0);
+    const cardRisk = (n, level) => {
+      const ends = H.rows.map((r) => r[r.length - 1]);
+      let best = -1;
+      ends.forEach((e, i) => { if (e < n && (best < 0 || e > ends[best])) best = i; });
+      if (best < 0) return 40 + Math.min(...H.rows.map(rowBulls)) * 3; // too low: forced to take a row
+      const row = H.rows[best];
+      const full = row.length >= 5;
+      const gap = n - ends[best];
+      return (full ? rowBulls(row) * 4 : 0) + (level === 'hard' ? gap * 0.35 + row.length * (row.length >= 3 ? 2.5 : 0.5) : gap * 0.15);
+    };
+    botLoop(api, () => {
+      if (H.phase === 'pick') {
+        const id = alive().find((i) => api.isBot(i) && H.picks[i] === undefined);
+        if (!id) return null;
+        return { delay: thinkMs(api.level, 500, 1200), run: () => {
+          if (H.phase !== 'pick' || H.picks[id] !== undefined) return;
+          const hand = H.hands[id];
+          const n = api.level === 'easy' ? hand[Math.floor(Math.random() * hand.length)] : hand.slice().sort((a, b) => cardRisk(a, api.level) - cardRisk(b, api.level) + (Math.random() - 0.5) * 2)[0];
+          api.botDo(id, 'pick', { n });
+        } };
+      }
+      if (H.phase === 'choose' && api.isBot(H.chooser)) {
+        const id = H.chooser;
+        return { delay: thinkMs(api.level, 700, 800), run: () => {
+          if (H.phase !== 'choose' || H.chooser !== id) return;
+          const order = H.rows.map((r, i) => [rowBulls(r) + (api.level === 'easy' ? Math.random() * 6 : 0), i]).sort((a, b) => a[0] - b[0]);
+          api.botDo(id, 'row', { r: order[0][1] });
+        } };
+      }
+      return null;
+    });
     api.onRejoin((id) => { api.sendTo(id, 'hand', { hand: H.hands[id] || [] }); api.sendTo(id, 'state', st()); });
     api.onLeave((id) => { if (H.phase === 'pick' && alive().every((i) => H.picks[i] !== undefined)) resolve(); });
     api.timeout(deal, 700);

@@ -3,6 +3,7 @@
 import { h } from '../util.js';
 import { icon, openSheet } from '../ui.js';
 import { avatarEl } from '../avatar.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const RES = ['wood', 'stone', 'clay', 'glass', 'papyrus'];
 const EM = { wood: '🪵', stone: '🪨', clay: '🧱', glass: '🔮', papyrus: '📜', coin: '🪙' };
@@ -271,6 +272,61 @@ export function start(api) {
         if (w.fx.revive && H.discard.length) { H.pend = { who: p, k: 'revive', opts: H.discard.map((c) => ({ ...c })), extra }; return pub(); }
         return endTurn(p, extra);
       }
+    });
+    // ---- computer player: score every playable card (build / wonder / sell) and take the best
+    const cardValue = (card, p) => {
+      const [, type, , fx] = card;
+      const mine = H.cities[p];
+      let v = (fx.vp || 0) * 1.0;
+      const have = symbolsOf(mine);
+      if (fx.sym) v += have[fx.sym] ? 6 : 2.5 + Object.keys(have).length * 0.5;
+      if (fx.sh) { const lead = p === 0 ? H.mil : -H.mil; v += fx.sh * 2.6 + (lead < 0 ? 1.5 : 0); }
+      if (fx.p) for (const [r, n] of Object.entries(fx.p)) { const prod = prodOf(mine, H.wonders[p]).p[r]; v += n * (prod ? 1.2 : 2.8) * (H.age === 1 ? 1.2 : 0.7); }
+      if (fx.wild) v += 2.6;
+      if (fx.trade) v += 2;
+      if (fx.coin) v += fx.coin / 3.2;
+      if (fx.coinPer) v += 3;
+      if (fx.guild) v += 5;
+      if (type === 'c') v += 0.8;
+      return v;
+    };
+    const botMove = (p) => {
+      const id = ids[p], lvl = api.level;
+      const opp = 1 - p;
+      const sellGain = 2 + H.cities[p].filter((c) => c.type === 'y').length;
+      const wondersBuilt = H.wonders.flat().filter((x) => x.built).length;
+      const opts = [];
+      for (const cell of H.layout) {
+        if (cell.taken || !uncovered(cell)) continue;
+        const [, , cost] = cell.card;
+        const cv = cardValue(cell.card, p);
+        const pr = priceFor(H.cities[p], H.wonders[p], H.cities[opp], H.wonders[opp], cost, H.coins[p]);
+        if (pr !== null) opts.push({ m: { k: 'build', id: cell.id }, v: cv * 1.0 - pr * 0.55 + 1.5 });
+        if (wondersBuilt < 7) H.wonders[p].forEach((w, wi) => {
+          if (w.built || w.gone) return;
+          const wp = priceFor(H.cities[p], H.wonders[p], H.cities[opp], H.wonders[opp], w.cost, H.coins[p]);
+          if (wp !== null) opts.push({ m: { k: 'wonder', id: cell.id, w: wi }, v: (w.fx.vp || 0) * 1.2 + (w.fx.extra ? 4 : 0) + (w.fx.sh || 0) * 2.6 + (w.fx.coin || 0) / 3 + 4 - wp * 0.5 - cv * 0.35 });
+        });
+        // selling is the fallback; prefer to sell what the rival would love to have
+        opts.push({ m: { k: 'discard', id: cell.id }, v: sellGain * 0.45 - cv * 0.3 + (H.coins[p] < 4 ? 2 : 0) });
+      }
+      if (!opts.length) return;
+      const noise = lvl === 'easy' ? 6 : lvl === 'hard' ? 0.3 : 1.4;
+      const best = opts.map((o) => ({ ...o, v: o.v + Math.random() * noise })).sort((x, y) => y.v - x.v)[0];
+      api.botDo(id, 'act', best.m);
+    };
+    botLoop(api, () => {
+      if (H.phase !== 'play') return null;
+      const p = H.turn, id = ids[p];
+      if (!api.isBot(id)) return null;
+      return { delay: thinkMs(api.level, 1000, 1500), run: () => {
+        if (H.phase !== 'play' || H.turn !== p) return;
+        if (H.pend && H.pend.who === p) { // a wonder asked for a choice: destroy their best card / revive the best discard
+          const o = H.pend.opts.slice().sort((x, y) => cardValue([x.name, x.type, {}, x.fx], p) - cardValue([y.name, y.type, {}, y.fx], p)).pop();
+          return api.botDo(id, 'act', { k: 'pend', id: o.id });
+        }
+        botMove(p);
+      } };
     });
     function endTurn(p, extra) {
       if (H.phase === 'end') return;

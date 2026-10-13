@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { makeClock } from '../kit.js';
+import { botLoop, thinkMs } from '../bots.js';
 
 const L = 36;
 const CORNERS = [[5, 4], [11, 3], [17, 5], [22, 2], [28, 4], [33, 3]];
@@ -166,6 +167,36 @@ export function start(api) {
       const n = Math.min(gear, playable.length);
       return { gear, cards: playable.slice(0, n).map((c) => c.id), boost: false };
     }
+    // ---- computer players: try every gear + card combination, favour distance, pay heat only when it is worth it
+    const combos = (arr, n) => (n === 0 ? [[]] : arr.flatMap((x, i) => combos(arr.slice(i + 1), n - 1).map((c) => [x, ...c])));
+    function botPick(id) {
+      const p = H.pl[id], lvl = api.level;
+      const playable = p.hand.filter((c) => c.k !== 'h');
+      const heats = p.hand.filter((c) => c.k === 'h').length;
+      let best = null;
+      for (const gear of GEARS) {
+        const jump = Math.abs(gear - p.gear);
+        if (jump > 2 || (jump === 2 && p.heat < 1)) continue;
+        const n = Math.min(gear, playable.length);
+        for (const cs of combos(playable, n)) {
+          const speed = cs.reduce((a, c) => a + c.v, 0);
+          let heatLeft = p.heat - (jump === 2 ? 1 : 0), over = 0;
+          for (const [cp, lim] of ALL) if (cp > p.dist && cp <= p.dist + speed && speed > lim) over += speed - lim;
+          if (over > heatLeft) { if (lvl !== 'easy') continue; }
+          const cool = (gear === 1 ? Math.min(2, heats) : gear === 2 ? Math.min(1, heats) : 0) * 1.1;
+          const sc = speed - over * (lvl === 'hard' ? 2.2 : 2.8) + cool - (jump === 2 ? 1.5 : 0) - cs.filter((c) => c.k === 'x').length * 0.3 + Math.random() * (lvl === 'easy' ? 6 : lvl === 'hard' ? 0.3 : 1.2);
+          if (!best || sc > best.sc) best = { gear, cards: cs.map((c) => c.id), sc };
+        }
+      }
+      if (!best) { const gear = p.gear; best = { gear, cards: playable.slice(0, Math.min(gear, playable.length)).map((c) => c.id) }; }
+      return { gear: best.gear, cards: best.cards, boost: false };
+    }
+    botLoop(api, () => {
+      if (H.phase !== 'plan') return null;
+      const id = ids.find((i) => api.isBot(i) && !api.player(i).left && !H.picks[i]);
+      if (!id) return null;
+      return { delay: thinkMs(api.level, 600, 1600), run: () => { if (H.phase === 'plan' && !H.picks[id]) api.botDo(id, 'pick', botPick(id)); } };
+    });
     function reveal() {
       clearTimeout(H.timer);
       if (H.phase !== 'plan') return;

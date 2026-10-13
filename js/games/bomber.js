@@ -294,6 +294,67 @@ export function start(api) {
       pl.out++;
       G.ev.push('click');
     });
+    // ---- computer players: dodge blast zones first, then hunt for power-ups, soft blocks and rivals — bombing only when there is a way out
+    const K = (x, y) => x + ',' + y;
+    const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const blastOf = (x0, y0, range) => {
+      const cells = [[x0, y0]];
+      for (const [dx, dy] of DIRS4) for (let k = 1; k <= range; k++) { const x = x0 + dx * k, y = y0 + dy * k, c = at(x, y); if (c === 1) break; cells.push([x, y]); if (c === 2) break; }
+      return cells;
+    };
+    const dangerMap = (extra) => {
+      const m = new Set(G.flames.map((f) => K(f.x, f.y)));
+      for (const b of [...G.bombs, ...(extra ? [extra] : [])]) for (const [x, y] of blastOf(b.x, b.y, b.range)) m.add(K(x, y));
+      return m;
+    };
+    /** Breadth-first search over walkable tiles; returns the path (list of [x,y], excluding the start) to the first goal tile. */
+    const bfs = (sx, sy, goal, danger, maxLen = 40, blockedTiles = null) => {
+      const prev = new Map([[K(sx, sy), null]]);
+      const q = [[sx, sy, 0]];
+      while (q.length) {
+        const [x, y, d] = q.shift();
+        if ((x !== sx || y !== sy) && goal(x, y)) { const path = []; let cur = K(x, y); while (prev.get(cur)) { const [px, py] = cur.split(',').map(Number); path.unshift([px, py]); cur = prev.get(cur); } return path; }
+        if (d >= maxLen) continue;
+        for (const [dx, dy] of DIRS4) {
+          const nx = x + dx, ny = y + dy, k = K(nx, ny);
+          if (prev.has(k) || at(nx, ny) !== 0 || bombAt(nx, ny) || (blockedTiles && blockedTiles.has(k))) continue;
+          prev.set(k, K(x, y));
+          q.push([nx, ny, d + 1]);
+        }
+      }
+      return null;
+    };
+    const stepDir = (path, tx, ty) => { const [nx, ny] = path[0]; return { dx: nx - tx, dy: ny - ty }; };
+    api.interval(() => {
+      if (G.state !== 'play' || G.over) return;
+      const lvl = api.level;
+      for (const id of ids) {
+        const pl = G.players[id];
+        if (!pl || !pl.alive || !api.isBot(id)) continue;
+        if (lvl === 'easy' && Math.random() < 0.45) continue;
+        const tx = Math.floor(pl.x), ty = Math.floor(pl.y);
+        const danger = dangerMap();
+        const move = (path) => { const d = path && path.length ? stepDir(path, tx, ty) : { dx: 0, dy: 0 }; api.botDo(id, 'in', d); };
+        if (danger.has(K(tx, ty))) { // standing in a blast zone: run to the nearest safe tile
+          const path = bfs(tx, ty, (x, y) => !danger.has(K(x, y)), danger, 12);
+          if (path) { move(path); continue; }
+        }
+        const rivals = Object.values(G.players).filter((o) => o.alive && o.id !== id).map((o) => [Math.floor(o.x), Math.floor(o.y)]);
+        const hits = (x, y) => blastOf(x, y, pl.range).some(([bx, by]) => at(bx, by) === 2 || rivals.some(([rx, ry]) => rx === bx && ry === by));
+        const canBomb = pl.out < pl.maxB && !bombAt(tx, ty) && at(tx, ty) === 0;
+        const escape = () => { const hypo = { x: tx, y: ty, range: pl.range }; const d2 = dangerMap(hypo); return bfs(tx, ty, (x, y) => !d2.has(K(x, y)), d2, 8, new Set([K(tx, ty)])); };
+        if (canBomb && hits(tx, ty) && Math.random() < (lvl === 'easy' ? 0.3 : 0.9)) {
+          const esc = escape();
+          if (esc) { api.botDo(id, 'bomb'); move(esc); continue; }
+        }
+        // otherwise walk toward the nearest power-up, or a tile where a bomb would do something
+        const pu = new Set(G.pus.map((p) => K(p.x, p.y)));
+        const path = bfs(tx, ty, (x, y) => !danger.has(K(x, y)) && (pu.has(K(x, y)) || (pl.out < pl.maxB && hits(x, y))), danger, 30);
+        if (path) move(path);
+        else if (Math.random() < 0.5) { const o = DIRS4[Math.floor(Math.random() * 4)]; if (at(tx + o[0], ty + o[1]) === 0 && !danger.has(K(tx + o[0], ty + o[1]))) api.botDo(id, 'in', { dx: o[0], dy: o[1] }); }
+        else api.botDo(id, 'in', { dx: 0, dy: 0 });
+      }
+    }, 120);
     const snapshot = (full) => ({
       p: ids.map((id) => { const p = G.players[id]; return [id, +p.x.toFixed(2), +p.y.toFixed(2), p.alive ? 1 : 0, p.maxB, p.range, +(p.speed / 3.6).toFixed(1)]; }),
       b: G.bombs.map((b) => [b.x, b.y, +b.t.toFixed(2)]),
