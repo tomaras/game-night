@@ -123,13 +123,13 @@ export const GAMES = [
     min: 2,
     max: 2,
     tagline: 'The royal game, head to head.',
-    desc: 'Full chess rules — castling, en passant, promotion, check and checkmate — with optional clocks, draw offers and resignation. Colors are assigned at random.',
+    desc: 'Full chess rules — castling, en passant, promotion, check and checkmate — with time controls, drag-and-drop, premoves, takebacks, hints, an evaluation bar, move review, draw offers and resignation. Play online, against the computer, over the board on one phone, or by message. Colors are assigned at random.',
     howto: [
-      'Click one of your pieces to see its legal moves, then click a highlighted square to move.',
+      'Tap or drag one of your pieces to see its legal moves, then tap or drop it on a highlighted square. Tap the move list to review the game.',
       'Pawns that reach the far side can promote — pick the new piece from the popup.',
       'Win by checkmate, or when your opponent resigns or runs out of time. Stalemate, repetition and insufficient material are draws.',
     ],
-    options: [{ key: 'time', label: 'Clock', choices: [{ value: 0, label: 'No clock' }, { value: 3, label: '3 min + 2s' }, { value: 5, label: '5 min + 2s' }, { value: 10, label: '10 min + 2s' }], default: 0 }],
+    options: [{ key: 'time', label: 'Time control', choices: [{ value: '0', label: 'No clock' }, { value: '1+0', label: '1 min · Bullet' }, { value: '2+1', label: '2 + 1 · Bullet' }, { value: '3+0', label: '3 min · Blitz' }, { value: '3+2', label: '3 + 2 · Blitz' }, { value: '5+0', label: '5 min · Blitz' }, { value: '5+3', label: '5 + 3 · Blitz' }, { value: '10+0', label: '10 min · Rapid' }, { value: '10+5', label: '10 + 5 · Rapid' }, { value: '15+10', label: '15 + 10 · Rapid' }, { value: '30+0', label: '30 min · Classical' }], default: '0' }],
     load: () => import('./chess.js'),
   },
   {
@@ -704,10 +704,11 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 // Capabilities beyond the basic live room:
 //   bots  — has a computer brain, so it can be played alone / with computer players filling empty seats
 //   async — can be played turn by turn by sharing a link (a text message), not only live
+//   otb — can be played by two people over the board on one phone (a 'Same device' button in the game sheet)
 //   watch:false — every player's screen is private (or built around having a seat), so the audience gets a stand-in screen instead
 const CAPS = {
   connect4: { bots: true, async: true },
-  chess: { bots: true, async: true },
+  chess: { bots: true, async: true, otb: true },
   colorrush: { watch: false, bots: true },
   rowrumble: { bots: true },
   sushitrain: { bots: true },

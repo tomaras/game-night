@@ -107,6 +107,38 @@ export function chooseMove(fen, level = 'normal') {
   return out(pick);
 }
 
+/** Think for about `ms` milliseconds. Returns { move, cp, depth } where cp is the evaluation in centipawns from WHITE's point
+ *  of view (±100000 means mate is forced), for the evaluation bar and hints. */
+export function analyze(fen, ms = 600) {
+  const g = new Chess(fen);
+  const root = ordered(g, false);
+  if (!root.length) return { move: null, cp: g.inCheck() ? (g.turn() === 'w' ? -100000 : 100000) : 0, depth: 0 };
+  const start = performance.now();
+  nodes = 0;
+  let order = root, best = null, depth = 0;
+  try {
+    for (let d = 1; d <= 9; d++) {
+      deadline = d === 1 ? Infinity : start + ms;
+      let alpha = -Infinity;
+      const round = [];
+      for (const m of order) {
+        g.move(m);
+        const v = -negamax(g, d - 1, -Infinity, -alpha, 1);
+        g.undo();
+        round.push([v, m]);
+        if (v > alpha) alpha = v;
+      }
+      round.sort((a, b) => b[0] - a[0]);
+      best = round[0]; depth = d;
+      order = round.map((x) => x[1]);
+      if (Math.abs(round[0][0]) > 90000 || performance.now() - start > ms * 0.6) break;
+    }
+  } catch (e) { if (e !== TIMEOUT) throw e; }
+  deadline = Infinity;
+  const m = best[1];
+  return { move: { from: m.from, to: m.to, promotion: m.promotion || undefined }, cp: g.turn() === 'w' ? best[0] : -best[0], depth };
+}
+
 // ---- run the search off the main thread so the page never freezes (falls back to inline if workers are unavailable)
 let worker = null, seq = 0;
 const waiting = new Map();
@@ -115,10 +147,19 @@ export function chooseMoveAsync(fen, level) {
   try {
     if (!worker) {
       worker = new Worker(new URL('./chess.worker.js', import.meta.url), { type: 'module' });
-      worker.onmessage = (e) => { const r = waiting.get(e.data.id); if (r) { waiting.delete(e.data.id); r(e.data.move); } };
+      worker.onmessage = (e) => { const r = waiting.get(e.data.id); if (r) { waiting.delete(e.data.id); r(e.data.result !== undefined ? e.data.result : e.data.move); } };
       worker.onerror = () => { const rs = [...waiting.values()]; waiting.clear(); worker = null; rs.forEach((r) => r(undefined)); };
     }
     return new Promise((resolve) => { const id = ++seq; waiting.set(id, (m) => resolve(m === undefined ? chooseMove(fen, level) : m)); worker.postMessage({ id, fen, level }); });
   } catch { return Promise.resolve(chooseMove(fen, level)); }
+}
+/** Evaluation + best move for a position (see analyze), computed in the background. */
+export function analyzeAsync(fen, ms = 600) {
+  if (typeof Worker === 'undefined') return Promise.resolve(analyze(fen, ms));
+  try {
+    chooseMoveAsync; // (the worker is created lazily by the first call below)
+    if (!worker) { worker = new Worker(new URL('./chess.worker.js', import.meta.url), { type: 'module' }); worker.onmessage = (e) => { const r = waiting.get(e.data.id); if (r) { waiting.delete(e.data.id); r(e.data.result !== undefined ? e.data.result : e.data.move); } }; worker.onerror = () => { const rs = [...waiting.values()]; waiting.clear(); worker = null; rs.forEach((r) => r(undefined)); }; }
+    return new Promise((resolve) => { const id = ++seq; waiting.set(id, (r) => resolve(r === undefined ? analyze(fen, ms) : r)); worker.postMessage({ id, fen, ms, kind: 'analyze' }); });
+  } catch { return Promise.resolve(analyze(fen, ms)); }
 }
 export function stopChessWorker() { try { worker?.terminate(); } catch { /* */ } worker = null; waiting.clear(); }

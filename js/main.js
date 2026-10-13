@@ -213,7 +213,7 @@ function renderHeader() {
   const ids = st.game ? st.game.playerIds : st.players.map((p) => p.id);
   mount(S.headerEl,
     iconBtn('arrow_back', 'Leave room', () => requestLeave()),
-    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
+    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? (st.players.some((p) => p.bot) ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('span.codechip.static', icon('groups', 'sm'), 'Same device')) : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
     h('div.tb-players', ids.map((id) => room.player(id)).filter(Boolean).slice(0, 10).map((p) => avatarEl(p, 'sm', { still: true }))),
     h('div.spacer'),
     S.rec?.active ? h('button.recpill', { onclick: () => openRecordings(S.rec, { toast }), title: 'Recording — tap to save a clip' }, icon('fiber_manual_record', 'sm'), 'REC') : null,
@@ -423,8 +423,9 @@ function openGameSheet(def) {
     help.controls && help.controls.length ? [h('h4', 'Controls'), h('div.keys', help.controls.map((c) => h('span', h('kbd', c[0]), ' ' + c[1])))] : null,
     h('div.sticky', [
       h('button.btn.primary.big.block', { onclick: () => { sheet.close(); createRoom(def.id); } }, icon('add'), 'Create a room'),
-      def.bots || def.solo || def.async ? h('div.row.wrap', { style: 'justify-content:center;margin-top:10px;gap:8px' }, [
+      def.bots || def.solo || def.async || def.otb ? h('div.row.wrap', { style: 'justify-content:center;margin-top:10px;gap:8px' }, [
         def.bots || def.solo ? h('button.btn.tonal', { onclick: () => { sheet.close(); startSolo(def); } }, icon('smart_toy'), def.bots ? 'Play vs computer' : 'Play alone') : null,
+        def.otb ? h('button.btn.tonal', { onclick: () => { sheet.close(); startOtb(def); } }, icon('groups'), 'Same device') : null,
         def.async ? h('button.btn.tonal', { onclick: () => { sheet.close(); startMatch(def); } }, icon('sms'), 'Turn by turn') : null,
       ]) : null,
     ]),
@@ -448,6 +449,29 @@ function startSolo(def) {
     h('button.btn.primary.big.block', { onclick: () => { sheet.close(); launchSolo(def, cfg); } }, icon('play_arrow'), 'Start'));
   paint();
   const sheet = openSheet(body);
+}
+
+/** Two people, one phone, sitting opposite each other (chess.com's "over the board"). */
+function startOtb(def) {
+  if (S.room || S.joining) return;
+  const cfg = { name: '', opts: fillOpts(def, {}) };
+  const sheet = openSheet(h('div.col', { style: 'gap:14px' },
+    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', 'Two players, one device — put it between you')])]),
+    h('label.opt', 'Second player’s name', h('input.txt', { placeholder: 'Player 2', maxlength: 16, oninput: (e) => { cfg.name = e.target.value; } })),
+    ...(def.options || []).map((op) => {
+      const choices = op.choices.map((c) => (typeof c === 'object' ? c : { value: c, label: String(c) }));
+      return h('label.opt', op.label, h('select.txt', { onchange: (e) => { cfg.opts[op.key] = choices.find((x) => String(x.value) === e.target.value).value; } }, choices.map((c) => h('option', { value: c.value, selected: String(c.value) === String(cfg.opts[op.key]) }, c.label))));
+    }),
+    h('button.btn.primary.big.block', { onclick: () => { sheet.close(); launchOtb(def, cfg); } }, icon('play_arrow'), 'Start')));
+}
+function launchOtb(def, cfg) {
+  const me = { id: 'p1', name: S.profile.name, avatar: S.profile.avatar };
+  const other = { id: 'p2', name: cfg.name.trim() || 'Player 2', avatar: randomAvatar() };
+  const room = new LocalRoom(S.profile, { players: [me, other], me: 'p1' });
+  room.setGame(def.id);
+  enterRoom(room);
+  history.replaceState(null, '', '#/solo');
+  def.load().then(() => { if (S.room === room) { sfx('good'); room.startGame(def.id, { ...cfg.opts, otb: 1 }, ['p1', 'p2']); } }).catch((e) => toast('Failed to load the game: ' + e.message, 'bad'));
 }
 
 function launchSolo(def, cfg) {
