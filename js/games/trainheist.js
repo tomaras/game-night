@@ -21,11 +21,11 @@ const LOOT = { purse: '💰', jewel: '💎', box: '🔒' };
 
 const CSS = `
 .th { gap:8px; }
-.th-train { display:flex; gap:5px; overflow-x:auto; padding:10px 8px 8px; background:linear-gradient(180deg,#e1f5fe,#b3e5fc 60%,#a5d6a7 60%); border-radius:24px; scrollbar-width:none; box-shadow:inset 0 2px 8px rgba(0,0,0,.08); }
+.th-train { display:flex; gap:5px; overflow-x:auto; padding:10px 8px 8px; background:linear-gradient(180deg,#e1f5fe,#b3e5fc 60%,#a5d6a7 60%); border-radius:var(--r); scrollbar-width:none; box-shadow:inset 0 2px 8px rgba(0,0,0,.08); }
 .th-car { flex:none; width:104px; display:flex; flex-direction:column; gap:3px; }
 .th-roof, .th-in { position:relative; display:flex; flex-wrap:wrap; align-content:flex-start; gap:2px; padding:4px; }
-.th-roof { height:68px; background:#bcaaa4; border-radius:12px 12px 3px 3px; } .th-in { height:84px; background:linear-gradient(180deg,#ef5350,#c62828); border-radius:3px 3px 12px 12px; box-shadow:inset 0 0 0 3px rgba(255,255,255,.25); }
-.th-car.loco .th-roof { background:#78909c; } .th-car.loco .th-in { background:linear-gradient(180deg,#455a64,#263238); } .th-in::before { content:''; position:absolute; inset:6px 8px auto 8px; height:20px; background:repeating-linear-gradient(90deg,rgba(255,255,255,.4) 0 16px,transparent 16px 26px); border-radius:6px; pointer-events:none; }
+.th-roof { height:68px; background:#bcaaa4; border-radius:var(--r) 12px 3px 3px; } .th-in { height:84px; background:#E53935; border-radius:3px 3px 12px 12px; box-shadow:inset 0 0 0 3px rgba(255,255,255,.25); }
+.th-car.loco .th-roof { background:#78909c; } .th-car.loco .th-in { background:#37474F; } .th-in::before { content:''; position:absolute; inset:6px 8px auto 8px; height:20px; background:repeating-linear-gradient(90deg,rgba(255,255,255,.4) 0 16px,transparent 16px 26px); border-radius:6px; pointer-events:none; }
 .th-b.me::after { content:''; position:absolute; inset:-3px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 2px #1a73e8; }
 .th-wheels { height:8px; background:repeating-linear-gradient(90deg,#37474f 0 14px,transparent 14px 26px); border-radius:4px; margin:0 8px; }
 .th-lbl { position:absolute; right:5px; bottom:2px; font:700 9px var(--font); color:rgba(255,255,255,.75); } .th-roof .th-lbl { color:rgba(0,0,0,.35); }
@@ -33,10 +33,10 @@ const CSS = `
 .th-roof .th-loot { color:#4e342e; }
 .th-m { font-size:22px; line-height:1; } .th-b { position:relative; } .th-b.acting { animation:pulse .6s infinite; z-index:2; filter:drop-shadow(0 0 6px #ffeb3b); }
 .th-pl { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 6px; scrollbar-width:none; justify-content:safe center; }
-.th-p { flex:none; background:var(--surface); box-shadow:var(--e1); border-radius:18px; padding:6px 10px 6px 6px; display:flex; align-items:center; gap:7px; border:3px solid transparent; font:700 12px var(--font); }
+.th-p { flex:none; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:6px 10px 6px 6px; display:flex; align-items:center; gap:7px; border:3px solid transparent; font:700 12px var(--font); }
 .th-p.locked { border-color:var(--green); } .th-p small { display:block; font:600 11px var(--font); color:var(--on2); }
 .th-hand { display:flex; gap:8px; overflow-x:auto; padding:14px 4px 6px; justify-content:safe center; scrollbar-width:none; }
-.th-card { flex:none; width:76px; height:100px; border-radius:16px; background:var(--cc); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font:800 12px var(--font); cursor:pointer; box-shadow:var(--e2); border:3px solid transparent; transition:transform .15s; }
+.th-card { flex:none; width:76px; height:100px; border-radius:var(--card-r); background:var(--cc); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font:800 12px var(--font); cursor:pointer; box-shadow:var(--e2); border:3px solid transparent; transition:transform .15s; }
 .th-card .em { font-size:34px; line-height:1; } .th-card.sel { transform:translateY(-14px); border-color:var(--yellow); } .th-card.dead { opacity:.45; cursor:not-allowed; filter:grayscale(.5); }
 .th-opt { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; min-height:44px; }
 .th-log { text-align:center; font:700 15px var(--font); min-height:22px; color:var(--on); } .th-step { text-align:center; }

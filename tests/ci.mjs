@@ -463,8 +463,12 @@ await test('chess: against the computer with premoves and the evaluation bar; po
   await until(() => p.locator('.pl-bar').isVisible(), 8000, 'the control bar on my turn');
   const bb = await p.locator('.pl-bar').boundingBox();
   ok(bb.y + bb.height <= 844 + 1, 'the pool control bar must fit on the phone screen: ' + JSON.stringify(bb));
-  await p.locator('.pl-spin').click({ position: { x: 29, y: 14 } }); // a little follow
-  await p.click('.pl-shoot');
+  await p.locator('.pl-spin').click({ position: { x: 26, y: 13 } }); // a little follow
+  const pb = await p.locator('.pl-pull').boundingBox(); // pull the cue back along the power track and let go
+  await p.mouse.move(pb.x + pb.width - 10, pb.y + pb.height / 2); await p.mouse.down();
+  await p.mouse.move(pb.x + pb.width * 0.45, pb.y + pb.height / 2, { steps: 6 });
+  ok(/%/.test(await p.innerText('.pl-pull')), 'pulling back shows the power');
+  await p.mouse.up();
   await until(async () => /…|lining up|Foul|shoot/.test(await p.innerText('.pl-msg')), 5000, 'the shot to play');
   ok(p.errs.length === 0, 'errors: ' + p.errs.join(' | '));
   await p.ctx.close();

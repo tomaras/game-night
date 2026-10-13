@@ -13,15 +13,15 @@ const PLACES = [
 
 const CSS = `
 .sp-place { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; }
-.sp-place button { border:0; background:var(--surface); box-shadow:var(--e1); border-radius:16px; padding:10px 8px; font:600 13px var(--font); display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; color:var(--on); }
+.sp-place button { border:0; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 8px; font:600 13px var(--font); display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; color:var(--on); }
 .sp-place button .e { font-size:24px; } .sp-place button.out { opacity:.35; text-decoration:line-through; }
 .sp-place.pick button:hover { background:var(--blue-c); }
-.sp-card { border-radius:28px; padding:20px; text-align:center; color:#fff; background:linear-gradient(145deg, #1a73e8, #0b3f8f); box-shadow:var(--e2); }
-.sp-card.spy { background:linear-gradient(145deg, #ea4335, #8c1d18); }
+.sp-card { border-radius:var(--r); padding:20px; text-align:center; color:#fff; background:#1E88E5; box-shadow:var(--e2); }
+.sp-card.spy { background:#E53935; }
 .sp-card .big { font:800 32px var(--font); margin:4px 0; } .sp-card .em { font-size:54px; line-height:1; }
-.sp-turn { display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap; background:var(--surface); box-shadow:var(--e1); border-radius:22px; padding:12px; font:600 16px var(--font); }
+.sp-turn { display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px; font:600 16px var(--font); }
 .sp-pl { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-.sp-pl button { border:0; background:var(--surface); box-shadow:var(--e1); border-radius:18px; padding:8px 14px 8px 8px; display:flex; align-items:center; gap:8px; font:600 14px var(--font); cursor:pointer; color:var(--on); }
+.sp-pl button { border:0; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 14px 8px 8px; display:flex; align-items:center; gap:8px; font:600 14px var(--font); cursor:pointer; color:var(--on); }
 .sp-pl button:disabled { opacity:.5; cursor:default; } .sp-pl button.on { background:var(--blue-c); }
 `;
 

@@ -13,19 +13,19 @@ const pts = (c) => (c.v >= '0' && c.v <= '9' ? +c.v : c.v === 'W' || c.v === 'F'
 const CSS = `
 .cr { flex:1; display:flex; flex-direction:column; gap:8px; padding:8px; min-height:0; overflow-y:auto; }
 .cr-opps { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-.cr-opp { display:flex; align-items:center; gap:8px; background:var(--panel); box-shadow:var(--e1); border-radius:20px; padding:6px 12px; min-width:130px; }
+.cr-opp { display:flex; align-items:center; gap:8px; background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:6px 12px; min-width:130px; }
 .cr-opp.turn { box-shadow:0 0 0 3px var(--yellow); }
 .cr-opp .nm { font-weight:800; font-size:13px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.cr-opp .ct { margin-left:auto; font-weight:800; font-size:17px; background:var(--blue-c); color:var(--blue-d); border-radius:12px; padding:2px 10px; }
+.cr-opp .ct { margin-left:auto; font-weight:800; font-size:17px; background:var(--blue-c); color:var(--blue-d); border-radius:var(--r); padding:2px 10px; }
 .cr-opp .sc { font-size:11px; color:var(--muted); }
-.cr-mid { background:radial-gradient(ellipse at 50% 40%, #2fa66a, #14754a 75%); border-radius:32px; box-shadow:inset 0 0 0 6px rgba(255,255,255,.18), var(--e1); flex:1; min-height:150px; display:flex; align-items:center; justify-content:center; gap:26px; position:relative; }
-.cr-card { width:72px; height:106px; border-radius:11px; background:var(--cc); border:4px solid #fff; box-shadow:0 3px 8px rgba(31,41,55,.22); display:grid; place-items:center; font-weight:900; font-size:34px; color:#fff; position:relative; flex:none; user-select:none; text-shadow:0 2px 3px rgba(0,0,0,.4); }
+.cr-mid { background:radial-gradient(ellipse at 50% 40%, #2fa66a, #14754a 75%); border-radius:var(--r); box-shadow:inset 0 0 0 6px rgba(255,255,255,.18), var(--e1); flex:1; min-height:150px; display:flex; align-items:center; justify-content:center; gap:26px; position:relative; }
+.cr-card { width:72px; height:106px; border-radius:var(--card-r); background:var(--cc); border:4px solid #fff; box-shadow:0 3px 8px rgba(31,41,55,.22); display:grid; place-items:center; font-weight:900; font-size:34px; color:#fff; position:relative; flex:none; user-select:none; text-shadow:0 2px 3px rgba(0,0,0,.4); }
 .cr-card::before { content:''; position:absolute; inset:11px 5px; border-radius:50%; background:#fff; transform:rotate(24deg); box-shadow:inset 0 0 0 2px rgba(0,0,0,.08); }
 .cr-card > span { color:var(--cc); text-shadow:1.5px 1.5px 0 rgba(0,0,0,.28); font-style:italic; }
 .cr-card.w > span { color:#222; text-shadow:none; }
 .cr-card.w::before { background:conic-gradient(#e5383b 0 25%, #2f6fed 0 50%, #2b9348 0 75%, #f6b400 0); }
 .cr-card.w > span { color:#fff; text-shadow:0 2px 3px rgba(0,0,0,.6); }
-.cr-card { border-width:5px; border-radius:13px; }
+.cr-card { border-width:5px; border-radius:var(--card-r); }
 .cr-card i { position:absolute; font-style:normal; font-size:13px; }
 .cr-card i.tl { top:3px; left:6px; } .cr-card i.br { bottom:3px; right:6px; transform:rotate(180deg); }
 .cr-card.w { background:conic-gradient(#e5383b 0 25%, #2f6fed 0 50%, #2b9348 0 75%, #f6b400 0); }
@@ -44,9 +44,9 @@ const CSS = `
 .cr-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
 .cr-dot { width:34px; height:34px; border-radius:50%; border:4px solid #fff; background:var(--cc); box-shadow:0 0 14px var(--cc); }
 .cr-dir { font-size:26px; color:#fff; }
-.cr-pick { position:absolute; inset:0; z-index:15; border-radius:32px; background:rgba(15,23,42,.8); display:grid; place-items:center; }
+.cr-pick { position:absolute; inset:0; z-index:15; border-radius:var(--r); background:rgba(15,23,42,.8); display:grid; place-items:center; }
 .cr-pick .opts { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.cr-pick button { width:110px; height:84px; border-radius:16px; border:4px solid #fff; color:#fff; font-weight:900; font-size:17px; cursor:pointer; text-shadow:0 2px 3px rgba(0,0,0,.4); }
+.cr-pick button { width:110px; height:84px; border-radius:var(--r); border:4px solid #fff; color:#fff; font-weight:900; font-size:17px; cursor:pointer; text-shadow:0 2px 3px rgba(0,0,0,.4); }
 .cr-log { font-size:12px; color:var(--muted); text-align:center; min-height:16px; }
 @media (max-width:640px) { .cr-mid { flex:1 1 240px !important; min-height:200px !important; max-height:460px; } .cr-hand .cr-card { width:66px; height:98px; font-size:30px; margin-left:-30px; } .cr-card { width:58px; height:86px; font-size:28px; } .cr-hand .cr-card { margin-left:-26px; } .cr-mid { gap:16px; min-height:120px; } .cr-opp { min-width:0; padding:5px 8px; } .cr-opp .nm { max-width:60px; } }
 `;

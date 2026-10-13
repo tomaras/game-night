@@ -54,7 +54,7 @@ const CSS = `
 .pk-board { display:flex; gap:5px; min-height:70px; }
 .pk-pot { background:rgba(0,0,0,.4); color:#ffe9a8; border-radius:999px; padding:3px 14px; font-weight:900; font-size:15px; }
 .pk-seat { position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px; z-index:3; width:96px; }
-.pk-box { background:#fff; color:#1d1b20; box-shadow:var(--e1); border:2px solid transparent; border-radius:12px; padding:3px 8px; text-align:center; width:100%; position:relative; }
+.pk-box { background:#fff; color:#1d1b20; box-shadow:var(--e1); border:2px solid transparent; border-radius:var(--r); padding:3px 8px; text-align:center; width:100%; position:relative; }
 .pk-seat.turn .pk-box { border-color:var(--yellow); box-shadow:0 0 0 3px rgba(251,188,4,.45), var(--e2); }
 .pk-seat.fold { opacity:.45; }
 .pk-seat.win .pk-box { border-color:var(--green); box-shadow:0 0 0 3px rgba(30,158,75,.4), var(--e2); }
@@ -70,7 +70,7 @@ const CSS = `
 .pk-bar { height:4px; border-radius:2px; background:#ffc857; margin-top:2px; transition:width .25s linear; }
 .pk-me { display:flex; flex-direction:column; align-items:center; gap:8px; }
 .pk-mycards { display:flex; gap:8px; } .pk-mycards .pc { --w:66px; } .pk-board .pc { --w:46px; } .pk-hole .pc { --w:31px; }
-.pk-act { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; background:var(--panel); box-shadow:var(--e2); border-radius:26px; padding:10px 12px; width:100%; max-width:760px; margin:0 auto; }
+.pk-act { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; background:var(--panel); box-shadow:var(--e2); border-radius:var(--r); padding:10px 12px; width:100%; max-width:760px; margin:0 auto; }
 .pk-act input[type=range] { flex:1; min-width:140px; accent-color:#ffc857; }
 .pk-msg { text-align:center; font-weight:800; min-height:22px; }
 .pk-hn { font-size:12px; color:var(--on2); text-align:center; }

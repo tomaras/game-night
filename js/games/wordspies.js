@@ -10,7 +10,7 @@ const CSS = `
 .ws { flex:1; display:flex; gap:12px; padding:10px; min-height:0; overflow-y:auto; justify-content:center; flex-wrap:wrap; align-content:flex-start; }
 .ws-main { display:flex; flex-direction:column; gap:10px; width:min(100%, 720px); }
 .ws-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
-.ws-card { position:relative; min-height:clamp(52px, 11vw, 82px); border-radius:10px; background:#efe3c8; color:#2b2113; font-weight:900; display:grid; place-items:center; text-align:center; padding:4px; font-size:clamp(11px, 2.6vw, 17px); text-transform:uppercase; cursor:pointer; border:3px solid transparent; box-shadow:0 3px 0 #b9a77c; overflow-wrap:anywhere; letter-spacing:-.2px; }
+.ws-card { position:relative; min-height:clamp(52px, 11vw, 82px); border-radius:var(--card-r); background:#efe3c8; color:#2b2113; font-weight:900; display:grid; place-items:center; text-align:center; padding:4px; font-size:clamp(11px, 2.6vw, 17px); text-transform:uppercase; cursor:pointer; border:3px solid transparent; box-shadow:0 3px 0 #b9a77c; overflow-wrap:anywhere; letter-spacing:-.2px; }
 .ws-card:hover:not(.rev) { transform:translateY(-2px); }
 .ws-card.k-r { box-shadow:0 3px 0 #b9a77c, inset 0 0 0 3px #e5383b; } .ws-card.k-b { box-shadow:0 3px 0 #b9a77c, inset 0 0 0 3px #2f6fed; }
 .ws-card.k-n { box-shadow:0 3px 0 #b9a77c, inset 0 0 0 3px #8a8575; } .ws-card.k-a { box-shadow:0 3px 0 #000, inset 0 0 0 3px #000; background:#c9bb98; }
@@ -20,12 +20,12 @@ const CSS = `
 .ws-card.rev span.x { opacity:.9; }
 .ws-card .tag { position:absolute; top:-6px; right:-4px; background:#ffc857; color:#3b2b00; border-radius:8px; font-size:10px; padding:0 5px; font-weight:900; }
 .ws-bar { display:flex; gap:10px; flex-wrap:wrap; }
-.ws-team { flex:1; min-width:150px; background:var(--panel); border:3px solid transparent; box-shadow:var(--e1); border-radius:22px; padding:10px 12px; }
+.ws-team { flex:1; min-width:150px; background:var(--panel); border:3px solid transparent; box-shadow:var(--e1); border-radius:var(--r); padding:10px 12px; }
 .ws-team.r { background:#fff1f0; } .ws-team.b { background:#eef4ff; }
 .ws-team.turn { border-color:var(--yellow); }
 .ws-team h4 { margin:0 0 4px; display:flex; justify-content:space-between; font-size:15px; } .ws-team.r h4 { color:#ff6b6b; } .ws-team.b h4 { color:#6ea0ff; }
 .ws-mem { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; padding:1px 0; }
-.ws-clue { background:var(--panel); box-shadow:var(--e1); border-radius:24px; padding:10px 14px; text-align:center; }
+.ws-clue { background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:10px 14px; text-align:center; }
 .ws-clue .big { font-size:26px; font-weight:900; }
 .ws-form { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
 .ws-form input[type=text] { width:180px; } .ws-form select { width:80px; }

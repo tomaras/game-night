@@ -30,12 +30,12 @@ const PAIRS = [
 ];
 
 const CSS = `
-.al-role { border-radius:28px; padding:16px; text-align:center; color:#fff; cursor:pointer; user-select:none; box-shadow:var(--e2); background:linear-gradient(150deg,#1e88e5,#0d47a1); } .al-role.alien { background:linear-gradient(150deg,#43a047,#1b5e20); } .al-role.cover { background:linear-gradient(150deg,#5c6bc0,#283593); }
+.al-role { border-radius:var(--r); padding:16px; text-align:center; color:#fff; cursor:pointer; user-select:none; box-shadow:var(--e2); background:#1E88E5; } .al-role.alien { background:#43A047; } .al-role.cover { background:#3F51B5; }
 .al-role .em { font-size:48px; line-height:1; display:block; } .al-role b { font:800 22px var(--font); display:block; margin:2px 0; } .al-role small { opacity:.9; font:500 13px/1.35 var(--font); display:block; }
 .al-ans { display:flex; flex-direction:column; gap:8px; }
-.al-a { display:flex; gap:10px; align-items:flex-start; background:var(--surface); box-shadow:var(--e1); border-radius:20px; padding:10px 14px; animation:ktpop .35s both; } .al-a .nm { font:800 13px var(--font); color:var(--on2); } .al-a .tx { font:600 16px/1.35 var(--font); word-break:break-word; } .al-a.out { opacity:.5; }
+.al-a { display:flex; gap:10px; align-items:flex-start; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 14px; animation:ktpop .35s both; } .al-a .nm { font:800 13px var(--font); color:var(--on2); } .al-a .tx { font:600 16px/1.35 var(--font); word-break:break-word; } .al-a.out { opacity:.5; }
 .al-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(110px,1fr)); gap:8px; }
-.al-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:20px; padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; font:700 13px var(--font); color:var(--on); cursor:pointer; position:relative; } .al-p.sel { border-color:var(--red); background:var(--red-c); } .al-p.out { opacity:.4; cursor:default; } .al-p .cnt { position:absolute; top:-8px; right:-4px; background:var(--red); color:#fff; border-radius:12px; padding:2px 8px; font:800 12px var(--font); }
+.al-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; font:700 13px var(--font); color:var(--on); cursor:pointer; position:relative; } .al-p.sel { border-color:var(--red); background:var(--red-c); } .al-p.out { opacity:.4; cursor:default; } .al-p .cnt { position:absolute; top:-8px; right:-4px; background:var(--red); color:#fff; border-radius:var(--r); padding:2px 8px; font:800 12px var(--font); }
 .al-eject { text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px; padding:10px; }
 `;
 

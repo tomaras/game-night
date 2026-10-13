@@ -187,12 +187,25 @@ function appSection() {
 }
 
 // ------------------------------------------------------------------ header / app bar
+/** The app bar takes the colour of the game you're in (brand indigo elsewhere); the status bar follows a shade darker. */
+function setBar(color) {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  if (color) { const n = parseInt(color.slice(1), 16), lum = (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; color = lum > 0.5 ? shade(color, -0.3) : lum > 0.42 ? shade(color, -0.18) : color; }
+  if (color) S.headerEl.style.setProperty('--bar', dark ? shade(color, -0.28) : color); else S.headerEl.style.removeProperty('--bar');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = color ? shade(color, dark ? -0.45 : -0.2) : dark ? '#1A237E' : '#303F9F';
+}
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16), f = (c) => Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k);
+  return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => f(c).toString(16).padStart(2, '0')).join('');
+}
 function renderHeader() {
   const room = S.room;
   document.body.dataset.tab = room ? 'room' : S.tab;
   if (S.comms) { S.comms.hidden = !!room || (S.tab === 'lounge' && S.mode === 'none'); S.mini?.paint(); }
   document.getElementById('app')?.classList.toggle('inroom', !!room);
   if (!room) {
+    setBar(null);
     mount(S.headerEl,
       S.chrome.die,
       joinPill(),
@@ -204,6 +217,7 @@ function renderHeader() {
   const st = room.state;
   const def = GAME_BY_ID[st.game?.gameId || st.gameId];
   const inGame = S.mode === 'game' || S.mode === 'wait';
+  setBar(def?.color);
   const ids = st.game ? st.game.playerIds : st.players.map((p) => p.id);
   mount(S.headerEl,
     iconBtn('arrow_back', 'Leave room', () => requestLeave()),
@@ -288,10 +302,11 @@ function gameCard(def, onPick, { onCat, onPlayers } = {}) {
   }, icon(S.favs.has(def.id) ? 'star' : 'star_border'));
   const chipBtn = (cls, title, fn, ...kids) => h('button.chip.cchip' + cls, { type: 'button', title, onclick: (e) => { e.stopPropagation(); fn?.(e.currentTarget); } }, ...kids);
   return h('div.gcard', { role: 'button', tabindex: 0, style: { '--gc': def.color }, onclick: () => onPick(def), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(def); } } }, [
-    fav,
-    h('div.ghead', h('div.tile.emo', def.emoji, h('span.tbadges', playerRange(def).robot ? h('i', { title: 'Can be played against the computer' }, icon('smart_toy')) : null, def.async ? h('i.m', { title: 'Can be played turn by turn by message' }, icon('sms')) : null)), h('h3', def.name)),
-    h('p', def.tagline),
-    h('div.meta', [chipBtn('', 'Filter by number of players', onPlayers, icon('group'), rangeEl(def)), chipBtn('', 'Show ' + def.cat + ' games', () => onCat?.(def.cat), def.cat)]),
+    h('div.gtop', h('span.emo', def.emoji), fav, h('span.tbadges', playerRange(def).robot ? h('i', { title: 'Can be played against the computer' }, icon('smart_toy')) : null, def.async ? h('i', { title: 'Can be played turn by turn by message' }, icon('sms')) : null)),
+    h('div.gbody',
+      h('h3', def.name),
+      h('p', def.tagline),
+      h('div.meta', [chipBtn('', 'Filter by number of players', onPlayers, icon('group'), rangeEl(def)), chipBtn('', 'Show ' + def.cat + ' games', () => onCat?.(def.cat), def.cat)])),
   ]);
 }
 

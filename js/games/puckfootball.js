@@ -18,10 +18,10 @@ const SEGS = [
 const CSS = `
 .pf { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px; min-height:0; }
 .pf-hud { display:flex; align-items:center; justify-content:center; gap:10px; font:800 clamp(18px,5vw,26px) var(--font); }
-.pf-hud .sc { min-width:42px; height:42px; border-radius:14px; display:grid; place-items:center; color:#fff; padding:0 8px; } .pf-hud .tm { font-variant-numeric:tabular-nums; color:var(--on2); min-width:64px; text-align:center; }
+.pf-hud .sc { min-width:42px; height:42px; border-radius:var(--r); display:grid; place-items:center; color:#fff; padding:0 8px; } .pf-hud .tm { font-variant-numeric:tabular-nums; color:var(--on2); min-width:64px; text-align:center; }
 .pf-wrap { flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; position:relative; }
-.pf canvas { border-radius:18px; box-shadow:var(--e2); max-width:100%; touch-action:none; }
-.pf-banner { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); background:#fff; color:var(--on); box-shadow:var(--e3); border-radius:24px; padding:12px 26px; font:900 clamp(22px,7vw,34px) var(--font); text-align:center; pointer-events:none; animation:pop .3s; }
+.pf canvas { border-radius:var(--r); box-shadow:var(--e2); max-width:100%; touch-action:none; }
+.pf-banner { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); background:#fff; color:var(--on); box-shadow:var(--e3); border-radius:var(--r); padding:12px 26px; font:900 clamp(22px,7vw,34px) var(--font); text-align:center; pointer-events:none; animation:pop .3s; }
 `;
 
 export function start(api) {

@@ -15,12 +15,12 @@ const TPL = [
 ];
 
 const CSS = `
-.cc-meme { position:relative; border-radius:24px; overflow:hidden; aspect-ratio:4/3; width:100%; display:grid; place-items:center; box-shadow:var(--e2); background:linear-gradient(145deg, var(--a), var(--b)); }
+.cc-meme { position:relative; border-radius:var(--r); overflow:hidden; aspect-ratio:4/3; width:100%; display:grid; place-items:center; box-shadow:var(--e2); background:linear-gradient(145deg, var(--a), var(--b)); }
 .cc-art { font-size:clamp(70px, 22vw, 130px); letter-spacing:-6px; line-height:1; filter:drop-shadow(0 6px 8px rgba(0,0,0,.2)); }
 .cc-t { position:absolute; left:6px; right:6px; text-align:center; font:900 clamp(17px, 5.2vw, 30px)/1.05 'Impact','Anton','Outfit',sans-serif; color:#fff; text-transform:uppercase; -webkit-text-stroke:1.5px #000; paint-order:stroke fill; text-shadow:0 2px 0 #000; word-break:break-word; letter-spacing:.5px; }
 .cc-t.top { top:8px; } .cc-t.bot { bottom:8px; }
 .cc-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
-.cc-card { display:flex; flex-direction:column; gap:8px; cursor:pointer; border-radius:28px; padding:6px; border:3px solid transparent; transition:.15s; background:var(--surface); box-shadow:var(--e1); }
+.cc-card { display:flex; flex-direction:column; gap:8px; cursor:pointer; border-radius:var(--r); padding:6px; border:3px solid transparent; transition:.15s; background:var(--surface); box-shadow:var(--e1); }
 .cc-card.sel { border-color:var(--blue); }
 .cc-card.win { border-color:var(--yellow); box-shadow:0 0 0 4px rgba(251,188,4,.3), var(--e2); }
 .cc-by { display:flex; gap:8px; align-items:center; padding:2px 8px 6px; font-weight:600; }

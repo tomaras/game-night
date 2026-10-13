@@ -14,22 +14,22 @@ const wallCol = (r, color) => (color + r) % 5;
 const CSS = `
 .az { gap:8px; --ts:clamp(26px, 7.8vw, 40px); }
 .az-pl { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 6px; scrollbar-width:none; }
-.az-p { flex:none; background:var(--surface); box-shadow:var(--e1); border-radius:18px; padding:5px 12px 5px 6px; display:flex; align-items:center; gap:8px; border:3px solid transparent; font:700 12px var(--font); cursor:pointer; }
+.az-p { flex:none; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:5px 12px 5px 6px; display:flex; align-items:center; gap:8px; border:3px solid transparent; font:700 12px var(--font); cursor:pointer; }
 .az-p.turn { border-color:var(--yellow); background:var(--yellow-c); } .az-p.view { box-shadow:0 0 0 3px var(--blue); } .az-p b { font:800 18px var(--font); color:var(--blue); }
-.az-fac { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; background:linear-gradient(160deg,#e3f2fd,#bbdefb); border-radius:24px; padding:10px; }
+.az-fac { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; background:#E3F2FD; border-radius:var(--r); padding:10px; }
 .az-f { width:calc(var(--ts) * 2 + 18px); height:calc(var(--ts) * 2 + 18px); border-radius:50%; background:#fff; box-shadow:var(--e1); display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:8px; place-items:center; } .az-f.empty { opacity:.35; box-shadow:none; background:rgba(255,255,255,.4); }
-.az-ctr { min-width:calc(var(--ts) * 2 + 18px); min-height:calc(var(--ts) * 2 + 18px); border-radius:26px; background:rgba(255,255,255,.7); padding:8px; display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; flex:1 1 140px; box-shadow:inset 0 2px 6px rgba(0,0,0,.08); }
+.az-ctr { min-width:calc(var(--ts) * 2 + 18px); min-height:calc(var(--ts) * 2 + 18px); border-radius:var(--r); background:rgba(255,255,255,.7); padding:8px; display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; flex:1 1 140px; box-shadow:inset 0 2px 6px rgba(0,0,0,.08); }
 .az-t { width:var(--ts); height:var(--ts); border-radius:20%; background:var(--tc); color:rgba(255,255,255,.9); display:grid; place-items:center; font:800 calc(var(--ts) * .5) var(--font); box-shadow:inset 0 -3px 0 rgba(0,0,0,.25); user-select:none; cursor:pointer; transition:transform .12s; }
 .az-t.sel { outline:3px solid #212121; outline-offset:1px; transform:scale(1.1); } .az-t.dim { opacity:.35; } .az-t.noclick { cursor:default; } .az-t.mk { background:#fff; color:#212121; border:2px solid #212121; box-shadow:none; font-size:calc(var(--ts) * .4); }
 .az-t.ghost { background:color-mix(in srgb, var(--tc) 22%, #f1f3f4); color:color-mix(in srgb, var(--tc) 60%, #fff); box-shadow:none; } .az-t.new { animation:pop .5s; }
-.az-board { background:var(--surface); box-shadow:var(--e1); border-radius:24px; padding:10px; display:flex; flex-direction:column; gap:8px; align-items:center; }
+.az-board { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px; display:flex; flex-direction:column; gap:8px; align-items:center; }
 .az-main { display:flex; gap:12px; align-items:flex-start; justify-content:center; }
-.az-lines, .az-wall { display:flex; flex-direction:column; gap:4px; } .az-lines > div { display:flex; gap:4px; justify-content:flex-end; padding:2px; border-radius:12px; border:2px solid transparent; } .az-lines > div.can { border-color:var(--green); background:var(--green-c); cursor:pointer; animation:pulse 1s infinite; }
+.az-lines, .az-wall { display:flex; flex-direction:column; gap:4px; } .az-lines > div { display:flex; gap:4px; justify-content:flex-end; padding:2px; border-radius:var(--r); border:2px solid transparent; } .az-lines > div.can { border-color:var(--green); background:var(--green-c); cursor:pointer; animation:pulse 1s infinite; }
 .az-wall > div { display:flex; gap:4px; }
-.az-floor { display:flex; gap:4px; padding:4px 6px; border-radius:12px; border:2px solid transparent; align-items:flex-start; } .az-floor.can { border-color:var(--red); background:var(--red-c); cursor:pointer; }
+.az-floor { display:flex; gap:4px; padding:4px 6px; border-radius:var(--r); border:2px solid transparent; align-items:flex-start; } .az-floor.can { border-color:var(--red); background:var(--red-c); cursor:pointer; }
 .az-floor .slot { display:flex; flex-direction:column; align-items:center; font:700 10px var(--font); color:var(--red); gap:2px; } .az-floor .sq { width:var(--ts); height:var(--ts); border-radius:20%; background:var(--s2); display:grid; place-items:center; }
 .az-score { font:800 15px var(--font); } .az-hint { text-align:center; font:700 14px var(--font); min-height:20px; }
-.az-sum { background:var(--surface); box-shadow:var(--e1); border-radius:16px; padding:8px 12px; display:flex; align-items:center; gap:8px; font:700 14px var(--font); } .az-sum .d { margin-left:auto; text-align:right; font:800 16px var(--font); } .az-sum small { display:block; color:var(--on2); font:600 11px var(--font); }
+.az-sum { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 12px; display:flex; align-items:center; gap:8px; font:700 14px var(--font); } .az-sum .d { margin-left:auto; text-align:right; font:800 16px var(--font); } .az-sum small { display:block; color:var(--on2); font:600 11px var(--font); }
 `;
 
 export function start(api) {

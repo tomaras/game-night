@@ -11,12 +11,12 @@ const DIRV = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 const CSS = `
 .sn { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px; min-height:0; }
 .sn-hud { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-.sn-p { display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:3px 10px 3px 4px; font-weight:800; font-size:13px; }
+.sn-p { display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:3px 10px 3px 4px; font-weight:800; font-size:13px; }
 .sn-p.dead { opacity:.4; }
 .sn-p .l { font-size:12px; color:var(--muted); }
 .sn-wrap { flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; position:relative; }
-.sn canvas { border-radius:10px; box-shadow:0 10px 26px rgba(31,41,55,.22); max-width:100%; touch-action:none; }
-.sn-banner { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); background:#fff; color:var(--on); box-shadow:var(--e2); border-radius:24px; padding:12px 22px; font-weight:900; font-size:24px; text-align:center; pointer-events:none; }
+.sn canvas { border-radius:var(--r); box-shadow:var(--z2); max-width:100%; touch-action:none; }
+.sn-banner { position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); background:#fff; color:var(--on); box-shadow:var(--e2); border-radius:var(--r); padding:12px 22px; font-weight:900; font-size:24px; text-align:center; pointer-events:none; }
 `;
 
 export function start(api) {

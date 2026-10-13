@@ -8,7 +8,7 @@ const R = 6, C = 7;
 const CSS = `
 .c4 { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:10px 12px 14px; min-height:0; --bw:min(94%, calc((100dvh - 330px) * ${C} / ${R + 1}), 520px); }
 .c4-pl { display:flex; gap:8px; width:var(--bw); }
-.c4-p { flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:6px 10px 6px 6px; border-radius:18px; background:var(--surface); box-shadow:var(--e1); border:2.5px solid transparent; transition:border-color .2s, box-shadow .2s, transform .2s; }
+.c4-p { flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:6px 10px 6px 6px; border-radius:var(--r); background:var(--surface); box-shadow:var(--e1); border:2.5px solid transparent; transition:border-color .2s, box-shadow .2s, transform .2s; }
 .c4-p.turn { border-color:var(--c); box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 28%, transparent), var(--e1); transform:translateY(-2px); }
 .c4-p .nm { font-weight:800; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .c4-p small { display:block; font:600 11px var(--font); color:var(--on2); }
 .c4-p .c4-disc { margin-left:auto; flex:none; }
@@ -33,7 +33,7 @@ const CSS = `
 .c4-cell[data-falling]::before { display:none; }
 .c4-cell.win::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:4px solid #fff; animation:pulse .8s infinite; z-index:2; box-shadow:0 0 14px #fff; }
 .c4-ctl { display:flex; gap:8px; }
-.c4-ctl button { height:42px; padding:0 16px; border:0; border-radius:14px; background:var(--s2); color:var(--on); font:700 13px var(--font); display:flex; align-items:center; gap:6px; cursor:pointer; } .c4-ctl button:disabled { opacity:.4; } .c4-ctl .ic { width:19px; height:19px; }
+.c4-ctl button { height:42px; padding:0 16px; border:0; border-radius:var(--r); background:var(--s2); color:var(--on); font:700 13px var(--font); display:flex; align-items:center; gap:6px; cursor:pointer; } .c4-ctl button:disabled { opacity:.4; } .c4-ctl .ic { width:19px; height:19px; }
 @keyframes c4hop { 0%, 55%, 100% { transform:none; } 25% { transform:translateY(-16%) scale(1.06); } }
 .c4-cell.win .c4-d { animation:c4hop 1s ease-in-out infinite; animation-delay:calc(var(--k, 0) * .12s); }
 `;

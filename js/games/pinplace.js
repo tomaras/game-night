@@ -69,14 +69,14 @@ async function loadLand() {
 
 const CSS = `
 .pp { gap:8px; max-width:900px; }
-.pp-mapwrap { position:relative; flex:1 1 280px; min-height:260px; border-radius:24px; overflow:hidden; box-shadow:var(--e2); background:#cfe9ff; touch-action:none; }
+.pp-mapwrap { position:relative; flex:1 1 280px; min-height:260px; border-radius:var(--r); overflow:hidden; box-shadow:var(--e2); background:#cfe9ff; touch-action:none; }
 .pp-mapwrap canvas { width:100%; height:100%; display:block; cursor:crosshair; }
 .pp-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; }
-.pp-zoom button { width:40px; height:40px; border-radius:12px; border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
-.pp-clue { text-align:center; background:var(--surface); box-shadow:var(--e1); border-radius:22px; padding:10px 14px; display:flex; flex-direction:column; gap:2px; }
+.pp-zoom button { width:40px; height:40px; border-radius:var(--r); border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
+.pp-clue { text-align:center; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 14px; display:flex; flex-direction:column; gap:2px; }
 .pp-name { font:800 clamp(22px,6vw,30px)/1.15 var(--font); } .pp-sub { font:600 13px var(--font); color:var(--on2); }
 .pp-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
-.pp-res { display:flex; align-items:center; gap:8px; background:var(--surface); box-shadow:var(--e1); border-radius:16px; padding:6px 12px 6px 8px; font:700 14px var(--font); } .pp-res .pts { margin-left:auto; font:800 17px var(--font); color:var(--blue); } .pp-res small { display:block; font:600 11px var(--font); color:var(--on2); }
+.pp-res { display:flex; align-items:center; gap:8px; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:6px 12px 6px 8px; font:700 14px var(--font); } .pp-res .pts { margin-left:auto; font:800 17px var(--font); color:var(--blue); } .pp-res small { display:block; font:600 11px var(--font); color:var(--on2); }
 .pp-list { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:6px; }
 `;
 

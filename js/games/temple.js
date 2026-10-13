@@ -15,19 +15,19 @@ const CSS = `
 .tp-haz { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
 .tp-h { display:flex; align-items:center; gap:4px; border-radius:999px; padding:3px 10px 3px 6px; background:var(--surface); box-shadow:var(--e1); font:800 13px var(--font); }
 .tp-h .pip { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--s3); } .tp-h .pip.on { background:#ea4335; } .tp-h.hot { background:#ffebee; box-shadow:0 0 0 2px #ea4335; animation:pulse .8s infinite; }
-.tp-path { display:flex; gap:8px; overflow-x:auto; padding:10px 6px 8px; background:linear-gradient(180deg,#ffe0b2,#ffcc80); border-radius:24px; min-height:112px; align-items:center; scrollbar-width:none; box-shadow:inset 0 2px 8px rgba(0,0,0,.1); }
-.tp-c { flex:none; width:64px; height:88px; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#fff; font:800 26px var(--font); box-shadow:0 4px 10px rgba(0,0,0,.2); background:linear-gradient(145deg,#ffca28,#f57f17); animation:tpin .45s cubic-bezier(.3,1.4,.5,1); }
-.tp-c .em { font-size:30px; line-height:1; } .tp-c small { font:700 10px var(--font); opacity:.9; } .tp-c.haz { background:var(--hc); } .tp-c.art { background:linear-gradient(145deg,#26c6da,#00838f); }
+.tp-path { display:flex; gap:8px; overflow-x:auto; padding:10px 6px 8px; background:#FFE0B2; border-radius:var(--r); min-height:112px; align-items:center; scrollbar-width:none; box-shadow:inset 0 2px 8px rgba(0,0,0,.1); }
+.tp-c { flex:none; width:64px; height:88px; border-radius:var(--card-r); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#fff; font:800 26px var(--font); box-shadow:0 4px 10px rgba(0,0,0,.2); background:#FFB300; animation:tpin .45s cubic-bezier(.3,1.4,.5,1); }
+.tp-c .em { font-size:30px; line-height:1; } .tp-c small { font:700 10px var(--font); opacity:.9; } .tp-c.haz { background:var(--hc); } .tp-c.art { background:#00ACC1; }
 .tp-c.boom { box-shadow:0 0 0 4px #ea4335, 0 4px 10px rgba(0,0,0,.2); }
 @keyframes tpin { from { transform:translateX(60px) scale(.6); opacity:0; } }
 .tp-pot { text-align:center; font:800 18px var(--font); color:var(--on); }
 .tp-pl { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px; }
-.tp-p { background:var(--surface); box-shadow:var(--e1); border-radius:20px; padding:8px 10px; display:flex; align-items:center; gap:8px; border:3px solid transparent; }
+.tp-p { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 10px; display:flex; align-items:center; gap:8px; border:3px solid transparent; }
 .tp-p.left { background:var(--green-c); } .tp-p.dead { background:var(--red-c); opacity:.75; } .tp-p.locked { border-color:var(--blue); }
 .tp-p .nm { font:700 13px var(--font); } .tp-p .st { font:600 11px var(--font); color:var(--on2); } .tp-p .gm { font:800 15px var(--font); color:var(--blue); margin-left:auto; text-align:right; } .tp-p .gm small { display:block; font:600 10px var(--font); color:var(--on3); }
 .tp-dec { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.tp-dec button { height:84px; border-radius:24px; border:0; font:800 18px var(--font); color:#fff; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; box-shadow:var(--e2); transition:transform .1s; }
-.tp-dec button small { font:600 12px var(--font); opacity:.9; } .tp-dec button:active { transform:scale(.97); } .tp-dec .go { background:linear-gradient(145deg,#43a047,#1b5e20); } .tp-dec .out { background:linear-gradient(145deg,#ef5350,#b71c1c); } .tp-dec button.dim { opacity:.4; } .tp-dec button.pick { outline:5px solid var(--yellow); }
+.tp-dec button { height:84px; border-radius:var(--r); border:0; font:800 18px var(--font); color:#fff; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; box-shadow:var(--e2); transition:transform .1s; }
+.tp-dec button small { font:600 12px var(--font); opacity:.9; } .tp-dec button:active { transform:scale(.97); } .tp-dec .go { background:#43A047; } .tp-dec .out { background:#E53935; } .tp-dec button.dim { opacity:.4; } .tp-dec button.pick { outline:5px solid var(--yellow); }
 `;
 
 export function start(api) {

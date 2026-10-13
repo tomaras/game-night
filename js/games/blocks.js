@@ -24,11 +24,11 @@ const CSS = `
 .bk-board { position:relative; }
 .bk canvas { display:block; border-radius:8px; background:#0c0e18; box-shadow:0 8px 22px rgba(31,41,55,.22); }
 .bk-side { display:flex; flex-direction:column; gap:8px; width:96px; }
-.bk-box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:6px; text-align:center; font-size:12px; font-weight:800; color:var(--muted); }
+.bk-box { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:6px; text-align:center; font-size:12px; font-weight:800; color:var(--muted); }
 .bk-box b { display:block; color:var(--on); font-size:18px; font-variant-numeric:tabular-nums; }
 .bk-garb { position:absolute; left:-9px; bottom:0; width:6px; background:#ef4444; border-radius:3px; transition:height .15s; }
 .bk-opps { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:560px; }
-.bk-opp { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:5px; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
+.bk-opp { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:5px; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
 .bk-opp.dead { opacity:.4; }
 .bk-opp .nm { font-size:12px; font-weight:800; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:4px; }
 .bk-banner { position:absolute; inset:0; display:grid; place-items:center; font-size:64px; font-weight:900; text-shadow:0 4px 14px rgba(0,0,0,.8); pointer-events:none; }

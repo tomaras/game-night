@@ -33,16 +33,16 @@ const CSS = `
 .tt-hearts .ic { width:18px; height:18px; color:var(--red); }
 .tt-hearts .ic.off { color:var(--line2); }
 .tt-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
-.tt-door { aspect-ratio:3/4; max-height:200px; border:0; border-radius:20px; cursor:pointer; background:linear-gradient(160deg, #a0522d, #5d2f10); color:#fff; font:800 44px var(--font); box-shadow:var(--e2); position:relative; }
+.tt-door { aspect-ratio:3/4; max-height:200px; border:0; border-radius:var(--r); cursor:pointer; background:#8D6E63; color:#fff; font:800 44px var(--font); box-shadow:var(--e2); position:relative; }
 .tt-door.sel { outline:5px solid var(--blue); }
-.tt-door.dead { background:linear-gradient(160deg, #ea4335, #7d0e06); }
-.tt-door.safe { background:linear-gradient(160deg, #34a853, #0b5a28); }
+.tt-door.dead { background:#E53935; }
+.tt-door.safe { background:#43A047; }
 .tt-doors { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
 .tt-room { display:flex; flex-direction:column; gap:8px; }
-.tt-row { display:flex; align-items:center; gap:10px; background:var(--surface); box-shadow:var(--e1); border-radius:18px; padding:8px 12px; }
+.tt-row { display:flex; align-items:center; gap:10px; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 12px; }
 .tt-row.out { opacity:.45; }
 .tt-row .st { margin-left:auto; display:flex; gap:10px; align-items:center; font-weight:800; }
-.tt-tag { font:700 12px var(--font); padding:2px 10px; border-radius:10px; }
+.tt-tag { font:700 12px var(--font); padding:2px 10px; border-radius:var(--r); }
 .tt-tag.ok { background:var(--green-c); color:var(--green-d); } .tt-tag.no { background:var(--red-c); color:var(--red-d); }
 `;
 

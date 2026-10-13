@@ -1,12 +1,30 @@
 // Pool physics, host side. Every ball carries a velocity AND an angular velocity, so the classic effects come out of the model
 // instead of being faked: a ball first slides, its spin drags it into a roll, follow/draw/stun are just different amounts of
 // starting spin, side spin ("english") grips the cushion and bends the rebound, and balls transfer a little spin when they
-// meet ("throw"). Units are table pixels and seconds (the 9-foot table is 1000 px long, so a ball is 22 px across).
-export const W = 1000, HT = 500, R = 11;
+// meet ("throw"). Units are table pixels and seconds (the table is 1000 px long and a ball 27 px across — a touch larger than life, as the best mobile tables do, so it reads on a phone).
+export const W = 1000, HT = 500, R = 13.5;
+// Cushion geometry, shared with the renderer: T = cushion depth, GC / GM = half the opening at a corner / middle pocket
+// (measured along the cushion nose), JC / JM = how far each jaw leans towards its pocket as it goes back into the rail.
+export const CUSH = { T: 19, GC: 44, GM: 31, JC: 17, JM: 9 };
+const { T, GC, GM, JC, JM } = CUSH;
 export const POCKETS = [
-  { x: -3, y: -3, r: 25 }, { x: W / 2, y: -8, r: 17 }, { x: W + 3, y: -3, r: 25 },
-  { x: -3, y: HT + 3, r: 25 }, { x: W / 2, y: HT + 8, r: 17 }, { x: W + 3, y: HT + 3, r: 25 },
+  { x: -9, y: -9, r: 31 }, { x: W / 2, y: -17, r: 24 }, { x: W + 9, y: -9, r: 31 },
+  { x: -9, y: HT + 9, r: 31 }, { x: W / 2, y: HT + 17, r: 24 }, { x: W + 9, y: HT + 9, r: 31 },
 ];
+// The cushions as line segments: six noses plus the twelve angled jaws that form the pocket mouths.
+export const SEGS = (() => {
+  const s = [];
+  for (const [y, d] of [[0, -1], [HT, 1]]) {
+    s.push([GC, y, W / 2 - GM, y], [W / 2 + GM, y, W - GC, y]);
+    s.push([GC, y, GC - JC, y + d * T], [W - GC, y, W - GC + JC, y + d * T]);
+    s.push([W / 2 - GM, y, W / 2 - GM + JM, y + d * T], [W / 2 + GM, y, W / 2 + GM - JM, y + d * T]);
+  }
+  for (const [x, d] of [[0, -1], [W, 1]]) {
+    s.push([x, GC, x, HT - GC]);
+    s.push([x, GC, x + d * T, GC - JC], [x, HT - GC, x + d * T, HT - GC + JC]);
+  }
+  return s;
+})();
 export const MAXV = 1900;
 
 const SLIDE = 700; // friction while the ball skids (px/s²)
@@ -82,17 +100,24 @@ export function step(balls, dt, hit, onFirst, pocketed) {
   for (const b of alive) {
     let into = -1;
     for (let k = 0; k < POCKETS.length; k++) if (Math.hypot(b.x - POCKETS[k].x, b.y - POCKETS[k].y) < POCKETS[k].r) { into = k; break; }
+    // a ball that got behind the cushions is down a pocket whatever happens: drop it in the nearest one
+    if (into < 0 && (b.x < -T || b.x > W + T || b.y < -T || b.y > HT + T)) into = POCKETS.reduce((bi, p, k) => (Math.hypot(b.x - p.x, b.y - p.y) < Math.hypot(b.x - POCKETS[bi].x, b.y - POCKETS[bi].y) ? k : bi), 0);
     if (into >= 0) { b.in = true; b.vx = b.vy = b.wx = b.wy = b.wz = 0; pocketed?.(b, into); hit?.('p', 1, b); continue; }
-    if (b.x < R) rail(b, 1, 0, hit);
-    else if (b.x > W - R) rail(b, -1, 0, hit);
-    if (b.y < R) rail(b, 0, 1, hit);
-    else if (b.y > HT - R) rail(b, 0, -1, hit);
+    if (b.x > R + 1 && b.x < W - R - 1 && b.y > R + 1 && b.y < HT - R - 1) continue; // nowhere near a cushion
+    for (const sg of SEGS) {
+      const ax = sg[0], ay = sg[1], dx = sg[2] - ax, dy = sg[3] - ay;
+      const t = Math.max(0, Math.min(1, ((b.x - ax) * dx + (b.y - ay) * dy) / (dx * dx + dy * dy)));
+      const px = ax + dx * t, py = ay + dy * t, ox = b.x - px, oy = b.y - py, d2 = ox * ox + oy * oy;
+      if (d2 >= R * R || d2 < 1e-6) continue;
+      const d = Math.sqrt(d2);
+      rail(b, ox / d, oy / d, hit, R - d);
+    }
   }
 }
 
 /** Bounce off a cushion whose inward normal is (nx, ny). Side spin grips the rubber and kicks the ball along the cushion. */
-function rail(b, nx, ny, hit) {
-  if (nx) b.x = nx > 0 ? R : W - R; else b.y = ny > 0 ? R : HT - R;
+function rail(b, nx, ny, hit, push) {
+  b.x += nx * push; b.y += ny * push;
   const vn = b.vx * nx + b.vy * ny; // negative = moving into the cushion
   if (vn >= 0) return;
   const e = Math.max(0.55, 0.86 - 0.00007 * -vn);

@@ -1,8 +1,8 @@
 // Pool graphics: the painted table and per-pixel shaded balls that really roll (each ball has an orientation, and its
 // numbers, stripe and cue-ball dots turn with it).
-import { W, HT, R, POCKETS } from './pool-physics.js';
+import { W, HT, R, POCKETS, CUSH } from './pool-physics.js';
 
-export const M = 44; // rail width
+export const M = 54; // rail width
 export const CW = W + M * 2, CH = HT + M * 2;
 export const HEAD = { x: W * 0.25, y: HT / 2 };
 export const COLORS = ['#f8f8f8', '#f2c500', '#1f58c7', '#d6281e', '#5a2a8c', '#f27f0c', '#0f8a3c', '#7a1c1c', '#161616'];
@@ -11,87 +11,115 @@ const rgb = (hex) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 1
 
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-/** The table, painted once at k device pixels per table pixel. */
+/** The table, painted once at k device pixels per table pixel: lacquered walnut rails with a rounded profile, mother-of-pearl
+ *  sights, leather pocket liners under chrome caps, a cloth bed lit by a long lamp, and cushions with a real nose and jaws. */
 export function paintTable(k) {
   const cv = document.createElement('canvas');
   cv.width = Math.round(CW * k); cv.height = Math.round(CH * k);
   const c = cv.getContext('2d');
   c.scale(k, k);
-  const rnd = rng(7);
-  // wood rails
-  const wood = c.createLinearGradient(0, 0, 0, CH);
-  wood.addColorStop(0, '#9a6137'); wood.addColorStop(0.45, '#6e3f1f'); wood.addColorStop(1, '#3f230d');
-  c.fillStyle = wood; c.beginPath(); c.roundRect(0, 0, CW, CH, 30); c.fill();
-  for (let i = 0; i < 120; i++) { // grain
-    c.strokeStyle = `rgba(${i % 2 ? '28,12,3' : '255,210,150'},${0.035 + rnd() * 0.05})`; c.lineWidth = 0.6 + rnd() * 1.1;
-    const y = rnd() * CH; c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(CW * 0.3, y + (rnd() - 0.5) * 9, CW * 0.7, y + (rnd() - 0.5) * 9, CW, y + (rnd() - 0.5) * 7); c.stroke();
-  }
-  const bevel = (inset, w, a, col = '255,226,185') => { c.strokeStyle = `rgba(${col},${a})`; c.lineWidth = w; c.beginPath(); c.roundRect(inset, inset, CW - inset * 2, CH - inset * 2, Math.max(4, 30 - inset)); c.stroke(); };
-  bevel(1.5, 2.5, 0.42); bevel(9, 1.5, 0.12, '0,0,0'); bevel(M - 9, 3, 0.45, '0,0,0');
-  c.strokeStyle = 'rgba(255,230,190,.18)'; c.lineWidth = 1.5; c.beginPath(); c.roundRect(M - 6, M - 6, W + 12, HT + 12, 6); c.stroke();
-  // sights (diamonds)
-  const dia = (x, y) => { c.save(); c.translate(x, y); c.rotate(Math.PI / 4); const g = c.createLinearGradient(-5, -5, 5, 5); g.addColorStop(0, '#fff7df'); g.addColorStop(1, '#c9b27d'); c.fillStyle = g; c.fillRect(-4.2, -4.2, 8.4, 8.4); c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = 0.8; c.strokeRect(-4.2, -4.2, 8.4, 8.4); c.restore(); };
-  for (let i = 1; i < 8; i++) { if (i === 4) continue; dia(M + (W * i) / 8, M / 2 - 1); dia(M + (W * i) / 8, CH - M / 2 + 1); }
-  for (let i = 1; i < 4; i++) { dia(M / 2 - 1, M + (HT * i) / 4); dia(CW - M / 2 + 1, M + (HT * i) / 4); }
+  const rnd = rng(11);
+  const { T, GC, GM, JC, JM } = CUSH;
 
+  // ---- rails: walnut, with grain, then a rounded cross-section (dark outer edge, a long highlight, dark where it meets the cloth)
+  c.save();
+  c.beginPath(); c.roundRect(0, 0, CW, CH, 28); c.clip();
+  c.fillStyle = '#5b3217'; c.fillRect(0, 0, CW, CH);
+  for (let i = 0; i < 260; i++) {
+    const horiz = i % 2 === 0;
+    c.strokeStyle = `rgba(${rnd() < 0.5 ? '20,8,2' : '160,96,52'},${0.06 + rnd() * 0.12})`; c.lineWidth = 0.5 + rnd() * 1.6;
+    c.beginPath();
+    if (horiz) { const y = rnd() * CH; c.moveTo(0, y); c.bezierCurveTo(CW * 0.33, y + (rnd() - 0.5) * 6, CW * 0.66, y + (rnd() - 0.5) * 6, CW, y + (rnd() - 0.5) * 5); }
+    else { const x = rnd() * CW; c.moveTo(x, 0); c.bezierCurveTo(x + (rnd() - 0.5) * 6, CH * 0.33, x + (rnd() - 0.5) * 6, CH * 0.66, x + (rnd() - 0.5) * 5, CH); }
+    c.stroke();
+  }
+  const side = (poly, x0, y0, nx, ny) => { // nx,ny point from the outer edge towards the cloth
+    c.save(); c.beginPath(); c.moveTo(...poly[0]); for (const p of poly.slice(1)) c.lineTo(...p); c.closePath(); c.clip();
+    const g = c.createLinearGradient(x0, y0, x0 + nx * M, y0 + ny * M);
+    g.addColorStop(0, 'rgba(0,0,0,.5)'); g.addColorStop(0.12, 'rgba(0,0,0,.05)'); g.addColorStop(0.34, 'rgba(255,200,140,.12)');
+    g.addColorStop(0.44, 'rgba(255,225,190,.20)'); g.addColorStop(0.6, 'rgba(255,200,140,.03)'); g.addColorStop(0.88, 'rgba(0,0,0,.22)'); g.addColorStop(1, 'rgba(0,0,0,.5)');
+    c.fillStyle = g; c.fillRect(0, 0, CW, CH); c.restore();
+  };
+  side([[0, 0], [CW, 0], [CW - M, M], [M, M]], 0, 0, 0, 1);
+  side([[0, CH], [CW, CH], [CW - M, CH - M], [M, CH - M]], 0, CH, 0, -1);
+  side([[0, 0], [M, M], [M, CH - M], [0, CH]], 0, 0, 1, 0);
+  side([[CW, 0], [CW - M, M], [CW - M, CH - M], [CW, CH]], CW, 0, -1, 0);
+  // mitre joints
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1;
+  for (const [a, b] of [[[0, 0], [M, M]], [[CW, 0], [CW - M, M]], [[0, CH], [M, CH - M]], [[CW, CH], [CW - M, CH - M]]]) { c.beginPath(); c.moveTo(...a); c.lineTo(...b); c.stroke(); }
+  c.restore();
+  // a lacquer glint along the outside edge
+  c.strokeStyle = 'rgba(255,240,220,.35)'; c.lineWidth = 1.2; c.beginPath(); c.roundRect(1.5, 1.5, CW - 3, CH - 3, 27); c.stroke();
+
+  // ---- sights: small mother-of-pearl diamonds set into the rail
+  const dia = (x, y) => {
+    c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
+    const g = c.createLinearGradient(-4, -4, 4, 4); g.addColorStop(0, '#fffaf0'); g.addColorStop(0.5, '#e8e1d2'); g.addColorStop(1, '#bdb3a1');
+    c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(-3.4, -2.6, 7.4, 7.4);
+    c.fillStyle = g; c.fillRect(-3.6, -3.6, 7.2, 7.2); c.restore();
+  };
+  for (let i = 1; i < 8; i++) { if (i === 4) continue; dia(M + (W * i) / 8, M * 0.42); dia(M + (W * i) / 8, CH - M * 0.42); }
+  for (let i = 1; i < 4; i++) { dia(M * 0.42, M + (HT * i) / 4); dia(CW - M * 0.42, M + (HT * i) / 4); }
+
+  // ---- pockets cut into the rail: a black rubber liner with a soft lip of light on the far side
+  for (const p of POCKETS) {
+    const cx = M + p.x, cy = M + p.y, rr = p.r + 5;
+    const lip = c.createRadialGradient(cx - p.x * 0.02, cy - p.y * 0.02, p.r - 2, cx, cy, rr + 1.5);
+    lip.addColorStop(0, '#050505'); lip.addColorStop(0.7, '#141414'); lip.addColorStop(0.92, '#2c2c2c'); lip.addColorStop(1, 'rgba(0,0,0,.0)');
+    c.fillStyle = lip; c.beginPath(); c.arc(cx, cy, rr + 1.5, 0, Math.PI * 2); c.fill();
+  }
+
+  // ---- the cloth: bed + cushions share one cloth, lit by a long lamp
+  const CL = '#1d7a45';
   c.save(); c.translate(M, M);
-  // felt
-  c.fillStyle = '#0c5a2e'; c.fillRect(-18, -18, W + 36, HT + 36);
-  const felt = c.createRadialGradient(W * 0.46, HT * 0.42, 40, W / 2, HT / 2, W * 0.66);
-  felt.addColorStop(0, '#2fa862'); felt.addColorStop(0.55, '#1d8a4d'); felt.addColorStop(1, '#136a3a');
-  c.fillStyle = felt; c.fillRect(0, 0, W, HT);
-  for (let i = 0; i < 6500; i++) { c.fillStyle = `rgba(${rnd() < 0.5 ? '255,255,255' : '0,40,20'},${0.02 + rnd() * 0.04})`; c.fillRect(rnd() * W, rnd() * HT, 1.2, 1.2); }
-  c.lineWidth = 1; for (let x = -HT; x < W; x += 5) { c.strokeStyle = 'rgba(0,0,0,.018)'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x + HT, HT); c.stroke(); }
-  // the lamp over the table
-  const lamp = c.createRadialGradient(W * 0.5, HT * 0.4, 20, W * 0.5, HT * 0.5, W * 0.5);
-  lamp.addColorStop(0, 'rgba(255,255,230,.16)'); lamp.addColorStop(1, 'rgba(255,255,230,0)');
-  c.fillStyle = lamp; c.fillRect(0, 0, W, HT);
-  // markings
-  c.strokeStyle = 'rgba(255,255,255,.14)'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(HEAD.x, 8); c.lineTo(HEAD.x, HT - 8); c.stroke();
-  c.beginPath(); c.arc(HEAD.x, HT / 2, 58, Math.PI / 2, Math.PI * 1.5); c.stroke();
-  c.fillStyle = 'rgba(255,255,255,.26)'; for (const [sx, sy] of [[W * 0.72, HT / 2], [HEAD.x, HT / 2]]) { c.beginPath(); c.arc(sx, sy, 3, 0, 7); c.fill(); }
-  c.fillStyle = 'rgba(255,255,255,.065)'; c.font = '800 26px sans-serif'; c.textAlign = 'center'; c.fillText('GAME NIGHT', W * 0.5, HT / 2 + 9);
-  // cushions: rubber trapezoids with angled mouths, a highlight on the nose and a soft shadow cast onto the cloth
-  const T = 17, GAP_C = 33, GAP_M = 25;
+  c.fillStyle = CL; c.fillRect(-T, -T, W + 2 * T, HT + 2 * T);
+  // lamp: a wide soft ellipse of light, brighter at the middle of the table
+  c.save(); c.translate(W / 2, HT / 2); c.scale(1, 0.55);
+  const lamp = c.createRadialGradient(0, 0, 30, 0, 0, W * 0.62);
+  lamp.addColorStop(0, 'rgba(120,255,170,.22)'); lamp.addColorStop(0.45, 'rgba(90,220,140,.10)'); lamp.addColorStop(1, 'rgba(0,30,10,.30)');
+  c.fillStyle = lamp; c.fillRect(-W, -HT * 2, W * 2, HT * 4); c.restore();
+  // cloth texture: fine fibres and a faint weave
+  for (let i = 0; i < 16000; i++) { c.fillStyle = `rgba(${rnd() < 0.5 ? '255,255,255' : '0,30,12'},${0.018 + rnd() * 0.035})`; c.fillRect(-T + rnd() * (W + 2 * T), -T + rnd() * (HT + 2 * T), 1, 1); }
+  c.lineWidth = 0.6; for (let x = -HT; x < W; x += 3.2) { c.strokeStyle = 'rgba(0,0,0,.022)'; c.beginPath(); c.moveTo(x, -T); c.lineTo(x + HT + 2 * T, HT + T); c.stroke(); }
+  // markings: head string, D and spots, very faint
+  c.strokeStyle = 'rgba(255,255,255,.10)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(HEAD.x, 6); c.lineTo(HEAD.x, HT - 6); c.stroke();
+  c.beginPath(); c.arc(HEAD.x, HT / 2, 70, Math.PI / 2, Math.PI * 1.5); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.22)'; for (const [sx, sy] of [[W * 0.72, HT / 2], [HEAD.x, HT / 2]]) { c.beginPath(); c.arc(sx, sy, 2.6, 0, 7); c.fill(); }
+
+  // pocket holes in the bed (the cushions are drawn over them, which shapes the mouths)
+  for (const p of POCKETS) {
+    const g = c.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r + 3);
+    g.addColorStop(0, '#000'); g.addColorStop(0.75, '#020202'); g.addColorStop(1, '#0d0d0d');
+    c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, p.r + 3, 0, Math.PI * 2); c.fill();
+  }
+  // cushions: each a trapezoid of cloth; the face slopes up from the nose, so it's lit along the nose and darker at the back
   const cushion = (pts, nx, ny) => {
-    const [a, b] = [pts[0], pts[1]];
     c.save();
+    c.beginPath(); c.moveTo(...pts[0]); for (const q of pts.slice(1)) c.lineTo(...q); c.closePath();
+    const [a] = pts;
     const g = c.createLinearGradient(a[0], a[1], a[0] - nx * T, a[1] - ny * T);
-    g.addColorStop(0, '#2c9a58'); g.addColorStop(0.18, '#1b7f45'); g.addColorStop(1, '#0a4a26');
-    c.fillStyle = g; c.beginPath(); c.moveTo(...pts[0]); for (const p of pts.slice(1)) c.lineTo(...p); c.closePath(); c.fill();
-    c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(...a); c.lineTo(...b); c.stroke();
+    g.addColorStop(0, '#23854c'); g.addColorStop(0.2, '#1e7a45'); g.addColorStop(0.7, '#196a3c'); g.addColorStop(1, '#125530');
+    c.fillStyle = g; c.fill();
     c.restore();
   };
-  const shadowAlong = (x0, y0, x1, y1, nx, ny) => { const g = c.createLinearGradient(x0, y0, x0 + nx * 20, y0 + ny * 20); g.addColorStop(0, 'rgba(0,0,0,.34)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.lineTo(x1 + nx * 20, y1 + ny * 20); c.lineTo(x0 + nx * 20, y0 + ny * 20); c.closePath(); c.fill(); };
-  for (const [x1, x2] of [[GAP_C, W / 2 - GAP_M], [W / 2 + GAP_M, W - GAP_C]]) {
-    shadowAlong(x1, 0, x2, 0, 0, 1); shadowAlong(x1, HT, x2, HT, 0, -1);
-    cushion([[x1, 0], [x2, 0], [x2 + 13, -T], [x1 - 13, -T]], 0, 1);
-    cushion([[x1, HT], [x2, HT], [x2 + 13, HT + T], [x1 - 13, HT + T]], 0, -1);
+  const noseShadow = (x0, y0, x1, y1, nx, ny) => { // the cushion nose overhangs the bed: a soft shadow on the cloth
+    const g = c.createLinearGradient(x0, y0, x0 + nx * 14, y0 + ny * 14); g.addColorStop(0, 'rgba(0,0,0,.28)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.lineTo(x1 + nx * 16, y1 + ny * 16); c.lineTo(x0 + nx * 16, y0 + ny * 16); c.closePath(); c.fill();
+  };
+  const noseLine = (x0, y0, x1, y1) => { c.strokeStyle = 'rgba(190,255,215,.16)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); };
+  for (const [x1, x2, j1, j2] of [[GC, W / 2 - GM, -JC, JM], [W / 2 + GM, W - GC, -JM, JC]]) {
+    noseShadow(x1, 0, x2, 0, 0, 1); noseShadow(x1, HT, x2, HT, 0, -1);
+    cushion([[x1, 0], [x2, 0], [x2 + j2, -T], [x1 + j1, -T]], 0, 1);
+    cushion([[x1, HT], [x2, HT], [x2 + j2, HT + T], [x1 + j1, HT + T]], 0, -1);
+    noseLine(x1, 0.5, x2, 0.5); noseLine(x1, HT - 0.5, x2, HT - 0.5);
   }
-  for (const [y1, y2] of [[GAP_C, HT - GAP_C]]) {
-    shadowAlong(0, y1, 0, y2, 1, 0); shadowAlong(W, y1, W, y2, -1, 0);
-    cushion([[0, y1], [0, y2], [-T, y2 + 13], [-T, y1 - 13]], 1, 0);
-    cushion([[W, y1], [W, y2], [W + T, y2 + 13], [W + T, y1 - 13]], -1, 0);
-  }
-  // pockets: dark leather throat, brass plate, deep hole
-  for (const p of POCKETS) {
-    const corner = p.r > 20;
-    const throat = c.createRadialGradient(p.x, p.y, 1, p.x, p.y, p.r + 12);
-    throat.addColorStop(0, '#000'); throat.addColorStop(0.62, '#070707'); throat.addColorStop(0.82, '#1d130b'); throat.addColorStop(1, '#3a2514');
-    c.fillStyle = throat; c.beginPath(); c.arc(p.x, p.y, p.r + 12, 0, 7); c.fill();
-    const rim = c.createLinearGradient(p.x - p.r, p.y - p.r, p.x + p.r, p.y + p.r);
-    rim.addColorStop(0, '#f1d28a'); rim.addColorStop(0.5, '#a9803a'); rim.addColorStop(1, '#e6c476');
-    c.strokeStyle = rim; c.lineWidth = corner ? 3.2 : 2.6; c.beginPath(); c.arc(p.x, p.y, p.r + 10, 0, 7); c.stroke();
-    c.fillStyle = '#000'; c.beginPath(); c.arc(p.x, p.y, p.r - 2, 0, 7); c.fill();
-    const hole = c.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r);
-    hole.addColorStop(0, 'rgba(0,0,0,1)'); hole.addColorStop(1, 'rgba(25,18,10,.9)');
-    c.fillStyle = hole; c.beginPath(); c.arc(p.x, p.y, p.r - 2, 0, 7); c.fill();
-  }
+  noseShadow(0, GC, 0, HT - GC, 1, 0); noseShadow(W, GC, W, HT - GC, -1, 0);
+  cushion([[0, GC], [0, HT - GC], [-T, HT - GC + JC], [-T, GC - JC]], 1, 0);
+  cushion([[W, GC], [W, HT - GC], [W + T, HT - GC + JC], [W + T, GC - JC]], -1, 0);
+  noseLine(0.5, GC, 0.5, HT - GC); noseLine(W - 0.5, GC, W - 0.5, HT - GC);
+  // the rail's inner lip casts a shadow back onto the cushion tops
+  c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 2; c.strokeRect(-T + 1, -T + 1, W + 2 * T - 2, HT + 2 * T - 2);
   c.restore();
-  // the room's light on the wood, and a vignette
-  const sheen = c.createLinearGradient(0, 0, CW, CH);
-  sheen.addColorStop(0, 'rgba(255,255,255,.09)'); sheen.addColorStop(0.5, 'rgba(255,255,255,0)'); sheen.addColorStop(1, 'rgba(0,0,0,.16)');
-  c.fillStyle = sheen; c.beginPath(); c.roundRect(0, 0, CW, CH, 30); c.fill();
   return cv;
 }
 

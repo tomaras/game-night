@@ -11,12 +11,12 @@ const CATS = ['Who would win a staring contest?', 'Who is the better karaoke sin
 
 const CSS = `
 .cd-duel { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.cd-opt { border:4px solid transparent; border-radius:24px; background:var(--surface); box-shadow:var(--e1); padding:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; font:700 14px/1.25 var(--font); color:var(--on); text-align:center; transition:transform .12s; }
+.cd-opt { border:4px solid transparent; border-radius:var(--r); background:var(--surface); box-shadow:var(--e1); padding:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; font:700 14px/1.25 var(--font); color:var(--on); text-align:center; transition:transform .12s; }
 .cd-opt:hover:not(:disabled) { transform:translateY(-3px); } .cd-opt.sel { border-color:var(--blue); background:var(--blue-c); } .cd-opt.win { border-color:var(--green); background:var(--green-c); }
-.cd-opt img, .cd-opt .ph { width:100%; aspect-ratio:4/3; border-radius:14px; background:#fff; object-fit:cover; display:block; } .cd-opt .ph { display:grid; place-items:center; font-size:40px; }
+.cd-opt img, .cd-opt .ph { width:100%; aspect-ratio:4/3; border-radius:var(--r); background:#fff; object-fit:cover; display:block; } .cd-opt .ph { display:grid; place-items:center; font-size:40px; }
 .cd-opt .ttl { font:800 15px var(--font); } .cd-opt .plea { font:600 14px/1.3 var(--font); color:var(--on2); font-style:italic; } .cd-opt .pct { font:800 24px var(--font); } .cd-opt .who { font:600 12px var(--font); color:var(--on2); display:flex; align-items:center; gap:4px; justify-content:center; }
-.cd-task { background:var(--surface); box-shadow:var(--e1); border-radius:22px; padding:12px; display:flex; flex-direction:column; gap:8px; }
-.cd-vs { display:flex; align-items:center; gap:10px; justify-content:center; font:800 14px var(--font); } .cd-vs img { width:64px; height:48px; object-fit:cover; border-radius:10px; background:#fff; }
+.cd-task { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px; display:flex; flex-direction:column; gap:8px; }
+.cd-vs { display:flex; align-items:center; gap:10px; justify-content:center; font:800 14px var(--font); } .cd-vs img { width:64px; height:48px; object-fit:cover; border-radius:var(--r); background:#fff; }
 `;
 
 export function start(api) {

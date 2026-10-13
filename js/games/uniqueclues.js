@@ -11,7 +11,7 @@ const stem = (s) => norm(s).replace(/(ies|es|s|ing|ed)$/, '');
 
 const CSS = `
 .uc-clues { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-.uc-clue { background:var(--surface); box-shadow:var(--e1); border-radius:20px; padding:12px 18px; font:800 clamp(18px, 5vw, 26px) var(--font); display:flex; flex-direction:column; align-items:center; gap:4px; animation:ktpop .3s both; }
+.uc-clue { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px 18px; font:800 clamp(18px, 5vw, 26px) var(--font); display:flex; flex-direction:column; align-items:center; gap:4px; animation:ktpop .3s both; }
 .uc-clue small { font:600 11px var(--font); color:var(--on3); }
 .uc-clue.dead { background:var(--red-c); color:var(--red-d); text-decoration:line-through; box-shadow:none; opacity:.8; }
 .uc-clue.dead small { text-decoration:none; }

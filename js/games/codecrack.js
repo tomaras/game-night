@@ -8,18 +8,18 @@ import { makeClock, hostPhase, waiting, sample } from '../kit.js';
 const TEAMS = [['Blue', '#1a73e8', '#d3e3fd'], ['Red', '#ea4335', '#fcdad6']];
 const CSS = `
 .cc2-words { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
-.cc2-w { border-radius:18px; padding:10px 4px; text-align:center; background:var(--tc); color:var(--tf); font:800 clamp(13px, 3.6vw, 18px)/1.1 var(--font); display:flex; flex-direction:column; gap:4px; align-items:center; }
+.cc2-w { border-radius:var(--r); padding:10px 4px; text-align:center; background:var(--tc); color:var(--tf); font:800 clamp(13px, 3.6vw, 18px)/1.1 var(--font); display:flex; flex-direction:column; gap:4px; align-items:center; }
 .cc2-w i { font:900 22px var(--font); font-style:normal; opacity:.55; }
 .cc2-hist { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
-.cc2-col { background:var(--surface); box-shadow:var(--e1); border-radius:16px; padding:6px 6px 8px; min-height:60px; }
+.cc2-col { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:6px 6px 8px; min-height:60px; }
 .cc2-col b { display:block; text-align:center; font:800 13px var(--font); color:var(--on3); margin-bottom:4px; }
 .cc2-col span { display:block; font:600 13px/1.3 var(--font); text-align:center; padding:1px 0; overflow-wrap:anywhere; }
 .cc2-code { display:flex; gap:10px; justify-content:center; }
-.cc2-code b { width:62px; height:74px; border-radius:20px; display:grid; place-items:center; font:900 40px var(--font); background:var(--tc); color:var(--tf); }
+.cc2-code b { width:62px; height:74px; border-radius:var(--r); display:grid; place-items:center; font:900 40px var(--font); background:var(--tc); color:var(--tf); }
 .cc2-in { display:flex; flex-direction:column; gap:8px; }
-.cc2-in .r { display:flex; gap:8px; align-items:center; } .cc2-in .r b { width:38px; height:38px; border-radius:12px; background:var(--tc); color:var(--tf); display:grid; place-items:center; font:800 18px var(--font); flex:none; }
+.cc2-in .r { display:flex; gap:8px; align-items:center; } .cc2-in .r b { width:38px; height:38px; border-radius:var(--r); background:var(--tc); color:var(--tf); display:grid; place-items:center; font:800 18px var(--font); flex:none; }
 .cc2-guess { display:flex; gap:8px; justify-content:center; }
-.cc2-guess button { width:58px; height:66px; border-radius:18px; border:0; background:var(--s2); font:900 28px var(--font); cursor:pointer; }
+.cc2-guess button { width:58px; height:66px; border-radius:var(--r); border:0; background:var(--s2); font:900 28px var(--font); cursor:pointer; }
 .cc2-guess button.on { background:var(--tc); color:var(--tf); }
 .cc2-tok { display:flex; gap:6px; align-items:center; font:700 13px var(--font); }
 .cc2-tok i { width:14px; height:14px; border-radius:50%; background:var(--s3); display:inline-block; } .cc2-tok i.w { background:#fff; box-shadow:inset 0 0 0 2px #444; } .cc2-tok i.b { background:#222; }

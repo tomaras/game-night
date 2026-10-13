@@ -12,36 +12,42 @@ const STRIKE_MS = 150; // the cue swings forward this long before the balls star
 const DELAY = 90; // screens draw the table this many ms in the past, so the motion between network packets is interpolated
 
 const CSS = `
-.pl { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 8px 8px; min-height:0; }
+.pl { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px 8px calc(8px + var(--sab)); min-height:0; background:#1b1d1f; color:#fff; }
 .pl-top { display:flex; gap:8px; align-items:stretch; width:100%; max-width:1000px; justify-content:center; }
-.pl-team { flex:1; min-width:0; background:var(--surface); box-shadow:var(--e1); border-radius:18px; padding:6px 10px; display:flex; flex-direction:column; gap:3px; transition:box-shadow .2s; }
-.pl-team.turn { box-shadow:0 0 0 3px var(--yellow), var(--e1); }
-.pl-team .tn { font-weight:800; font-size:12.5px; display:flex; gap:6px; align-items:center; min-width:0; }
-.pl-team .tn .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pl-team .tn .chip { height:20px; padding:0 8px; font-size:10.5px; flex:none; }
-.pl-tray { display:flex; gap:2px; min-height:19px; flex-wrap:wrap; } .pl-tray:empty { display:none; }
-.pl-mini { width:18px; height:18px; border-radius:50%; display:inline-grid; place-items:center; font-size:8.5px; font-weight:900; color:#111; box-shadow:inset -2px -2px 3px rgba(0,0,0,.28), inset 1px 1px 2px rgba(255,255,255,.5); }
-.pl-mini i { width:9px; height:9px; border-radius:50%; background:#fff; display:grid; place-items:center; font-style:normal; line-height:1; }
+.pl-team { flex:1; min-width:0; background:#2a2d31; border-radius:var(--r); padding:6px 10px 7px; display:flex; flex-direction:column; gap:5px; box-shadow:var(--z1); position:relative; overflow:hidden; transition:background-color .25s; }
+.pl-team.turn { background:#34393f; }
+.pl-team.turn::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--m-amber); }
+.pl-team .tn { font:500 13px var(--font); display:flex; gap:6px; align-items:center; min-width:0; }
+.pl-team .tn .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+.pl-team .tn .gp { font:500 10.5px var(--font); letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.6); flex:none; }
+.pl-tray { display:flex; gap:3px; }
+.pl-mini { width:17px; height:17px; border-radius:50%; flex:none; position:relative; box-shadow:inset -2px -3px 4px rgba(0,0,0,.35), inset 2px 2px 3px rgba(255,255,255,.35); }
+.pl-mini.slot { background:rgba(255,255,255,.08); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+.pl-mini.gone { opacity:.18; filter:grayscale(.6); }
+.pl-mini i { position:absolute; left:50%; top:50%; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; background:#fff; }
 .pl-wrap { flex:1 1 0; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.pl canvas { border-radius:16px; box-shadow:0 14px 34px rgba(0,0,0,.32); touch-action:none; cursor:crosshair; max-width:100%; }
-.pl-msg { font-weight:700; min-height:20px; text-align:center; font-size:14px; }
-.pl-bar { display:grid; grid-template-columns:auto auto 1fr; align-items:center; gap:8px 12px; width:100%; max-width:760px; background:var(--surface); box-shadow:var(--e2); border-radius:24px; padding:8px 12px; }
-.pl-power { grid-column:1 / -1; display:flex; align-items:center; gap:10px; }
-.pl-power b { font:800 12px var(--font); color:var(--on3); width:46px; }
-.pl-power input[type=range] { flex:1; -webkit-appearance:none; appearance:none; height:14px; border-radius:7px; background:linear-gradient(90deg,#3ddc84,#ffd23f 55%,#ff5252); outline:none; }
-.pl-power input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid #263238; box-shadow:0 2px 6px rgba(0,0,0,.35); }
-.pl-power input[type=range]::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #263238; }
-.pl-spin { width:58px; height:58px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff, #e8e8e8 60%, #bcbcbc); box-shadow:inset -3px -4px 8px rgba(0,0,0,.25), var(--e1); position:relative; touch-action:none; cursor:pointer; }
-.pl-spin::before, .pl-spin::after { content:''; position:absolute; background:rgba(0,0,0,.14); } .pl-spin::before { left:50%; top:8%; bottom:8%; width:1px; } .pl-spin::after { top:50%; left:8%; right:8%; height:1px; }
-.pl-spin i { position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; background:#e63946; box-shadow:0 1px 3px rgba(0,0,0,.45); left:50%; top:50%; }
-.pl-fine { display:flex; gap:6px; align-items:center; }
-.pl-fine button { width:40px; height:40px; border-radius:50%; border:0; background:var(--s2); color:var(--on); display:grid; place-items:center; cursor:pointer; touch-action:manipulation; }
-.pl-fine button:active { background:var(--blue-c); }
-.pl-fine .ic { width:22px; height:22px; }
-.pl-shoot { justify-self:end; }
-.pl-lbl { font:700 10px var(--font); color:var(--on3); text-transform:uppercase; letter-spacing:.6px; text-align:center; margin-top:2px; }
+.pl canvas { touch-action:none; cursor:crosshair; max-width:100%; filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)); }
+.pl-msg { font:500 14px var(--font); min-height:20px; text-align:center; color:rgba(255,255,255,.85); }
+.pl-bar { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; width:100%; max-width:760px; background:#2a2d31; box-shadow:var(--z2); border-radius:var(--r); padding:8px 10px; }
+.pl-spin { width:52px; height:52px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff, #e9e9e9 55%, #b8b8b8); box-shadow:inset -3px -4px 8px rgba(0,0,0,.25), 0 2px 4px rgba(0,0,0,.5); position:relative; touch-action:none; cursor:pointer; }
+.pl-spin::before, .pl-spin::after { content:''; position:absolute; background:rgba(0,0,0,.14); } .pl-spin::before { left:50%; top:10%; bottom:10%; width:1px; } .pl-spin::after { top:50%; left:10%; right:10%; height:1px; }
+.pl-spin i { position:absolute; width:13px; height:13px; margin:-6.5px 0 0 -6.5px; border-radius:50%; background:#e53935; box-shadow:0 1px 3px rgba(0,0,0,.5); left:50%; top:50%; }
+/* the power control: pull the cue back along the track and let go */
+.pl-pull { position:relative; height:52px; border-radius:26px; background:#16181a; box-shadow:inset 0 2px 6px rgba(0,0,0,.7); touch-action:none; cursor:grab; overflow:hidden; user-select:none; -webkit-user-select:none; }
+.pl-pull.on { cursor:grabbing; }
+.pl-pull .fill { position:absolute; left:0; top:0; bottom:0; width:0; background:linear-gradient(90deg,#43a047,#fdd835 55%,#e53935); opacity:.85; }
+.pl-pull .stick { position:absolute; top:50%; height:12px; margin-top:-6px; left:-40px; right:46px; border-radius:6px; transform:translateX(var(--pull, 0px)); transition:transform .25s var(--std);
+  background:linear-gradient(270deg, #4aa3e8 0 3px, #f6f1e4 3px 14px, #e5cfa0 14px 52%, #c9cdd1 52% calc(52% + 4px), #1c1c1c calc(52% + 4px) 74%, #2c2c2c 74% 96%, #111 96%); box-shadow:inset 0 -4px 5px rgba(0,0,0,.35), inset 0 2px 2px rgba(255,255,255,.35), 0 2px 3px rgba(0,0,0,.5); }
+.pl-pull.on .stick { transition:none; }
+.pl-pull::after { content:''; position:absolute; right:12px; top:50%; width:26px; height:26px; margin-top:-13px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff, #e6e6e6 55%, #a9a9a9); box-shadow:0 2px 4px rgba(0,0,0,.6); }
+.pl-pull .lbl { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:3px 10px; border-radius:999px; background:rgba(0,0,0,.6); font:500 11px var(--font); letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.8); pointer-events:none; white-space:nowrap; }
+.pl-pull.on .lbl { color:#fff; font-size:15px; }
+.pl-fine { display:grid; grid-template-columns:40px 40px; grid-template-rows:auto auto; gap:4px; }
+.pl-fine button { position:relative; width:40px; height:24px; border-radius:var(--r); border:0; background:#3a3f45; color:#fff; display:grid; place-items:center; cursor:pointer; touch-action:manipulation; }
+.pl-fine button.g { grid-column:1 / -1; width:auto; font:500 10.5px var(--font); letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.75); }
+.pl-fine .ic { width:20px; height:20px; }
+.pl-lbl { font:500 10px var(--font); color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.06em; text-align:center; margin-top:2px; }
 `;
-
 export function start(api) {
   const ids = api.players.map((p) => p.id);
   const teams = [[], []];
@@ -53,7 +59,7 @@ export function start(api) {
   const live = []; // for rendering: {id, x, y, s: [network samples], vx, vy, wx, wy, wz, in, m: orientation, sp: sprite, dirty, drop}
   const byId = new Map();
   const aimNow = { a: 0 };
-  let power = 0.55;
+  let power = 0.55, lastPower = 0.55;
   let spin = { x: 0, y: 0 }; // where on the cue ball you strike: y>0 follow (top), y<0 draw (back), x = side
   let guide = (() => { try { return localStorage.getItem('gn.pool.guide') || 'long'; } catch { return 'long'; } })();
   const remote = { a: 0, p: 0, t: 0 };
@@ -63,8 +69,8 @@ export function start(api) {
   const ctx = canvas.getContext('2d');
   const msgEl = h('div.pl-msg');
   const teamEls = [h('div.pl-team'), h('div.pl-team')];
-  const slider = h('input', { type: 'range', min: 8, max: 100, value: 55, 'aria-label': 'Shot power', oninput: (e) => { power = e.target.value / 100; sendAim(); } });
-  const shootBtn = h('button.btn.primary.big.pl-shoot', { onclick: () => shoot() }, 'Shoot');
+  const pullFill = h('div.fill'), pullStick = h('div.stick'), pullLbl = h('div.lbl', 'Pull back to shoot');
+  const pullEl = h('div.pl-pull', { role: 'slider', 'aria-label': 'Shot power: pull back and let go', 'aria-valuemin': 0, 'aria-valuemax': 100 }, pullFill, pullStick, pullLbl);
   const spinEl = h('div.pl-spin', { title: 'Spin: top follows, bottom draws, sides curve off cushions' }, h('i'));
   const setSpin = (e) => {
     const r = spinEl.getBoundingClientRect();
@@ -76,9 +82,30 @@ export function start(api) {
   spinEl.addEventListener('pointermove', (e) => { if (e.buttons || e.pressure) setSpin(e); });
   spinEl.addEventListener('dblclick', () => { spin = { x: 0, y: 0 }; spinEl.firstChild.style.left = '50%'; spinEl.firstChild.style.top = '50%'; });
   const nudge = (dir) => { const go = () => { aimNow.a += dir * 0.0025; sendAim(); }; go(); const t = setInterval(go, 60); const stop = () => { clearInterval(t); removeEventListener('pointerup', stop); }; addEventListener('pointerup', stop); };
-  const fine = h('div.pl-fine', h('button', { 'aria-label': 'Aim a little left', onpointerdown: () => nudge(-1) }, icon('chevron_left')), h('button', { 'aria-label': 'Aim a little right', onpointerdown: () => nudge(1) }, icon('chevron_right')),
-    h('button', { 'aria-label': 'Aim guide', title: 'Aim guide: long / short / off', onclick: (e) => { guide = guide === 'long' ? 'short' : guide === 'short' ? 'off' : 'long'; try { localStorage.setItem('gn.pool.guide', guide); } catch { /* */ } e.currentTarget.classList.toggle('on', guide !== 'off'); api.toast('Aim guide: ' + guide); } }, icon('visibility')));
-  const bar = h('div.pl-bar', h('div.pl-power', h('b', 'Power'), slider), h('div', spinEl, h('div.pl-lbl', 'Spin')), h('div', fine, h('div.pl-lbl', 'Fine aim')), shootBtn);
+  const guideBtn = h('button.g', { 'aria-label': 'Aim guide', onclick: () => { guide = guide === 'long' ? 'short' : guide === 'short' ? 'off' : 'long'; try { localStorage.setItem('gn.pool.guide', guide); } catch { /* */ } guideBtn.textContent = 'Guide ' + guide; } }, 'Guide ' + guide);
+  const fine = h('div.pl-fine', h('button', { 'aria-label': 'Aim a little left', onpointerdown: () => nudge(-1) }, icon('chevron_left')), h('button', { 'aria-label': 'Aim a little right', onpointerdown: () => nudge(1) }, icon('chevron_right')), guideBtn);
+  const bar = h('div.pl-bar', h('div', spinEl), pullEl, fine);
+  // pull back and let go: the distance you pull is the power; letting go near the start cancels
+  let pulling = null;
+  const pullTo = (e) => {
+    const r = pullEl.getBoundingClientRect();
+    const d = clamp((pulling.x0 - e.clientX) / (r.width * 0.78), 0, 1);
+    power = d;
+    pullFill.style.width = d * 100 + '%';
+    pullEl.style.setProperty('--pull', -d * (r.width * 0.55) + 'px');
+    pullLbl.textContent = d < 0.03 ? 'Pull back to shoot' : Math.round(d * 100) + '%';
+    pullEl.setAttribute('aria-valuenow', Math.round(d * 100));
+    sendAim();
+  };
+  pullEl.addEventListener('pointerdown', (e) => { if (!myTurn()) return; e.preventDefault(); pullEl.setPointerCapture(e.pointerId); pulling = { x0: e.clientX }; pullEl.classList.add('on'); power = 0; pullTo(e); });
+  pullEl.addEventListener('pointermove', (e) => { if (pulling) pullTo(e); });
+  const release = () => {
+    if (!pulling) return;
+    pulling = null; pullEl.classList.remove('on');
+    pullFill.style.width = '0'; pullEl.style.setProperty('--pull', '0px'); pullLbl.textContent = 'Pull back to shoot';
+    if (power >= 0.03 && myTurn()) { lastPower = power; shoot(); } else { power = lastPower; sendAim(); }
+  };
+  pullEl.addEventListener('pointerup', release); pullEl.addEventListener('pointercancel', release);
   const wrap = h('div.pl-wrap', canvas);
   api.root.append(h('style', CSS), h('div.pl', h('div.pl-top', teamEls), msgEl, wrap, bar));
 
@@ -145,21 +172,39 @@ export function start(api) {
     for (const t of rails) if (t > 0 && t < best.t) best = { t, ball: null };
     return best;
   }
-  function drawCue(cx, cy, a, back, alpha, now) {
+  // The cue, drawn as a real two-piece stick: blue-chalked tip, ivory ferrule, maple shaft, steel joint, ebony forearm with
+  // inlaid points, a linen wrap, and a butt sleeve with rings; cylinder shading across it and a soft shadow on the cloth.
+  const CUE_L = 560, TIP = 3.3, BUTT = 8.6;
+  const cueW = (u) => TIP + (BUTT - TIP) * Math.pow(u, 0.9); // radius at fraction u from the tip
+  function drawCue(cx, cy, a, back, alpha) {
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(a); ctx.globalAlpha = alpha;
-    const L = 400, x0 = -back, x1 = -back - L, tipW = 2.1, buttW = 5.6;
-    const poly = () => { ctx.beginPath(); ctx.moveTo(x0, -tipW); ctx.lineTo(x1, -buttW); ctx.lineTo(x1, buttW); ctx.lineTo(x0, tipW); ctx.closePath(); };
-    ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.13)'; for (const [ox, oy] of [[3, 5], [5, 8]]) { ctx.save(); ctx.translate(ox, oy); poly(); ctx.fill(); ctx.restore(); } ctx.restore(); // soft shadow on the cloth
-    const g = ctx.createLinearGradient(0, -buttW, 0, buttW); // cylinder shading across the stick
-    g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(0.3, 'rgba(255,255,255,0)'); g.addColorStop(0.75, 'rgba(0,0,0,.18)'); g.addColorStop(1, 'rgba(0,0,0,.4)');
-    const along = ctx.createLinearGradient(x0, 0, x1, 0);
-    along.addColorStop(0, '#f2dfb2'); along.addColorStop(0.5, '#e7c98c'); along.addColorStop(0.62, '#e0bf80'); along.addColorStop(0.63, '#3b2616'); along.addColorStop(0.96, '#24150b'); along.addColorStop(1, '#101010');
-    ctx.fillStyle = along; poly(); ctx.fill();
-    ctx.save(); poly(); ctx.clip(); ctx.fillStyle = g; ctx.fillRect(x1, -buttW, L, buttW * 2);
-    ctx.fillStyle = '#d8b25a'; ctx.fillRect(x0 - L * 0.63 - 3, -buttW, 3, buttW * 2); ctx.fillRect(x0 - L * 0.9, -buttW, 2, buttW * 2); // gold rings
+    const x0 = -back, L = CUE_L;
+    const X = (u) => x0 - u * L;
+    const body = (u0, u1) => { ctx.beginPath(); ctx.moveTo(X(u0), -cueW(u0)); ctx.lineTo(X(u1), -cueW(u1)); ctx.lineTo(X(u1), cueW(u1)); ctx.lineTo(X(u0), cueW(u0)); ctx.closePath(); };
+    // shadow on the cloth, thrown away from the light
+    ctx.save(); ctx.translate(-light[0] * 7 * Math.cos(a) - light[1] * 7 * Math.sin(a), light[0] * 7 * Math.sin(a) - light[1] * 7 * Math.cos(a));
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.filter = 'blur(3px)'; body(0, 1); ctx.fill(); ctx.filter = 'none'; ctx.restore();
+    const part = (u0, u1, fill) => { ctx.fillStyle = fill; body(u0, u1); ctx.fill(); };
+    part(0, 0.004, '#3d8fd6'); // tip
+    part(0.004, 0.022, '#f3eee0'); // ferrule
+    const maple = ctx.createLinearGradient(X(0.022), 0, X(0.5), 0); maple.addColorStop(0, '#efdcb0'); maple.addColorStop(1, '#d9b67a');
+    part(0.022, 0.5, maple); // shaft
+    part(0.5, 0.508, '#cfd4d8'); // joint collar
+    part(0.508, 0.72, '#1d1612'); // ebony forearm
+    // inlaid points (four long ivory diamonds pointing at the tip; two show from above)
+    ctx.fillStyle = '#ece3cf';
+    for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.moveTo(X(0.53), sgn * cueW(0.53) * 0.12); ctx.lineTo(X(0.65), sgn * cueW(0.65) * 0.75); ctx.lineTo(X(0.705), sgn * cueW(0.705) * 0.12); ctx.closePath(); ctx.fill(); }
+    part(0.716, 0.722, '#cfd4d8');
+    part(0.722, 0.9, '#2b2a2a'); // wrap
+    ctx.save(); body(0.722, 0.9); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 0.8;
+    for (let u = 0.725; u < 0.9; u += 0.006) { ctx.beginPath(); ctx.moveTo(X(u), -BUTT); ctx.lineTo(X(u) - 3, BUTT); ctx.stroke(); } ctx.restore();
+    part(0.9, 0.905, '#cfd4d8'); part(0.905, 0.99, '#1d1612'); part(0.94, 0.944, '#cfd4d8'); part(0.99, 1, '#0b0b0b');
+    // the cylinder: lit along the top edge, shadowed underneath
+    ctx.save(); body(0, 1); ctx.clip();
+    const cyl = ctx.createLinearGradient(0, -BUTT, 0, BUTT);
+    cyl.addColorStop(0, 'rgba(0,0,0,.25)'); cyl.addColorStop(0.3, 'rgba(255,255,255,.35)'); cyl.addColorStop(0.42, 'rgba(255,255,255,.08)'); cyl.addColorStop(0.75, 'rgba(0,0,0,.22)'); cyl.addColorStop(1, 'rgba(0,0,0,.5)');
+    ctx.fillStyle = cyl; ctx.fillRect(X(1), -BUTT, L + 4, BUTT * 2);
     ctx.restore();
-    ctx.fillStyle = '#f8f8f4'; ctx.fillRect(x0 - 9, -tipW - 0.2, 9, tipW * 2 + 0.4); // ferrule
-    ctx.fillStyle = '#4aa3e8'; ctx.beginPath(); ctx.roundRect(x0 - 1.5, -tipW, 3.4, tipW * 2, 1); ctx.fill(); // chalked tip
     ctx.restore();
   }
   function draw(dt, now) {
@@ -186,19 +231,20 @@ export function start(api) {
     if (cue && !cue.in && S.phase === 'aim' && (mine || showRemote)) {
       const a = mine ? aimNow.a : remote.a;
       const dx = Math.cos(a), dy = Math.sin(a);
-      stick = { a, pw: mine ? power : remote.p };
+      stick = { a, pw: mine ? (pulling ? power : 0.04) : remote.p };
       if (guide !== 'off' || !mine) {
         const hit = raycast(cue, dx, dy);
         const reach = guide === 'short' && mine ? Math.min(hit.t, 260) : hit.t;
         const ex = cue.rx + dx * reach, ey = cue.ry + dy * reach;
-        ctx.setLineDash([9, 7]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(cue.rx + dx * R, cue.ry + dy * R); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(cue.rx + dx * R, cue.ry + dy * R); ctx.lineTo(ex - dx * R, ey - dy * R); ctx.stroke();
         if (reach === hit.t) {
           ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(ex, ey, R, 0, 7); ctx.fill();
           ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ex, ey, R, 0, 7); ctx.stroke();
           if (hit.ball) {
             const nx = hit.ball.rx - ex, ny = hit.ball.ry - ey, nl = Math.hypot(nx, ny) || 1;
-            ctx.strokeStyle = 'rgba(255,214,100,.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(hit.ball.rx, hit.ball.ry); ctx.lineTo(hit.ball.rx + (nx / nl) * 90, hit.ball.ry + (ny / nl) * 90); ctx.stroke();
+            const ox = hit.ball.rx + (nx / nl) * R, oy = hit.ball.ry + (ny / nl) * R, ol = 70 + 90 * Math.max(0, (dx * nx + dy * ny) / nl);
+            ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + (nx / nl) * ol, oy + (ny / nl) * ol); ctx.stroke();
             const ux = nx / nl, uy = ny / nl, dot = dx * ux + dy * uy;
             let tx = dx - dot * ux, ty = dy - dot * uy; const tl = Math.hypot(tx, ty);
             if (tl > 0.05) { tx /= tl; ty /= tl; ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + tx * 60 * tl, ey + ty * 60 * tl); ctx.stroke(); }
@@ -234,15 +280,18 @@ export function start(api) {
       ctx.save(); ctx.globalAlpha = 1 - e * e; ctx.drawImage(b.img, x - sz / 2, y - sz / 2, sz, sz); ctx.restore();
       ctx.fillStyle = `rgba(0,0,0,${0.5 * e})`; ctx.beginPath(); ctx.arc(x, y, R * sc, 0, 7); ctx.fill();
     }
+    ctx.restore();
+    // the cue lies over the rails, so it's drawn outside the cloth's clip
+    ctx.save(); ctx.translate(M, M);
     // the cue: aiming (with a slow breath), or swinging into the ball
     if (stroke) {
-      const t = now - stroke.t0, back0 = R + 8 + stroke.p * 90;
+      const t = now - stroke.t0, back0 = R + 6 + stroke.p * 130;
       if (t >= STRIKE_MS && !stroke.hit) { stroke.hit = true; api.sfx('cue', stroke.p); }
       let back, alpha = 1;
       if (t < STRIKE_MS) { const u = t / STRIKE_MS; back = back0 + (R + 0.5 - back0) * (u * u * (3 - 2 * u * 0.4)); } else { back = R + 0.5 - (t - STRIKE_MS) * 0.014; alpha = clamp(1 - (t - STRIKE_MS - 90) / 260, 0, 1); }
-      if (t > STRIKE_MS + 360) stroke = null; else if (cue) drawCue(stroke.x, stroke.y, stroke.a, back, alpha, now);
+      if (t > STRIKE_MS + 360) stroke = null; else if (cue) drawCue(stroke.x, stroke.y, stroke.a, back, alpha);
     } else if (stick && cue) {
-      drawCue(cue.rx, cue.ry, stick.a, R + 6 + stick.pw * 90 + (mine ? Math.sin(now / 300) * 1.4 : 0), 1, now);
+      drawCue(cue.rx, cue.ry, stick.a, R + 6 + stick.pw * 130 + (mine && !pulling ? Math.sin(now / 300) * 1.4 : 0), 1);
     }
     if (mine && S.inHand && cue) {
       ctx.strokeStyle = '#ffc857'; ctx.lineWidth = 3; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(cue.rx, cue.ry, R + 7, 0, 7); ctx.stroke(); ctx.setLineDash([]);
@@ -252,23 +301,25 @@ export function start(api) {
   }
   api.raf((dt, now) => draw(dt, now));
 
-  const miniBall = (id) => {
+  const miniBall = (id, gone) => {
     const col = colorOf(id), stripe = id > 8;
-    return h('span.pl-mini', { style: { background: stripe ? `linear-gradient(#f6f3ea 26%, ${col} 26% 74%, #f6f3ea 74%)` : col, color: id === 8 ? '#fff' : '#111' } }, h('i', { style: id === 8 ? { background: '#fff' } : {} }, String(id)));
+    return h('span.pl-mini' + (gone ? '.gone' : ''), { style: { background: stripe ? `linear-gradient(#f6f3ea 27%, ${col} 27% 73%, #f6f3ea 73%)` : col } }, id === 8 ? null : h('i'));
   };
+  const GROUP = { solid: [1, 2, 3, 4, 5, 6, 7], stripe: [9, 10, 11, 12, 13, 14, 15] };
   function renderHud() {
     for (let t = 0; t < 2; t++) {
       const g = S.groups[t];
-      const own = S.pocketed[t];
+      const potted = new Set(S.pocketed[t]);
+      const tray = g ? [...GROUP[g].map((id) => miniBall(id, potted.has(id))), GROUP[g].every((id) => potted.has(id)) ? miniBall(8, false) : null] : Array.from({ length: 7 }, () => h('span.pl-mini.slot'));
       teamEls[t].classList.toggle('turn', S.team === t && !S.over);
       teamEls[t].replaceChildren(
-        h('div.tn', h('span.nm', teams[t].map((id) => (api.player(id)?.name || '?') + (id === api.me ? ' (you)' : '')).join(' & ')), h('span.chip', g ? (g === 'solid' ? 'Solids' : 'Stripes') : 'Open')),
-        h('div.pl-tray', own.map((id) => miniBall(id)))
+        h('div.tn', h('span.nm', teams[t].map((id) => (api.player(id)?.name || '?') + (id === api.me ? ' (you)' : '')).join(' & ')), h('span.gp', g ? (g === 'solid' ? 'Solids' : 'Stripes') : '')),
+        h('div.pl-tray', tray)
       );
     }
     const sh = api.player(S.shooter);
-    msgEl.textContent = S.over ? S.msg : S.phase === 'sim' ? '' : (S.shooter === api.me ? (S.inHand ? 'Ball in hand — place the cue ball' : 'Your shot') : `${sh?.name || '?'} is shooting…`) + (S.msg ? '  ' + S.msg : '');
-    bar.style.display = myTurn() ? '' : 'none';
+    msgEl.textContent = S.over ? S.msg : S.phase === 'sim' ? '' : (S.shooter === api.me ? (S.inHand ? 'Ball in hand — drag the cue ball' : 'Your shot') : `${sh?.name || '?'} is shooting…`) + (S.msg ? '  ' + S.msg : '');
+    bar.style.visibility = myTurn() ? '' : 'hidden';
   }
 
   // ------------------------------------------------------------ input
@@ -284,7 +335,7 @@ export function start(api) {
     const now = performance.now();
     if (now - lastAimSent < 90) return;
     lastAimSent = now;
-    api.toHost('aim', { a: aimNow.a, p: power });
+    api.toHost('aim', { a: aimNow.a, p: pulling ? power : 0.04 });
   }
   function setAimFrom(pt) {
     const cue = cueBall();
@@ -319,8 +370,8 @@ export function start(api) {
   api.listen(window, 'keydown', (e) => {
     if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
     if ((e.key === ' ' || e.key === 'Enter') && myTurn()) { e.preventDefault(); shoot(); }
-    if (e.key === 'ArrowUp' && myTurn()) { power = clamp(power + 0.05, 0.08, 1); slider.value = power * 100; }
-    if (e.key === 'ArrowDown' && myTurn()) { power = clamp(power - 0.05, 0.08, 1); slider.value = power * 100; }
+    if (e.key === 'ArrowUp' && myTurn()) { power = lastPower = clamp(power + 0.05, 0.08, 1); sendAim(); api.toast('Power ' + Math.round(power * 100) + '%'); }
+    if (e.key === 'ArrowDown' && myTurn()) { power = lastPower = clamp(power - 0.05, 0.08, 1); sendAim(); api.toast('Power ' + Math.round(power * 100) + '%'); }
     if (e.key === 'ArrowLeft' && myTurn()) { aimNow.a -= e.shiftKey ? 0.002 : 0.01; sendAim(); }
     if (e.key === 'ArrowRight' && myTurn()) { aimNow.a += e.shiftKey ? 0.002 : 0.01; sendAim(); }
   });

@@ -10,15 +10,15 @@ const EVIL = { 5: 2, 6: 2, 7: 3, 8: 3, 9: 3, 10: 4 };
 const ROLE = { merlin: ['Merlin', '🧙', 'You know who the Shadows are. Guide the heroes — quietly!'], hero: ['Loyal Hero', '🛡️', 'Help three quests succeed.'], assassin: ['Assassin', '🗡️', 'You’re a Shadow. If the heroes win, name Merlin to steal the victory.'], shadow: ['Shadow', '🌑', 'Sabotage quests — without getting caught.'] };
 
 const CSS = `
-.sq-role { border-radius:26px; padding:14px 16px; display:flex; gap:14px; align-items:center; cursor:pointer; color:#fff; background:linear-gradient(145deg, #1a73e8, #0b3f8f); box-shadow:var(--e2); user-select:none; }
-.sq-role.evil { background:linear-gradient(145deg, #5e35b1, #1a0a3a); }
+.sq-role { border-radius:var(--r); padding:14px 16px; display:flex; gap:14px; align-items:center; cursor:pointer; color:#fff; background:#1E88E5; box-shadow:var(--e2); user-select:none; }
+.sq-role.evil { background:#4527A0; }
 .sq-role .em { font-size:40px; } .sq-role b { font:800 20px var(--font); display:block; } .sq-role small { opacity:.9; line-height:1.3; display:block; }
 .sq-track { display:flex; gap:8px; justify-content:center; }
 .sq-q { width:54px; height:54px; border-radius:50%; display:grid; place-items:center; background:var(--s2); font:800 20px var(--font); color:var(--on2); position:relative; }
 .sq-q.cur { box-shadow:0 0 0 3px var(--yellow); } .sq-q.ok { background:var(--green); color:#fff; } .sq-q.bad { background:var(--red); color:#fff; }
 .sq-q small { position:absolute; bottom:-16px; font:600 10px var(--font); color:var(--on3); }
 .sq-pl { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; }
-.sq-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:20px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:4px; position:relative; font:600 14px var(--font); color:var(--on); cursor:default; }
+.sq-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px; display:flex; flex-direction:column; align-items:center; gap:4px; position:relative; font:600 14px var(--font); color:var(--on); cursor:default; }
 .sq-p.sel { border-color:var(--blue); background:var(--blue-c); } .sq-p.leader::after { content:'👑'; position:absolute; top:-6px; right:-2px; font-size:20px; }
 .sq-p.click { cursor:pointer; }
 .sq-strip { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; } .sq-s { position:relative; display:flex; align-items:center; gap:6px; background:var(--surface); box-shadow:var(--e1); border-radius:999px; padding:3px 12px 3px 4px; font:600 13px var(--font); border:2px solid transparent; } .sq-s.sel { border-color:var(--blue); background:var(--blue-c); } .sq-s.leader::after { content:'👑'; position:absolute; top:-9px; right:-2px; font-size:16px; }

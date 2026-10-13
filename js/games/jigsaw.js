@@ -63,11 +63,11 @@ function edgeTo(ctx, x0, y0, x1, y1, s) {
 const CSS = `
 .jg { flex:1; display:flex; flex-direction:column; min-height:0; padding:6px; gap:6px; }
 .jg-bar { display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; font:700 13px var(--font); }
-.jg-wrap { flex:1; min-height:0; position:relative; border-radius:22px; overflow:hidden; box-shadow:var(--e2); background:#3b5b4a; touch-action:none; }
+.jg-wrap { flex:1; min-height:0; position:relative; border-radius:var(--r); overflow:hidden; box-shadow:var(--e2); background:#3b5b4a; touch-action:none; }
 .jg-wrap canvas { width:100%; height:100%; display:block; touch-action:none; }
-.jg-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; } .jg-zoom button { width:40px; height:40px; border-radius:12px; border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
+.jg-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; } .jg-zoom button { width:40px; height:40px; border-radius:var(--r); border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
 .jg-pick { text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; max-width:420px; margin:auto; }
-.jg-pick .pv { width:100%; border-radius:20px; box-shadow:var(--e2); }
+.jg-pick .pv { width:100%; border-radius:var(--r); box-shadow:var(--e2); }
 `;
 
 export function start(api) {

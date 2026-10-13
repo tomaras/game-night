@@ -15,12 +15,12 @@ const LETTERS = 'ABCDEFGHIJKLMNOPRSTW'.split('');
 const norm = (s) => String(s).toLowerCase().replace(/^(the|a|an)\s+/, '').replace(/[^a-z0-9]/g, '');
 
 const CSS = `
-.ld2-letter { width:104px; height:104px; margin:0 auto; border-radius:34px; display:grid; place-items:center; font:800 64px var(--font); color:#fff; background:linear-gradient(145deg, var(--blue), var(--purple)); box-shadow:0 12px 28px rgba(26,115,232,.35); animation:ktpop .5s both; }
+.ld2-letter { width:104px; height:104px; margin:0 auto; border-radius:var(--r); display:grid; place-items:center; font:800 64px var(--font); color:#fff; background:var(--primary); box-shadow:0 12px 28px rgba(26,115,232,.35); animation:ktpop .5s both; }
 .ld2-list { display:flex; flex-direction:column; gap:10px; }
 .ld2-cat { display:flex; flex-direction:column; gap:4px; }
 .ld2-cat label { font:700 13px var(--font); color:var(--on2); padding-left: 6px; }
 .ld2-cat input { font-weight:600; }
-.ld2-rev { background:var(--surface); box-shadow:var(--e1); border-radius:22px; padding:12px 14px; }
+.ld2-rev { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px 14px; }
 .ld2-rev h4 { margin:0 0 8px; font:700 15px var(--font); }
 .ld2-ans { display:flex; align-items:center; gap:8px; padding:4px 0; }
 .ld2-ans button { margin-left:auto; border:0; background:var(--s2); border-radius:999px; padding:6px 12px; font:700 12px var(--font); cursor:pointer; color:var(--on2); display:flex; gap:4px; align-items:center; }

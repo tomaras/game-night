@@ -25,7 +25,7 @@ const CSS = `
 .rt-bar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; }
 .rt-info { color:var(--muted); font-size:13px; text-align:center; max-width:640px; }
 .rt-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; width:100%; max-width:760px; }
-.rt-rom { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; text-align:left; cursor:pointer; color:var(--text); }
+.rt-rom { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px; text-align:left; cursor:pointer; color:var(--text); }
 .rt-rom:hover { border-color:var(--accent); background:var(--panel2); }
 .rt-rom b { display:block; font-size:16px; } .rt-rom span { font-size:12.5px; color:var(--muted); }
 .rt-unmute { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); }

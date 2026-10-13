@@ -22,17 +22,17 @@ const BASE = ['wolf', 'wolf', 'seer', 'robber', 'troublemaker', 'villager', 'dru
 
 const CSS = `
 .ow { gap:10px; background:transparent; }
-.ow.night { background:radial-gradient(circle at 50% 0%, #283593, #0d1033 70%); color:#e8eaf6; border-radius:0; }
+.ow.night { background:#1A237E; color:#e8eaf6; border-radius:0; }
 .ow.night .kt-card { background:rgba(255,255,255,.08); color:#e8eaf6; box-shadow:none; } .ow.night .kt-hint { color:#9fa8da; } .ow.night .kt-title { color:#9fa8da; }
-.ow-role { border-radius:28px; padding:18px; text-align:center; color:#fff; background:linear-gradient(150deg, var(--rc), color-mix(in srgb, var(--rc) 55%, #000)); box-shadow:var(--e2); cursor:pointer; user-select:none; }
+.ow-role { border-radius:var(--r); padding:18px; text-align:center; color:#fff; background:var(--rc); box-shadow:var(--e2); cursor:pointer; user-select:none; }
 .ow-role .em { font-size:60px; line-height:1; display:block; } .ow-role b { font:800 24px var(--font); display:block; margin:4px 0; } .ow-role small { opacity:.9; font:500 14px/1.35 var(--font); display:block; }
-.ow-role.cover { background:linear-gradient(150deg,#5c6bc0,#283593); } .ow-role.cover .em { font-size:44px; }
+.ow-role.cover { background:#3F51B5; } .ow-role.cover .em { font-size:44px; }
 .ow-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px,1fr)); gap:8px; }
-.ow-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:20px; padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; font:700 13px var(--font); color:var(--on); cursor:pointer; position:relative; }
-.ow.night .ow-p { background:rgba(255,255,255,.1); color:#fff; box-shadow:none; } .ow-p.sel { border-color:var(--yellow); background:var(--yellow-c); color:var(--on); } .ow-p.dead { opacity:.5; } .ow-p .vc { position:absolute; top:-8px; right:-4px; background:var(--red); color:#fff; border-radius:12px; font:800 12px var(--font); padding:2px 8px; }
-.ow-ctr { display:flex; gap:10px; justify-content:center; } .ow-cc { width:70px; height:96px; border-radius:14px; background:linear-gradient(145deg,#5c6bc0,#283593); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; font:800 12px var(--font); cursor:pointer; border:3px solid transparent; box-shadow:var(--e1); } .ow-cc.sel { border-color:var(--yellow); } .ow-cc .em { font-size:28px; }
-.ow-info { background:var(--blue-c); color:var(--blue-d); border-radius:18px; padding:12px 14px; font:600 14px/1.45 var(--font); } .ow.night .ow-info { background:rgba(255,255,255,.12); color:#e8eaf6; }
-.ow-res { display:flex; align-items:center; gap:8px; background:var(--surface); box-shadow:var(--e1); border-radius:16px; padding:8px 10px; font:700 13px var(--font); } .ow-res.win { background:var(--green-c); } .ow-res .r { margin-left:auto; text-align:right; } .ow-res .r small { display:block; color:var(--on2); font:600 11px var(--font); }
+.ow-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; font:700 13px var(--font); color:var(--on); cursor:pointer; position:relative; }
+.ow.night .ow-p { background:rgba(255,255,255,.1); color:#fff; box-shadow:none; } .ow-p.sel { border-color:var(--yellow); background:var(--yellow-c); color:var(--on); } .ow-p.dead { opacity:.5; } .ow-p .vc { position:absolute; top:-8px; right:-4px; background:var(--red); color:#fff; border-radius:var(--r); font:800 12px var(--font); padding:2px 8px; }
+.ow-ctr { display:flex; gap:10px; justify-content:center; } .ow-cc { width:70px; height:96px; border-radius:var(--card-r); background:#3F51B5; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; font:800 12px var(--font); cursor:pointer; border:3px solid transparent; box-shadow:var(--e1); } .ow-cc.sel { border-color:var(--yellow); } .ow-cc .em { font-size:28px; }
+.ow-info { background:var(--blue-c); color:var(--blue-d); border-radius:var(--r); padding:12px 14px; font:600 14px/1.45 var(--font); } .ow.night .ow-info { background:rgba(255,255,255,.12); color:#e8eaf6; }
+.ow-res { display:flex; align-items:center; gap:8px; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 10px; font:700 13px var(--font); } .ow-res.win { background:var(--green-c); } .ow-res .r { margin-left:auto; text-align:right; } .ow-res .r small { display:block; color:var(--on2); font:600 11px var(--font); }
 `;
 
 export function start(api) {

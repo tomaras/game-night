@@ -19,7 +19,7 @@ const PROMPTS = [
 
 const CSS = `
 .qc-duel { display:grid; gap:12px; }
-.qc-ans { display:block; width:100%; text-align:left; border:3px solid transparent; background:var(--surface); box-shadow:var(--e2); border-radius:26px; padding:20px 20px; font:700 clamp(18px, 4.6vw, 24px)/1.3 var(--font); cursor:pointer; transition:.15s; color:var(--on); }
+.qc-ans { display:block; width:100%; text-align:left; border:3px solid transparent; background:var(--surface); box-shadow:var(--e2); border-radius:var(--r); padding:20px 20px; font:700 clamp(18px, 4.6vw, 24px)/1.3 var(--font); cursor:pointer; transition:.15s; color:var(--on); }
 .qc-ans:hover:not(:disabled) { border-color:var(--blue); }
 .qc-ans.sel { border-color:var(--blue); background:var(--blue-c); }
 .qc-ans.win { border-color:var(--yellow); background:var(--yellow-c); }

@@ -33,18 +33,31 @@ export function logoMark() {
   return svg;
 }
 
-// ------------------------------------------------------------------ ripple
+// ------------------------------------------------------------------ ink
+// Material ink: a ripple grows from the finger while it's down and fades when it lifts.
+// Round controls (icon buttons, the FAB) get a ripple that fills the circle from its centre.
+const INK = '.btn, .iconbtn, .gcard, .fchip, .cchip, .menu button, .seg button, .navitem, .ditem, .dprofile, .numchip, .kt-choice, .rcard, .mmain, .mcard, .ptab, .csb, .avarrow, .fabmain, .fabitem .mini, .chatsend, .codechip, .pfilter, .vposter, .joinpill .go, .profilechip, [data-ink]';
+const ROUND = '.iconbtn, .fabmain, .fabitem .mini, .chatsend, .avarrow';
 export function installRipples() {
   document.addEventListener('pointerdown', (e) => {
-    const el = e.target.closest?.('.btn, .gcard, .fchip, .menu button, .seg button');
-    if (!el || el.disabled) return;
+    if (e.button > 0) return;
+    const el = e.target.closest?.(INK);
+    if (!el || el.disabled || el.closest('[data-noink]')) return;
     const r = el.getBoundingClientRect();
-    const size = Math.max(r.width, r.height) * 2;
-    const s = h('span.ripple', { style: { width: size + 'px', height: size + 'px', left: e.clientX - r.left - size / 2 + 'px', top: e.clientY - r.top - size / 2 + 'px' } });
-    if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
-    el.style.overflow = 'hidden';
+    const round = el.matches(ROUND);
+    const x = round ? r.width / 2 : e.clientX - r.left, y = round ? r.height / 2 : e.clientY - r.top;
+    const size = round ? Math.max(r.width, r.height) : 2 * Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y));
+    const s = h('span.ink', { style: { width: size + 'px', height: size + 'px', left: x - size / 2 + 'px', top: y - size / 2 + 'px' } });
+    const cs = getComputedStyle(el);
+    if (cs.position === 'static') el.style.position = 'relative';
+    if (!round && cs.overflow !== 'hidden') el.style.overflow = 'hidden';
     el.appendChild(s);
-    setTimeout(() => s.remove(), 650);
+    const born = performance.now();
+    const up = () => {
+      removeEventListener('pointerup', up); removeEventListener('pointercancel', up); el.removeEventListener('pointerleave', up);
+      setTimeout(() => { s.classList.add('up'); setTimeout(() => s.remove(), 900); }, Math.max(0, 160 - (performance.now() - born)));
+    };
+    addEventListener('pointerup', up); addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
   }, { passive: true });
 }
 

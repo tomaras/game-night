@@ -15,7 +15,7 @@ const CSS = `
 .wb-syl { position:relative; font:900 clamp(44px, 14vw, 76px)/1 var(--font); color:#fff; letter-spacing:2px; text-shadow:0 3px 0 rgba(0,0,0,.4); margin-top:6%; }
 @keyframes wbshake { 0%, 100% { transform:translate(0,0); } 25% { transform:translate(-2px, 1px); } 75% { transform:translate(2px, -1px); } }
 .wb-ring { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-.wb-p { background:var(--surface); box-shadow:var(--e1); border-radius:22px; padding:8px 10px; min-width:96px; display:flex; flex-direction:column; align-items:center; gap:2px; border:3px solid transparent; transition:.15s; }
+.wb-p { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 10px; min-width:96px; display:flex; flex-direction:column; align-items:center; gap:2px; border:3px solid transparent; transition:.15s; }
 .wb-p.turn { border-color:var(--red); transform:scale(1.06); }
 .wb-p.out { opacity:.35; }
 .wb-p .nm { font:700 13px var(--font); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
