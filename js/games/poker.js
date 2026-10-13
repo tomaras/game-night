@@ -47,9 +47,10 @@ function bestHand(cards) {
 }
 
 const CSS = `
-.pk { flex:1; display:flex; flex-direction:column; min-height:0; padding:6px 8px 8px; gap:6px; overflow-y:auto; }
+.pk { flex:1; display:flex; flex-direction:column; min-height:0; padding:6px 8px calc(8px + var(--sab)); gap:6px; overflow-y:auto; background:#1b1d1f; color:#fff; }
 .pk-table { position:relative; width:100%; max-width:980px; margin:0 auto; aspect-ratio:1.85; min-height:300px; flex:none; }
-.pk-felt { position:absolute; inset:9% 5%; border-radius:50%; background:radial-gradient(ellipse at center, #2fa66a 0%, #14754a 72%); border:10px solid #7a4e2a; box-shadow:0 10px 30px rgba(31,41,55,.22), inset 0 0 40px rgba(0,0,0,.35); }
+.pk-felt { position:absolute; inset:9% 5%; border-radius:999px; background:radial-gradient(ellipse at 50% 42%, #2e8a52 0%, #1f6e40 55%, #155530 100%); border:12px solid #4a2c17; box-shadow:0 0 0 2px #2a1a0e, 0 18px 40px rgba(0,0,0,.6), inset 0 0 0 3px rgba(255,255,255,.06), inset 0 8px 30px rgba(0,0,0,.45); }
+.pk-felt::after { content:''; position:absolute; inset:10%; border-radius:999px; border:1.5px solid rgba(255,255,255,.08); }
 .pk-center { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:6px; z-index:2; }
 .pk-board { display:flex; gap:5px; min-height:70px; }
 .pk-pot { background:rgba(0,0,0,.4); color:#ffe9a8; border-radius:999px; padding:3px 14px; font-weight:900; font-size:15px; }
@@ -70,10 +71,10 @@ const CSS = `
 .pk-bar { height:4px; border-radius:2px; background:#ffc857; margin-top:2px; transition:width .25s linear; }
 .pk-me { display:flex; flex-direction:column; align-items:center; gap:8px; }
 .pk-mycards { display:flex; gap:8px; } .pk-mycards .pc { --w:66px; } .pk-board .pc { --w:46px; } .pk-hole .pc { --w:31px; }
-.pk-act { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; background:var(--panel); box-shadow:var(--e2); border-radius:var(--r); padding:10px 12px; width:100%; max-width:760px; margin:0 auto; }
+.pk-act { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; background:#2a2d31; box-shadow:var(--e2); border-radius:var(--r); padding:10px 12px; width:100%; max-width:760px; margin:0 auto; }
 .pk-act input[type=range] { flex:1; min-width:140px; accent-color:#ffc857; }
-.pk-msg { text-align:center; font-weight:800; min-height:22px; }
-.pk-hn { font-size:12px; color:var(--on2); text-align:center; }
+.pk-msg { text-align:center; font-weight:500; min-height:22px; }
+.pk-hn { font-size:12px; color:rgba(255,255,255,.6); text-align:center; }
 @media (max-width:640px) {
   .pk-table { aspect-ratio:auto; flex:1 1 0; min-height:340px; max-height:600px; }
   .pk-felt { inset:7% 6%; border-width:7px; }
