@@ -1482,6 +1482,9 @@ async function keepAwake() {
 }
 
 function boot() {
+  // updates are wired up FIRST, so a version that fails further down can still be replaced by a fixed one
+  // (a waiting update is applied only when nobody is in the middle of anything)
+  initPwa(() => !S.room && !S.joining && !document.querySelector('.sheet, .dialog, .scrim') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || ''));
   S.headerEl = h('header.top');
   S.view = h('main#view');
   S.chrome = createChrome({
@@ -1513,10 +1516,9 @@ function boot() {
   plaza.on('invite', (inv) => notice({ key: 'inv-' + inv.room, avatar: avatarEl({ avatar: inv.avatar, name: inv.from }, 'sm'), title: `${inv.from} invited you`, text: `Room ${inv.room}${inv.game ? ' · ' + gameName(inv.game) : ''}`, ttl: 25000,
     actions: [{ label: 'Join', primary: true, onClick: () => { if (S.room) toast('Leave your current room first'); else location.hash = '#/room/' + inv.room; } }, { label: 'Not now' }] }));
   if (ENV_TAG) document.body.append(h('div.envpill', ENV_TAG.replace(/[\[\]]/g, '') + ' · ' + CFG.build));
-  // reload for a waiting update only when nobody is in the middle of anything
   refreshBadges();
-  initPwa(() => !S.room && !S.joining && !document.querySelector('.sheet, .dialog, .scrim') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || ''));
   route();
+  window.__gnReady = true; // the boot guard in index.html stops watching
 }
 
 window.__gn = S; // handy for debugging in the console
