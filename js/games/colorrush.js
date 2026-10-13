@@ -19,13 +19,19 @@ const CSS = `
 .cr-opp .sc { font-size:11px; color:var(--muted); }
 .cr-mid { background:radial-gradient(ellipse at 50% 40%, #2fa66a, #14754a 75%); border-radius:32px; box-shadow:inset 0 0 0 6px rgba(255,255,255,.18), var(--e1); flex:1; min-height:150px; display:flex; align-items:center; justify-content:center; gap:26px; position:relative; }
 .cr-card { width:72px; height:106px; border-radius:11px; background:var(--cc); border:4px solid #fff; box-shadow:0 3px 8px rgba(31,41,55,.22); display:grid; place-items:center; font-weight:900; font-size:34px; color:#fff; position:relative; flex:none; user-select:none; text-shadow:0 2px 3px rgba(0,0,0,.4); }
-.cr-card::before { content:''; position:absolute; inset:9px 6px; border-radius:50%; background:rgba(0,0,0,.08); transform:rotate(25deg); }
+.cr-card::before { content:''; position:absolute; inset:11px 5px; border-radius:50%; background:#fff; transform:rotate(24deg); box-shadow:inset 0 0 0 2px rgba(0,0,0,.08); }
+.cr-card > span { color:var(--cc); text-shadow:1.5px 1.5px 0 rgba(0,0,0,.28); font-style:italic; }
+.cr-card.w > span { color:#222; text-shadow:none; }
+.cr-card.w::before { background:conic-gradient(#e5383b 0 25%, #2f6fed 0 50%, #2b9348 0 75%, #f6b400 0); }
+.cr-card.w > span { color:#fff; text-shadow:0 2px 3px rgba(0,0,0,.6); }
+.cr-card { border-width:5px; border-radius:13px; }
 .cr-card i { position:absolute; font-style:normal; font-size:13px; }
 .cr-card i.tl { top:3px; left:6px; } .cr-card i.br { bottom:3px; right:6px; transform:rotate(180deg); }
 .cr-card.w { background:conic-gradient(#e5383b 0 25%, #2f6fed 0 50%, #2b9348 0 75%, #f6b400 0); }
 .cr-card.back { background:#1b1b2f; font-size:15px; color:#fff; }
 .cr-card > span { position:relative; z-index:1; }
-.cr-card.back::before { background:#e5383b; inset:30px 8px; border-radius:50%; }
+.cr-card.back::before { background:#e5383b; inset:28px 6px; border-radius:50%; }
+.cr-card.back > span { color:#ffe14d; font-style:italic; text-shadow:2px 2px 0 #000; }
 .cr-card.pile { cursor:pointer; }
 .cr-card.pile.can { box-shadow:0 0 0 4px #ffc857, 0 3px 8px rgba(0,0,0,.5); animation:pulse 1s infinite; }
 .cr-hand { display:flex; gap:0; padding:20px 10px 8px; overflow-x:auto; min-height:140px; align-items:flex-end; justify-content:safe center; }
@@ -41,7 +47,7 @@ const CSS = `
 .cr-pick .opts { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .cr-pick button { width:110px; height:84px; border-radius:16px; border:4px solid #fff; color:#fff; font-weight:900; font-size:17px; cursor:pointer; text-shadow:0 2px 3px rgba(0,0,0,.4); }
 .cr-log { font-size:12px; color:var(--muted); text-align:center; min-height:16px; }
-@media (max-width:640px) { .cr-card { width:58px; height:86px; font-size:28px; } .cr-hand .cr-card { margin-left:-26px; } .cr-mid { gap:16px; min-height:120px; } .cr-opp { min-width:0; padding:5px 8px; } .cr-opp .nm { max-width:60px; } }
+@media (max-width:640px) { .cr-mid { flex:0 1 300px !important; min-height:200px !important; } .cr-hand .cr-card { width:66px; height:98px; font-size:30px; margin-left:-30px; } .cr-card { width:58px; height:86px; font-size:28px; } .cr-hand .cr-card { margin-left:-26px; } .cr-mid { gap:16px; min-height:120px; } .cr-opp { min-width:0; padding:5px 8px; } .cr-opp .nm { max-width:60px; } }
 `;
 
 export function start(api) {
@@ -247,7 +253,7 @@ export function start(api) {
 
   const cardEl = (c, opts = {}) => {
     const sym = SYM[c.v] || c.v;
-    return h('div.cr-card' + (c.c === 'w' ? '.w' : '') + (opts.cls ? '.' + opts.cls : ''), { style: { '--cc': COLS[c.c] }, onclick: opts.onclick, title: c.c === 'w' ? 'Wild' : COLNAME[c.c] + ' ' + sym }, h('i.tl', sym), sym, h('i.br', sym));
+    return h('div.cr-card' + (c.c === 'w' ? '.w' : '') + (opts.cls ? '.' + opts.cls : ''), { style: { '--cc': COLS[c.c] }, onclick: opts.onclick, title: c.c === 'w' ? 'Wild' : COLNAME[c.c] + ' ' + sym }, h('i.tl', sym), h('span', sym), h('i.br', sym));
   };
   const playableLocal = (c) => c.c === 'w' || c.c === st.color || c.v === st.top.v;
 

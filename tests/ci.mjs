@@ -426,7 +426,10 @@ await test('chess: over the board on one phone — drag and tap moves, clocks, u
   const sq = (s) => p.locator(`[data-sq="${s}"]`);
   const tap = async (a, c) => { await sq(a).click(); await sq(c).click(); await sleep(250); };
   const drag = async (a, c) => { const A = await sq(a).boundingBox(), C = await sq(c).boundingBox(); await p.mouse.move(A.x + A.width / 2, A.y + A.height / 2); await p.mouse.down(); await p.mouse.move(C.x + C.width / 2, C.y + C.height / 2, { steps: 5 }); await p.mouse.up(); await sleep(300); };
-  await tap('e2', 'e4'); await drag('e7', 'e5'); await tap('g1', 'f3');
+  const moves = async (n) => until(async () => (await p.locator('.ch-strip button').count()) === n, 6000, n + ' moves on the board');
+  await tap('e2', 'e4'); await moves(1);
+  await drag('e7', 'e5'); await moves(2);
+  await tap('g1', 'f3'); await moves(3);
   ok((await p.locator('.ch-strip button').allInnerTexts()).join(' ') === 'e4 e5 Nf3', 'moves should be listed');
   ok((await p.locator('.ch-clock').allInnerTexts()).every((t) => /^[45]:/.test(t)), 'clocks should show a 5-minute control');
   await p.click('.ch-ctl button:has-text("Undo")');

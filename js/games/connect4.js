@@ -1,21 +1,37 @@
 // Connect Four — 2 players. Host validates moves; everyone renders the broadcast state.
 import { h } from '../util.js';
 import { thinkMs } from '../bots.js';
+import { avatarEl } from '../avatar.js';
+import { icon } from '../ui.js';
 
 const R = 6, C = 7;
 const CSS = `
-.c4 { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:12px; min-height:0; }
-.c4-status { display:flex; align-items:center; gap:10px; font-weight:800; font-size:20px; min-height:44px; }
-.c4-disc { width:26px; height:26px; border-radius:50%; display:inline-block; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); }
+.c4 { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:10px 12px 14px; min-height:0; --bw:min(94%, calc((100dvh - 330px) * ${C} / ${R + 1}), 520px); }
+.c4-pl { display:flex; gap:8px; width:var(--bw); }
+.c4-p { flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:6px 10px 6px 6px; border-radius:18px; background:var(--surface); box-shadow:var(--e1); border:2.5px solid transparent; transition:border-color .2s, box-shadow .2s, transform .2s; }
+.c4-p.turn { border-color:var(--c); box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 28%, transparent), var(--e1); transform:translateY(-2px); }
+.c4-p .nm { font-weight:800; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .c4-p small { display:block; font:600 11px var(--font); color:var(--on2); }
+.c4-p .c4-disc { margin-left:auto; flex:none; }
+.c4-status { font-weight:800; font-size:17px; min-height:26px; text-align:center; }
+.c4-disc { width:24px; height:24px; border-radius:50%; display:inline-block; box-shadow:inset 0 -3px 0 rgba(0,0,0,.25), inset 0 3px 4px rgba(255,255,255,.35); }
 .c4-disc.p1 { background:#ea4335; } .c4-disc.p2 { background:#fbbc04; }
-.c4-board { position:relative; background:linear-gradient(150deg,#2f7df0,#1558b0); border-radius:18px; padding:10px; display:grid; grid-template-columns:repeat(${C},1fr); gap:8px; width:min(94%, calc((100dvh - 240px) * ${C} / ${R})); box-shadow:0 10px 0 #0f428a, 0 22px 36px rgba(31,41,55,.28); }
+.c4-wrap { width:var(--bw); display:flex; flex-direction:column; gap:4px; }
+.c4-ghosts { display:grid; grid-template-columns:repeat(${C},1fr); gap:8px; padding:0 10px; }
+.c4-g { aspect-ratio:1; border-radius:50%; opacity:0; transform:translateY(6px) scale(.85); transition:opacity .12s, transform .12s; }
+.c4-g.on { opacity:.55; transform:none; } .c4-g.p1 { background:#ea4335; } .c4-g.p2 { background:#fbbc04; }
+.c4-g.hint { opacity:1; transform:none; background:#34a853; animation:pulse .6s infinite; box-shadow:0 0 0 4px rgba(52,168,83,.35); }
+.c4-board { position:relative; background:linear-gradient(150deg,#3b86f5,#1558b0 70%,#0f4a98); border-radius:20px; padding:10px; display:grid; grid-template-columns:repeat(${C},1fr); gap:8px; width:100%; box-shadow:0 14px 30px rgba(21,88,176,.4), inset 0 2px 0 rgba(255,255,255,.35), inset 0 -6px 0 rgba(0,0,0,.22); }
+.c4-board::after { content:''; position:absolute; left:6%; right:6%; bottom:-14px; height:14px; border-radius:0 0 12px 12px; background:linear-gradient(#0f3f84,#0b2f63); z-index:-1; }
 .c4-col { display:grid; grid-template-rows:repeat(${R},1fr); gap:8px; cursor:pointer; border-radius:12px; transition:background .12s; }
-.c4-col.can:hover { background:rgba(0,0,0,.08); }
-.c4-cell { aspect-ratio:1; border-radius:50%; background:#e8f0fe; box-shadow: inset 0 4px 8px rgba(0,0,0,.28); position:relative; }
-.c4-cell.p1::after, .c4-cell.p2::after { content:''; position:absolute; inset:0; border-radius:50%; box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), inset 0 4px 6px rgba(255,255,255,.35); animation: c4drop .45s cubic-bezier(.3,1.3,.5,1); }
-.c4-cell.p1::after { background:#ea4335; } .c4-cell.p2::after { background:#fbbc04; }
-.c4-cell.win::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:4px solid #fff; animation:pulse .8s infinite; z-index:2; }
-@keyframes c4drop { from { transform: translateY(-380%); } }
+.c4-col.can:hover { background:rgba(255,255,255,.1); }
+.c4-cell { aspect-ratio:1; border-radius:50%; background:#dfe9fb; box-shadow:inset 0 5px 9px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.3); position:relative; }
+.c4-cell.p1::after, .c4-cell.p2::after { content:''; position:absolute; inset:0; border-radius:50%; box-shadow:inset 0 -5px 0 rgba(0,0,0,.25), inset 0 4px 6px rgba(255,255,255,.4); animation:c4drop .45s cubic-bezier(.5,0,.8,.4); }
+.c4-cell.p1::after { background:radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,.14) 50% 62%, transparent 64%), #ea4335; } .c4-cell.p2::after { background:radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,0,0,.14) 50% 62%, transparent 64%), #fbbc04; }
+.c4-cell.lastm::before { content:''; position:absolute; left:50%; top:50%; width:22%; height:22%; margin:-11% 0 0 -11%; border-radius:50%; background:rgba(255,255,255,.85); z-index:3; box-shadow:0 0 4px rgba(0,0,0,.3); }
+.c4-cell.win::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:4px solid #fff; animation:pulse .8s infinite; z-index:2; box-shadow:0 0 14px #fff; }
+.c4-ctl { display:flex; gap:8px; }
+.c4-ctl button { height:42px; padding:0 16px; border:0; border-radius:14px; background:var(--s2); color:var(--on); font:700 13px var(--font); display:flex; align-items:center; gap:6px; cursor:pointer; } .c4-ctl button:disabled { opacity:.4; } .c4-ctl .ic { width:19px; height:19px; }
+@keyframes c4drop { from { transform:translateY(-380%); } }
 `;
 
 export function start(api) {
@@ -27,18 +43,28 @@ export function start(api) {
 
   const status = h('div.c4-status');
   const boardEl = h('div.c4-board');
-  api.root.append(h('style', CSS), h('div.c4', status, boardEl));
+  const ghosts = h('div.c4-ghosts', Array.from({ length: C }, () => h('div.c4-g')));
+  const plEl = h('div.c4-pl');
+  const ctl = h('div.c4-ctl');
+  api.root.append(h('style', CSS), h('div.c4', plEl, h('div.c4-wrap', ghosts, boardEl), status, ctl));
+  const vsBot = api.players.some((p) => p.bot);
 
   const cols = [];
   for (let c = 0; c < C; c++) {
-    const col = h('div.c4-col', { onclick: () => play(c) });
+    const col = h('div.c4-col', { onclick: () => play(c), onpointerenter: () => ghost(c), onpointerdown: () => ghost(c), onpointerleave: () => ghost(-1) });
     const cells = [];
     for (let r = 0; r < R; r++) { const cell = h('div.c4-cell'); cells.push(cell); col.append(cell); }
     cols.push({ col, cells });
     boardEl.append(col);
   }
 
+  let hintCol = -1, lastIdx = -1;
+  function ghost(c) {
+    const myTurn = st.winner < 0 && !st.draw && order[st.turn] === api.me;
+    [...ghosts.children].forEach((g, i) => { g.className = 'c4-g' + (i === c && myTurn && st.board[c] === 0 ? ' on p' + (st.turn + 1) : '') + (i === hintCol ? ' hint' : ''); });
+  }
   function play(c) {
+    hintCol = -1;
     if (st.winner >= 0 || st.draw) return;
     if (order[st.turn] !== api.me) return api.toast("It's not your turn");
     api.toHost('drop', { c });
@@ -58,15 +84,25 @@ export function start(api) {
         cell.classList.toggle('win', st.line.includes(r * C + c));
       }
     }
+    // players
+    plEl.replaceChildren(...[0, 1].map((i) => { const p = api.player(order[i]); return h('div.c4-p' + (st.turn === i && st.winner < 0 && !st.draw ? '.turn' : ''), { style: { '--c': i === 0 ? '#ea4335' : '#fbbc04' } }, avatarEl({ ...p, online: p.online && !p.left }, 'sm', { still: true }), h('div', h('div.nm', p.name + (p.id === api.me ? ' (you)' : '')), h('small', i === 0 ? 'Red' : 'Yellow')), h('span.c4-disc.p' + (i + 1))); }));
+    // last move marker
+    for (let c = 0; c < C; c++) for (let r = 0; r < R; r++) cols[c].cells[r].classList.toggle('lastm', r * C + c === lastIdx);
+    ghost(-1);
+    // controls: take back / hint when playing the computer
+    ctl.replaceChildren();
+    if (vsBot && order.includes(api.me) && st.winner < 0 && !st.draw) {
+      ctl.append(h('button', { disabled: !st.board.some(Boolean), onclick: () => api.toHost('undo') }, icon('undo'), 'Undo'),
+        h('button', { disabled: order[st.turn] !== api.me, onclick: () => { hintCol = bestColumn(st.board, order.indexOf(api.me) + 1, 'hard'); ghost(-1); setTimeout(() => { hintCol = -1; ghost(-1); }, 2200); } }, icon('lightbulb'), 'Hint'));
+    }
     const who = api.player(order[st.turn]);
     if (st.winner >= 0) {
       const w = api.player(order[st.winner]);
-      status.replaceChildren(h('span.c4-disc.p' + (st.winner + 1)), `${w.name} wins!`);
+      status.replaceChildren(`${w.name} wins!`);
     } else if (st.draw) {
       status.replaceChildren('Draw — the board is full');
     } else {
       status.replaceChildren(
-        h('span.c4-disc.p' + (st.turn + 1)),
         order[st.turn] === api.me ? 'Your turn!' : `${who.name}'s turn`,
         mine >= 0 ? h('span.muted', { style: 'font-size:13px;font-weight:600' }, ` (you are ${mine === 0 ? 'red' : 'yellow'})`) : null
       );
@@ -78,7 +114,8 @@ export function start(api) {
   api.on('state', (s) => {
     Object.assign(st, s);
     const placed = st.board.some((v, i) => v && v !== shown[i]);
-    if (placed) api.sfx('drop');
+    if (placed) { api.sfx('drop'); lastIdx = st.board.findIndex((v, i) => v && v !== shown[i]); }
+    if (!st.board.some(Boolean)) lastIdx = -1;
     render(shown);
     shown.splice(0, shown.length, ...st.board);
     if (s.winner >= 0) api.sfx(order[s.winner] === api.me ? 'win' : 'lose');
@@ -93,12 +130,15 @@ export function start(api) {
         { turn: over ? null : order[st.turn], over, summary: st.draw ? 'Draw' : st.winner >= 0 ? `${api.player(order[st.winner]).name} won` : '', moves: st.board.filter(Boolean).length });
     };
     // ---- computer player
+    let botEpoch = 0;
+    const c4hist = []; // cells in the order discs were dropped (for taking moves back)
     const maybeBot = () => {
       if (st.winner >= 0 || st.draw) return;
       const id = order[st.turn];
       if (!api.isBot(id)) return;
+      const ep = ++botEpoch;
       api.timeout(() => {
-        if (order[st.turn] !== id || st.winner >= 0 || st.draw) return;
+        if (ep !== botEpoch || order[st.turn] !== id || st.winner >= 0 || st.draw) return;
         api.botDo(id, 'drop', { c: bestColumn(st.board, st.turn + 1, api.level) });
       }, thinkMs(api.level, 500, 700));
     };
@@ -108,6 +148,7 @@ export function start(api) {
       while (r >= 0 && st.board[r * C + c]) r--;
       if (r < 0) return;
       st.board[r * C + c] = st.turn + 1;
+      c4hist.push(r * C + c);
       const line = findLine(st.board, r, c);
       if (line) { st.winner = st.turn; st.line = line; }
       else if (st.board.every(Boolean)) st.draw = true;
@@ -125,6 +166,18 @@ export function start(api) {
           });
         }, 1800);
       }
+    });
+    api.on('undo', (_, from) => { // against the computer: take back my last move (and its reply)
+      if (st.winner >= 0 || st.draw || !api.players.some((p) => p.bot)) return;
+      const mineN = order.indexOf(from) + 1;
+      const idxs = [];
+      for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (st.board[r * C + c]) idxs.push(r * C + c);
+      if (!idxs.length) return;
+      let n = order[st.turn] === from ? 2 : 1;
+      while (n-- > 0 && c4hist.length) st.board[c4hist.pop()] = 0;
+      st.turn = mineN - 1; st.winner = -1; st.line = []; st.draw = false;
+      botEpoch++;
+      send(); save();
     });
     api.onRejoin(() => send());
     api.onLeave(() => {

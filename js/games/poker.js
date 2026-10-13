@@ -3,6 +3,7 @@
 import { h, clamp } from '../util.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs } from '../bots.js';
+import { playingCard, cardBack, emptySlot } from '../cards.js';
 
 const RANKS = '23456789TJQKA';
 const SUITS = { s: '♠', h: '♥', d: '♦', c: '♣' };
@@ -51,13 +52,6 @@ const CSS = `
 .pk-center { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:6px; z-index:2; }
 .pk-board { display:flex; gap:5px; min-height:70px; }
 .pk-pot { background:rgba(0,0,0,.4); color:#ffe9a8; border-radius:999px; padding:3px 14px; font-weight:900; font-size:15px; }
-.pk-card { width:46px; height:66px; border-radius:7px; background:#fff; color:#111; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:900; font-size:19px; line-height:1; box-shadow:0 2px 5px rgba(31,41,55,.22); position:relative; flex:none; }
-.pk-card.r { color:#d4202e; }
-.pk-card small { font-size:21px; margin-top:1px; }
-.pk-card.back { background:repeating-linear-gradient(45deg, #2a3fa8 0 6px, #1c2b7c 6px 12px); border:3px solid #fff; }
-.pk-card.sm { width:34px; height:49px; font-size:14px; border-radius:6px; } .pk-card.sm small { font-size:15px; }
-.pk-card.win { box-shadow:0 0 0 3px #ffc857, 0 0 16px #ffc857; transform:translateY(-4px); }
-.pk-card.dim { opacity:.45; }
 .pk-seat { position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:2px; z-index:3; width:96px; }
 .pk-box { background:#fff; color:var(--on); box-shadow:var(--e1); border:2px solid transparent; border-radius:12px; padding:3px 8px; text-align:center; width:100%; position:relative; }
 .pk-seat.turn .pk-box { border-color:var(--yellow); box-shadow:0 0 0 3px rgba(251,188,4,.45), var(--e2); }
@@ -71,18 +65,16 @@ const CSS = `
 .pk-bet { position:absolute; background:rgba(0,0,0,.55); color:#fff; border-radius:999px; font-weight:900; font-size:12px; padding:1px 9px; z-index:3; transform:translate(-50%,-50%); white-space:nowrap; }
 .pk-bar { height:4px; border-radius:2px; background:#ffc857; margin-top:2px; transition:width .25s linear; }
 .pk-me { display:flex; flex-direction:column; align-items:center; gap:8px; }
-.pk-mycards { display:flex; gap:8px; }
-.pk-mycards .pk-card { width:62px; height:90px; font-size:26px; } .pk-mycards .pk-card small { font-size:28px; }
+.pk-mycards { display:flex; gap:8px; } .pk-mycards .pc { --w:66px; } .pk-board .pc { --w:46px; } .pk-hole .pc { --w:31px; }
 .pk-act { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; background:var(--panel); box-shadow:var(--e2); border-radius:26px; padding:10px 12px; width:100%; max-width:760px; margin:0 auto; }
 .pk-act input[type=range] { flex:1; min-width:140px; accent-color:#ffc857; }
 .pk-msg { text-align:center; font-weight:800; min-height:22px; }
 .pk-hn { font-size:12px; color:var(--on2); text-align:center; }
 @media (max-width:640px) {
-  .pk-table { aspect-ratio:.82; }
+  .pk-table { aspect-ratio:auto; flex:1 1 0; min-height:340px; max-height:600px; }
   .pk-felt { inset:7% 6%; border-width:7px; }
-  .pk-card { width:38px; height:55px; font-size:16px; } .pk-card small { font-size:17px; }
-  .pk-seat { width:82px; }
-  .pk-mycards .pk-card { width:54px; height:78px; font-size:22px; }
+    .pk-seat { width:82px; }
+  .pk-board .pc { --w:38px; } .pk-hole .pc { --w:28px; } .pk-mycards .pc { --w:56px; }
 }
 `;
 
@@ -360,11 +352,8 @@ export function start(api) {
     if (bar && st) bar.style.width = clamp(((deadline - performance.now()) / ACT_MS) * 100, 0, 100) + '%';
   }, 250);
 
-  const cardEl = (c, cls = '') => {
-    if (!c) return h('div.pk-card.back' + (cls ? '.' + cls.split(' ').join('.') : ''));
-    const red = c[1] === 'h' || c[1] === 'd';
-    return h('div.pk-card' + (red ? '.r' : '') + (cls ? '.' + cls.split(' ').join('.') : ''), c[0] === 'T' ? '10' : c[0], h('small', SUITS[c[1]]));
-  };
+  const cardEl = (c, cls = '') => (c ? playingCard(c[0], c[1], { cls: cls.replace(/\bsm\b/, '').trim() }) : cardBack({ cls: cls.replace(/\bsm\b/, '').trim() }));
+
 
   function render() {
     if (!st) return;
@@ -405,7 +394,7 @@ export function start(api) {
     tableEl.replaceChildren(
       h('div.pk-felt'),
       h('div.pk-center', [
-        h('div.pk-board', Array.from({ length: 5 }, (_, i) => (st.board[i] ? cardEl(st.board[i]) : h('div.pk-card', { style: 'background:rgba(255,255,255,.08);box-shadow:none' })))),
+        h('div.pk-board', Array.from({ length: 5 }, (_, i) => (st.board[i] ? cardEl(st.board[i]) : emptySlot()))),
         h('div.pk-pot', `Pot ${st.pot}`),
         h('div.pk-hn', { style: 'color:rgba(255,255,255,.85)' }, `Hand ${st.handNo} · blinds ${st.sb}/${st.bb}`),
       ]),

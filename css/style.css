@@ -755,3 +755,7 @@ body:not([data-tab="games"]) .envpill { display: none; }
 @media (min-width: 900px) { .filters { margin: 12px auto 12px; padding: 2px 0; } }
 .filters { margin-top: 12px; margin-bottom: 10px; }
 .avedit { grid-template-columns: 100px 1fr; gap: 6px 8px; } .avedit .av.xl { --s: 88px; } .avedit-row { gap: 2px; font-size: 13px; } .avedit .avarrow { width: 28px; height: 28px; }
+
+/* ---------- every game gets its own accent backdrop ---------- */
+.game-root { background: radial-gradient(900px 480px at 50% -10%, color-mix(in srgb, var(--gc, transparent) 17%, transparent), transparent 72%), radial-gradient(640px 440px at 105% 105%, color-mix(in srgb, var(--gc, transparent) 11%, transparent), transparent 70%); }
+.game-root[data-cat="Cards"], .game-root[data-cat="Bluffing"], .game-root[data-cat="Board"] { background: radial-gradient(900px 520px at 50% 20%, color-mix(in srgb, var(--gc, transparent) 14%, transparent), transparent 75%), radial-gradient(640px 440px at 0% 105%, color-mix(in srgb, var(--gc, transparent) 10%, transparent), transparent 70%); }

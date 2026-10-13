@@ -445,10 +445,11 @@ export function start(api) {
   // ---------------------------------------------------------------- incoming state
   api.on('state', (s) => {
     const was = S.san.length;
+    const same = s.fen === S.fen && s.san.length === S.san.length; // a re-send of the same position (e.g. a clock tick) must not drop a half-made move
     S = { ...s, stamp: performance.now() };
     try { game.load(S.fen); } catch { /* */ }
     if (S.san.length !== hist.mv.length || S.san[S.san.length - 1] !== hist.mv[hist.mv.length - 1]?.san) rebuild();
-    sel = null; targets = []; promo = null; hint = null; evalCp = null;
+    if (!same) { sel = null; targets = []; promo = null; hint = null; evalCp = null; }
     if (S.san.length > was && view === null) {
       const last = S.san[S.san.length - 1];
       sfx(/[+#]/.test(last) ? 'bad' : /x/.test(last) ? 'hit' : /=/.test(last) ? 'good' : /^O/.test(last) ? 'turn' : 'clack');

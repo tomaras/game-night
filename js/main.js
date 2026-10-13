@@ -1201,6 +1201,7 @@ async function startSession(g) {
     return;
   }
   const root = h('div.game-root', h('div.waitscreen', h('div', h('div.spinner'), h('p.muted', 'Loading ' + def.name + '…'))));
+  root.style.setProperty('--gc', def.color); root.dataset.cat = def.cat; // every game gets its own accent backdrop
   mount(S.ui.stage, root);
   let mod;
   try {

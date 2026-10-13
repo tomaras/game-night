@@ -4,6 +4,7 @@ import { h } from '../util.js';
 import { icon } from '../ui.js';
 import { avatarEl } from '../avatar.js';
 import { botLoop, thinkMs } from '../bots.js';
+import { dieEl } from '../dice.js';
 
 const PIPS = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const TURN_MS = 45000;
@@ -28,24 +29,20 @@ function validBid(prev, next, wild) {
 }
 
 const CSS = `
-.ld { flex:1; display:flex; flex-direction:column; gap:10px; padding:10px; min-height:0; overflow-y:auto; max-width:900px; width:100%; margin:0 auto; }
+.ld { flex:1; display:flex; flex-direction:column; gap:10px; padding:12px 10px; min-height:0; overflow-y:auto; max-width:900px; width:100%; margin:0 auto; --w:46px; }
+.ld .dc.sm { --w:30px; } .ld-bid .dc { --w:56px; } .ld-faces .dc { --w:34px; }
 .ld-opps { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-.ld-opp { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px 10px; min-width:140px; text-align:center; }
+.ld-opp { background:var(--surface); box-shadow:var(--e1); border:2px solid transparent; border-radius:18px; padding:8px 10px; min-width:140px; text-align:center; }
 .ld-opp.turn { border-color:#ffc857; box-shadow:0 0 0 2px rgba(255,200,87,.3); }
 .ld-opp.dead { opacity:.4; }
 .ld-opp .nm { font-weight:800; font-size:13px; display:flex; gap:6px; align-items:center; justify-content:center; }
 .ld-cups { display:flex; gap:4px; justify-content:center; margin-top:6px; flex-wrap:wrap; min-height:30px; }
-.ld-cup { width:26px; height:30px; border-radius:6px 6px 10px 10px; background:linear-gradient(#b0462c,#8a2f1a); border:2px solid rgba(255,255,255,.3); }
-.ld-die { width:44px; height:44px; border-radius:9px; background:#fff; color:#111; display:grid; place-items:center; font-size:40px; line-height:1; box-shadow:0 2px 5px rgba(31,41,55,.22); }
-.ld-die.sm { width:28px; height:28px; font-size:25px; border-radius:6px; }
-.ld-die.hit { background:#ffe27a; box-shadow:0 0 0 3px #ffc857; }
-.ld-die.dim { opacity:.4; }
-.ld-mid { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px; text-align:center; display:flex; flex-direction:column; gap:10px; align-items:center; }
+.ld-cup { width:24px; height:30px; clip-path:polygon(12% 0,88% 0,100% 100%,0 100%); background:linear-gradient(100deg,#7d3a1f,#c2653a 45%,#7d3a1f); box-shadow:inset 0 3px 0 rgba(255,255,255,.25); border-radius:3px; }
+.ld-mid { background:var(--surface); box-shadow:var(--e1); border:0; border-radius:22px; padding:14px; text-align:center; display:flex; flex-direction:column; gap:10px; align-items:center; }
 .ld-bid { font-size:30px; font-weight:900; display:flex; align-items:center; gap:10px; }
-.ld-bid .ld-die { width:48px; height:48px; font-size:44px; }
-.ld-hist { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; font-size:13px; color:var(--muted); }
+.ld-bid .ld-hist { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; font-size:13px; color:var(--muted); }
 .ld-hist span { background:var(--bg2); border-radius:999px; padding:2px 10px; }
-.ld-me { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.ld-me { background:var(--surface); box-shadow:var(--e1); border:2px solid transparent; border-radius:22px; padding:12px; display:flex; flex-direction:column; align-items:center; gap:10px; }
 .ld-me.turn { border-color:#ffc857; box-shadow:0 0 0 2px rgba(255,200,87,.3); }
 .ld-dice { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 .ld-pick { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
@@ -59,8 +56,7 @@ const CSS = `
 .ld-rv .r { display:flex; align-items:center; gap:10px; background:var(--bg2); border-radius:12px; padding:6px 10px; }
 .ld-rv .r .nm { width:90px; font-weight:800; text-align:left; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ld-timer { height:4px; background:#ffc857; border-radius:2px; transition:width .25s linear; }
-@media (max-width:640px) { .ld-die { width:38px; height:38px; font-size:34px; } .ld-bid { font-size:24px; } .ld-opp { min-width:110px; } }
-`;
+@media (max-width:640px) { `;
 
 export function start(api) {
   const ids = api.players.map((p) => p.id);
@@ -213,7 +209,8 @@ export function start(api) {
     for (let q = prev.q; q <= st.total; q++) for (let f = 1; f <= 6; f++) if (validBid(prev, { q, f }, wild)) return { q, f };
     return { q: prev.q, f: prev.f };
   }
-  const die = (v, cls = '') => h('div.ld-die' + (cls ? '.' + cls.split(' ').join('.') : ''), PIPS[v]);
+  let rolledRound = 0;
+  const die = (v, cls = '', roll = false) => dieEl(v, { cls, wild, roll });
 
   function render() {
     if (!st) return;
@@ -254,11 +251,12 @@ export function start(api) {
     const dead = st.counts[me] <= 0;
     const meEl = h('div.ld-me' + (myTurn ? '.turn' : ''), [
       h('div.row', avatarEl(api.player(me), 'sm'), h('b', dead ? 'You are out — watch the rest!' : 'Your dice (secret)')),
-      h('div.ld-dice', dead ? [] : st.mine.map((d) => die(d, st.phase === 'reveal' && st.reveal && (d === st.reveal.bid.f || (wild && d === 1 && st.reveal.bid.f !== 1)) ? 'hit' : ''))),
+      h('div.ld-dice', dead ? [] : st.mine.map((d) => die(d, st.phase === 'reveal' && st.reveal && (d === st.reveal.bid.f || (wild && d === 1 && st.reveal.bid.f !== 1)) ? 'hit' : '', st.round !== rolledRound))),
       myTurn ? h('div.ld-timer', { style: 'width:100%' }) : null,
       myTurn ? bidControls() : st.phase === 'bid' && !dead ? h('div.muted', `Waiting for ${nameOf(st.turn)}…`) : null,
     ]);
     root.replaceChildren(opps, mid, logEl, meEl);
+    rolledRound = st.round;
   }
 
   function bidControls() {
