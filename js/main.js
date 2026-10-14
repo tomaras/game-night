@@ -26,6 +26,7 @@ import { LocalRoom } from './local.js';
 import { LEVELS, makeBot } from './bots.js';
 import { listMatches, getMatch, putMatch, deleteMatch, myTurnCount, newMatchId, encodeMatch, decodeMatch, matchLink, smsUrl, shareText, nativeShare } from './matches.js';
 import { randomAvatar } from './avatar.js';
+import { gameIcon } from './gameicons.js';
 
 installSafeDom();
 installRipples();
@@ -141,7 +142,7 @@ function openRules(def) {
   const steps = help.steps || def.howto || [];
   const sect = (title, list, ordered) => (list && list.length ? [h('h4', title), h(ordered ? 'ol' : 'ul', list.map((x) => h('li', { style: { '--c': def.color } }, x)))] : []);
   openSheet(h('div.help.gsheet', { style: { '--gc': def.color } }, [
-    h('div.gsel', [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)])]),
+    h('div.gsel', [h('div.tile.emo', gameIcon(def, 48)), h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)])]),
     h('div.row.wrap.gchips', [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))]),
     videoCard(def),
     h('div.goal', help.goal || def.desc),
@@ -298,7 +299,7 @@ function gameCard(def, onPick, { onCat, onPlayers } = {}) {
   }, icon(S.favs.has(def.id) ? 'star' : 'star_border'));
   const chipBtn = (cls, title, fn, ...kids) => h('button.chip.cchip' + cls, { type: 'button', title, onclick: (e) => { e.stopPropagation(); fn?.(e.currentTarget); } }, ...kids);
   return h('div.gcard', { role: 'button', tabindex: 0, style: { '--gc': def.color }, onclick: () => onPick(def), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(def); } } }, [
-    h('div.gtop', h('span.emo', def.emoji), fav, h('span.tbadges', playerRange(def).robot ? h('i', { title: 'Can be played against the computer' }, icon('smart_toy')) : null, def.async ? h('i', { title: 'Can be played turn by turn by message' }, icon('sms')) : null)),
+    h('div.gtop', h('span.emo', gameIcon(def, 64)), fav, h('span.tbadges', playerRange(def).robot ? h('i', { title: 'Can be played against the computer' }, icon('smart_toy')) : null, def.async ? h('i', { title: 'Can be played turn by turn by message' }, icon('sms')) : null)),
     h('div.gbody',
       h('h3', def.name),
       h('p', def.tagline),
@@ -423,7 +424,7 @@ function installChip() {
 
 function openGameSheet(def) {
   const sheet = openSheet(h('div.help.gsheet', { style: { '--gc': def.color } }, [
-    h('div.gsel', [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)])]),
+    h('div.gsel', [h('div.tile.emo', gameIcon(def, 48)), h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)])]),
     h('div.row.wrap.gchips', [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 2).map((t) => h('span.chip', t))]),
     videoCard(def),
     h('div.sticky.gacts', [
@@ -447,7 +448,7 @@ function startSolo(def) {
   const cfg = { bots: def.bots ? Math.max(minBots, Math.min(maxBots, def.soloBots !== undefined ? def.soloBots : Math.max(1, minBots))) : 0, level: 'normal', opts: fillOpts(def, {}) };
   const body = h('div.col', { style: 'gap:14px' });
   const paint = () => mount(body,
-    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', def.bots ? 'You vs the computer' : 'Just you')])]),
+    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', gameIcon(def, 48)), h('div.grow', [h('h2', def.name), h('div.muted', def.bots ? 'You vs the computer' : 'Just you')])]),
     def.bots && (maxBots > minBots || minBots === 0) ? h('label.opt', 'Computer opponents', h('div.numgrid', { style: 'grid-template-columns:repeat(auto-fit,minmax(44px,1fr))' }, Array.from({ length: maxBots - minBots + 1 }, (_, i) => minBots + i).map((n) => h('button.numchip' + (cfg.bots === n ? '.on' : ''), { onclick: () => { cfg.bots = n; paint(); } }, n)))) : null,
     !def.bots || def.botLevels === false ? null : h('label.opt', 'Difficulty', segmented(LEVELS, cfg.level, (v) => { cfg.level = v; })),
     ...(def.options || []).map((op) => {
@@ -464,7 +465,7 @@ function startOtb(def) {
   if (S.room || S.joining) return;
   const cfg = { name: '', opts: fillOpts(def, {}) };
   const sheet = openSheet(h('div.col', { style: 'gap:14px' },
-    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', 'Two players, one device — put it between you')])]),
+    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', gameIcon(def, 48)), h('div.grow', [h('h2', def.name), h('div.muted', 'Two players, one device — put it between you')])]),
     h('label.opt', 'Second player’s name', h('input.txt', { placeholder: 'Player 2', maxlength: 16, oninput: (e) => { cfg.name = e.target.value; } })),
     ...(def.options || []).map((op) => {
       const choices = op.choices.map((c) => (typeof c === 'object' ? c : { value: c, label: String(c) }));
@@ -509,7 +510,7 @@ function startMatch(def) {
   const body = h('div.col', { style: 'gap:14px' });
   const MODES = [['link', 'sms', 'A friend, by message', 'Play whenever you like — each move is sent as a link by text.'], ['cpu', 'smart_toy', 'The computer', 'Offline; pick up where you left off any time.'], ['local', 'groups', 'Pass & play', 'Two people, one phone — hand it over after each move.']];
   const paint = () => mount(body,
-    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', def.emoji), h('div.grow', [h('h2', def.name), h('div.muted', 'Turn by turn')])]),
+    h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', gameIcon(def, 48)), h('div.grow', [h('h2', def.name), h('div.muted', 'Turn by turn')])]),
     h('div.mcards', MODES.map(([v, ic, t, d]) => h('button.mcard' + (cfg.mode === v ? '.on' : ''), { onclick: () => { cfg.mode = v; paint(); } }, icon(ic), h('div', h('b', t), h('small', d))))),
     cfg.mode === 'cpu' ? h('label.opt', 'Difficulty', segmented(LEVELS, cfg.level, (v) => { cfg.level = v; })) : h('label.opt', cfg.mode === 'local' ? 'Second player’s name' : 'Your friend’s name (optional)', h('input.txt', { placeholder: cfg.mode === 'local' ? 'Player 2' : 'Friend', maxlength: 16, value: cfg.name, oninput: (e) => { cfg.name = e.target.value; } })),
     ...(def.options || []).filter((op) => cfg.mode !== 'link' || op.key !== 'time').map((op) => {
@@ -627,7 +628,7 @@ function renderMatchesTab() {
     const def = GAME_BY_ID[m.game], them = otherOf(m);
     const status = m.over ? h('span.chip', icon('check', 'sm'), m.summary || 'Finished') : m.mode === 'local' ? h('span.chip', 'Pass & play') : mineMove(m) ? h('span.chip.green', icon('play_arrow', 'sm'), 'Your move') : m.mode === 'cpu' ? h('span.chip', 'Computer’s move') : h('span.chip.yellow', icon('hourglass_empty', 'sm'), 'Waiting for ' + them.name);
     return h('div.mrow', { style: { '--gc': def.color } },
-      h('button.mmain', { onclick: () => openMatch(m, m.mine) }, h('div.tile.emo', def.emoji), h('div.grow', h('b', def.name), h('div.muted', { style: 'font-size:13px' }, `${m.mode === 'local' ? m.players.map((p) => p.name).join(' vs ') : 'vs ' + them.name} · ${ago(m.updated)}`), status)),
+      h('button.mmain', { onclick: () => openMatch(m, m.mine) }, h('div.tile.emo', gameIcon(def, 38)), h('div.grow', h('b', def.name), h('div.muted', { style: 'font-size:13px' }, `${m.mode === 'local' ? m.players.map((p) => p.name).join(' vs ') : 'vs ' + them.name} · ${ago(m.updated)}`), status)),
       h('div.mact',
         m.mode === 'link' && m.snap ? iconBtn('share', 'Send again', async () => { const me = m.players.find((p) => p.id === m.mine); const link = matchLink(await encodeMatch(m)); if (!(await nativeShare(m, def, link, me.name))) { await copyText(shareText(m, def, link, me.name)); toast('Link copied', 'good'); } }, 'sm') : null,
         iconBtn('delete', 'Delete match', async () => { if (await confirmDialog('Delete this match?', 'It’s only removed from this device.', { ok: 'Delete', danger: true })) { deleteMatch(m.id); renderMatchesTab(); } }, 'sm')));
@@ -1113,7 +1114,7 @@ function updateLobby() {
   else if (online > def.max) problem = `Up to ${def.max} players (${online} here)`;
   mount(L.game,
     h('div.gsel', { style: { '--gc': def.color } }, [
-      h('div.tile.emo', def.emoji),
+      h('div.tile.emo', gameIcon(def, 48)),
       h('div.grow', [h('h2', def.name), h('div.muted', def.tagline)]),
     ]),
     h('div.row.wrap', { style: 'margin-top:12px;gap:6px' }, [h('span.chip.blue', icon('group'), playersLabel(def)), h('span.chip', def.cat), ...(def.tags || []).filter((t) => t !== def.cat).slice(0, 3).map((t) => h('span.chip', t))]),
@@ -1181,7 +1182,7 @@ function showWait(g) {
   applyChatLayout();
   const def = GAME_BY_ID[g.gameId];
   mount(S.ui.stage, h('div.waitscreen', h('div', [
-    h('div.emo', { style: 'font-size:72px' }, def?.emoji || '🎮'),
+    h('div.emo', { style: 'font-size:72px' }, gameIcon(def || { emoji: '🎮' }, 96)),
     h('h2', `${def?.name || 'A game'} is in progress`),
     h('p.muted', { style: 'margin:8px 0 18px' }, 'You’ll join the next round.'),
     h('div.spinner'),
@@ -1246,7 +1247,7 @@ function standIn(def, g) {
   const room = S.room;
   const ps = (g?.playerIds || []).map((id) => room.player(id)).filter(Boolean);
   return h('div.waitscreen', h('div', [
-    h('div.emo', { style: 'font-size:72px' }, def.emoji),
+    h('div.emo', { style: 'font-size:72px' }, gameIcon(def, 96)),
     h('h2', `${def.name} is being played`),
     h('div.row.wrap', { style: 'justify-content:center;gap:6px;margin-top:10px' }, ps.map((p) => h('span.chip', avatarEl(p, 'xs', { still: true }), p.name))),
     h('p.muted', { style: 'margin:12px 0 18px;max-width:320px' }, 'Everyone has a private screen in this game, so there’s nothing to show here. You’ll see the results when it ends — chat with the room meanwhile!'),
@@ -1362,7 +1363,7 @@ function roomCard(r) {
   const def = GAME_BY_ID[r.game];
   const phase = r.phase === 'playing' ? 'Playing now' : r.phase === 'results' ? 'Wrapping up' : 'In the lobby';
   return h('button.rcard', { style: { '--gc': def?.color || '#1a73e8' }, onclick: () => openRoomSheet(r) },
-    h('div.tile.emo', def?.emoji || '🎲'),
+    h('div.tile.emo', gameIcon(def, 40)),
     h('div.grow', h('b', def ? def.name : 'Picking a game…'), h('div.muted', { style: 'font-size:13px' }, `Room ${r.number} · ${phase}`),
       h('div.row.rpl', r.players.slice(0, 5).map((p) => avatarEl(p, 'xs', { still: true })), r.count > 5 ? h('span.muted', '+' + (r.count - 5)) : null, r.bots ? h('span.chip', icon('smart_toy', 'sm'), r.bots) : null)),
     h('div.rmeta', r.audience ? h('span.chip', icon('visibility', 'sm'), r.audience) : null, r.access === 'locked' ? h('span.chip.yellow', icon('lock', 'sm')) : r.access === 'ask' ? h('span.chip', icon('front_hand', 'sm')) : h('span.chip.green', icon('login', 'sm'))));
@@ -1373,7 +1374,7 @@ function openRoomSheet(r) {
   const old = r.proto !== PROTO;
   const go = (role) => { sheet.close(); joinRoom(r.number, { role, via: 'dir' }); };
   const sheet = openSheet(h('div.col', { style: 'gap:14px' },
-    h('div.gsel', { style: { '--gc': def?.color || '#1a73e8' } }, h('div.tile.emo', def?.emoji || '🎲'), h('div.grow', h('h2', def ? def.name : 'Room ' + r.number), h('div.muted', `Room ${r.number} · ${r.phase === 'playing' ? 'playing now' : r.phase === 'results' ? 'wrapping up' : 'in the lobby'}`))),
+    h('div.gsel', { style: { '--gc': def?.color || '#1a73e8' } }, h('div.tile.emo', gameIcon(def, 48)), h('div.grow', h('h2', def ? def.name : 'Room ' + r.number), h('div.muted', `Room ${r.number} · ${r.phase === 'playing' ? 'playing now' : r.phase === 'results' ? 'wrapping up' : 'in the lobby'}`))),
     h('div.rplist', r.players.map((p) => h('div.pp-row', avatarEl(p, 'sm'), h('div.pp-name', h('b', p.name), p.host ? h('div.pp-tags', h('span.chip.blue', 'Host')) : null)))),
     r.bots || r.audience ? h('div.muted', `${r.bots ? r.bots + ' computer player' + (r.bots > 1 ? 's' : '') : ''}${r.bots && r.audience ? ' · ' : ''}${r.audience ? r.audience + ' watching' : ''}`) : null,
     old ? h('div.warnbox', icon('info'), 'This room runs a different version of the game — reload the page to update, or ask them to.') : null,
