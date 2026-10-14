@@ -1,0 +1,14 @@
+Sound effects in assets/sfx/paper/
+
+Source:
+- "RPG Audio" by Kenney (www.kenney.nl)
+  https://kenney.nl/assets/rpg-audio
+  (flip* from bookFlip*)
+- "Pencil Sounds" by AntumDeluge (OpenGameArt), from freesound.org sounds by damsur (443241) and NachtmahrTV (571800), all CC0
+  https://opengameart.org/content/pencil-sounds
+  (pencil, erase)
+
+License: Creative Commons Zero (CC0 1.0 Universal) — public domain dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The files here are trimmed, faded, loudness-matched and re-encoded (mono MP3) from the originals.

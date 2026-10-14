@@ -228,7 +228,7 @@ export function start(api) {
       const b = G.b;
       b.x += b.vx * dt; b.y += b.vy * dt;
       const bd = Math.exp(-0.75 * dt); b.vx *= bd; b.vy *= bd;
-      for (const s of SEGS) { const imp = collideSeg(b, BR, 0.82, s); if (imp > 160) G.ev.push('pop'); }
+      for (const s of SEGS) { const imp = collideSeg(b, BR, 0.82, s); if (imp > 160) G.ev.push('puck'); }
       // player ↔ player
       for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
         const a = G.p[ids[i]], c = G.p[ids[j]];
@@ -244,7 +244,7 @@ export function start(api) {
           const rvn = (b.vx - p.vx) * nx + (b.vy - p.vy) * ny;
           if (rvn < 0) { b.vx -= (1 + 0.55) * rvn * nx * 0.78; b.vy -= (1 + 0.55) * rvn * ny * 0.78; }
         }
-        if (p.kick && p.cd <= 0 && d < PR + BR + 9) { b.vx += nx * 640; b.vy += ny * 640; p.cd = 0.28; p.flash = 1; G.ev.push('shoot'); }
+        if (p.kick && p.cd <= 0 && d < PR + BR + 9) { b.vx += nx * 640; b.vy += ny * 640; p.cd = 0.28; p.flash = 1; G.ev.push('kick'); }
       }
       // safety net: nothing may ever leave the pitch (a hard shove into a wall can push the ball past it in one step)
       const mouth = Math.abs(b.y - CY) < GH - 2;

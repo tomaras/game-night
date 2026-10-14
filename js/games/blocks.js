@@ -109,7 +109,7 @@ export function start(api) {
     let m = B.cur.m;
     m = dir > 0 ? rot(m) : rot(rot(rot(m)));
     for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0], [0, -1], [-1, -1], [1, -1]]) {
-      if (fits(m, B.cur.x + dx, B.cur.y + dy)) { B.cur.m = m; B.cur.x += dx; B.cur.y += dy; touchLock(); api.sfx('click'); return; }
+      if (fits(m, B.cur.x + dx, B.cur.y + dy)) { B.cur.m = m; B.cur.x += dx; B.cur.y += dy; touchLock(); api.sfx('move', 0.7); return; }
     }
   }
   function softDrop() { if (B.cur && fits(B.cur.m, B.cur.x, B.cur.y + 1)) { B.cur.y++; B.score += 1; return true; } return false; }

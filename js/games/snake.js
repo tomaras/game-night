@@ -193,7 +193,7 @@ export function start(api) {
         s.next = [hx, hy];
         s.ate = false;
         const fi = G.foods.findIndex((f) => f[0] === hx && f[1] === hy);
-        if (fi >= 0) { const f = G.foods.splice(fi, 1)[0]; s.grow += f[2] === 1 ? 1 : 1; s.ate = true; G.ev.push('coin'); if (f[2] === 1) spawnFood(); }
+        if (fi >= 0) { const f = G.foods.splice(fi, 1)[0]; s.grow += f[2] === 1 ? 1 : 1; s.ate = true; G.ev.push('eat'); if (f[2] === 1) spawnFood(); }
       });
       // move: tails advance unless growing
       live.forEach((s) => { s.body.unshift(s.next); if (s.grow > 0) s.grow--; else s.body.pop(); });

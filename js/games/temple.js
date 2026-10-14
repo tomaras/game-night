@@ -123,7 +123,7 @@ export function start(api) {
         act.forEach((id) => (H.ps[id].carry += share));
         H.pot += c.v - share * act.length;
         H.log = share ? `+${share} 💎 each${c.v % act.length ? ` (${c.v % act.length} left on the path)` : ''}` : `${c.v} 💎 can’t be split — it stays on the path`;
-        H.sfx = 'pop';
+        H.sfx = 'coin';
       } else if (c.t === 'art') { H.log = 'An ancient artifact!'; H.sfx = 'good'; }
       else {
         H.haz[c.hz] = (H.haz[c.hz] || 0) + 1;

@@ -187,7 +187,7 @@ export function start(api) {
     const clampCar = (n) => Math.max(0, Math.min(C - 1, n));
     function marshalCheck(id) { // bandit ended inside the marshal's car
       const p = H.pos[id];
-      if (!p.roof && p.car === H.marshal) { bulletTo(id); p.roof = true; H.log += ` ${nameOf(id)} is shot by the marshal and flees to the roof!`; H.sfx = 'boom'; }
+      if (!p.roof && p.car === H.marshal) { bulletTo(id); p.roof = true; H.log += ` ${nameOf(id)} is shot by the marshal and flees to the roof!`; H.sfx = 'shoot'; }
     }
     function act(id, pk) {
       H.acting = id; H.sfx = null;
@@ -195,15 +195,15 @@ export function start(api) {
       if (pk.draw) { draw(id, 3); H.log = `${who} draws 3 cards.`; return pub(); }
       discardCard(id, pk.c);
       switch (pk.k) {
-        case 'move': { const n = clampCar(me.car + pk.dir * pk.dist); H.log = `${who} moves ${n === me.car ? 'nowhere' : pk.dir > 0 ? 'towards the engine' : 'towards the back'}.`; me.car = n; marshalCheck(id); H.sfx = 'pop'; break; }
-        case 'floor': { me.roof = !me.roof; H.log = `${who} climbs ${me.roof ? 'up to the roof' : 'down inside'}.`; marshalCheck(id); H.sfx = 'pop'; break; }
+        case 'move': { const n = clampCar(me.car + pk.dir * pk.dist); H.log = `${who} moves ${n === me.car ? 'nowhere' : pk.dir > 0 ? 'towards the engine' : 'towards the back'}.`; me.car = n; marshalCheck(id); H.sfx = 'place'; break; }
+        case 'floor': { me.roof = !me.roof; H.log = `${who} climbs ${me.roof ? 'up to the roof' : 'down inside'}.`; marshalCheck(id); H.sfx = 'place'; break; }
         case 'shoot': {
           if (H.bul[id] <= 0) { H.log = `${who} is out of bullets!`; break; }
           let tgt = null;
           const others = ids.filter((o) => o !== id && H.pos[o].roof === me.roof);
           if (me.roof) { for (let c = me.car + pk.dir; c >= 0 && c < C && !tgt; c += pk.dir) { const f = others.filter((o) => H.pos[o].car === c); if (f.length) tgt = rng.pick(f); } }
           else { const f = others.filter((o) => H.pos[o].car === me.car + pk.dir); if (f.length) tgt = rng.pick(f); }
-          if (tgt) { bulletTo(tgt); H.bul[id]--; H.shots[id]++; H.log = `${who} shoots ${nameOf(tgt)}!`; H.sfx = 'boom'; } else H.log = `${who} fires at nothing.`;
+          if (tgt) { bulletTo(tgt); H.bul[id]--; H.shots[id]++; H.log = `${who} shoots ${nameOf(tgt)}!`; H.sfx = 'shoot'; } else H.log = `${who} fires at nothing.`;
           break;
         }
         case 'punch': {
@@ -231,7 +231,7 @@ export function start(api) {
         case 'marshal': {
           H.marshal = clampCar(H.marshal + pk.dir);
           H.log = `${who} moves the marshal.`;
-          ids.forEach((o) => { const p = H.pos[o]; if (!p.roof && p.car === H.marshal) { bulletTo(o); p.roof = true; H.log += ` ${nameOf(o)} is shot and flees to the roof!`; H.sfx = 'boom'; } });
+          ids.forEach((o) => { const p = H.pos[o]; if (!p.roof && p.car === H.marshal) { bulletTo(o); p.roof = true; H.log += ` ${nameOf(o)} is shot and flees to the roof!`; H.sfx = 'shoot'; } });
           break;
         }
         default:

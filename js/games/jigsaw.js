@@ -235,7 +235,7 @@ export function start(api) {
     if (drag) S.holders[drag.g] = api.me;
     S.z = { ...S.z, ...(m.z || {}) };
     if (m.snd) api.sfx(m.snd);
-    if (m.snd === 'good') { const t = performance.now(); for (const [i] of m.p) flashes.set(i, t); }
+    if (m.snd === 'snap') { const t = performance.now(); for (const [i] of m.p) flashes.set(i, t); }
     if (m.stat) { S.snaps = m.stat; renderBar(); }
   });
   api.on('done', (m) => { S.phase = 'done'; S.done = m; api.sfx('win'); render(); });
@@ -359,7 +359,7 @@ export function start(api) {
       }
       const all = membersOf(g);
       touch(all); touch(ms0);
-      if (merged) { H.snaps[from] += merged; H.statDirty = true; H.snd = 'good'; } else H.snd = 'pop';
+      if (merged) { H.snaps[from] += merged; H.statDirty = true; H.snd = 'snap'; } else H.snd = 'card';
       H.final = true;
       flush();
       if (new Set(H.grp).size === 1) complete();

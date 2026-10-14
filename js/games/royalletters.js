@@ -125,7 +125,7 @@ export function start(api) {
       H.phase = 'play';
       pub();
     }
-    function out(id, why) { H.alive[id] = false; H.disc[id].push(...H.hands[id]); H.hands[id] = []; H.log += ` ${nameOf(id)} is out${why ? ' (' + why + ')' : ''}!`; api.broadcast('sfx', { k: 'boom' }); }
+    function out(id, why) { H.alive[id] = false; H.disc[id].push(...H.hands[id]); H.hands[id] = []; H.log += ` ${nameOf(id)} is out${why ? ' (' + why + ')' : ''}!`; api.broadcast('sfx', { k: 'out' }); }
     function finishTurn() {
       if (live().length <= 1 || !H.deck.length) return endRound();
       H.turn = nextAlive(H.turn);

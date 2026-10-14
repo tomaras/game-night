@@ -1,0 +1,14 @@
+Sound effects in assets/sfx/ui/
+
+Source:
+- "UI Audio" by Kenney (www.kenney.nl)
+  https://kenney.nl/assets/ui-audio
+  (click*, switch*)
+- "Interface Sounds" by Kenney (www.kenney.nl)
+  https://kenney.nl/assets/interface-sounds
+  (tick* from tick_00x, pop* from drop_00x)
+
+License: Creative Commons Zero (CC0 1.0 Universal) — public domain dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The files here are trimmed, faded, loudness-matched and re-encoded (mono MP3) from the originals.

@@ -169,7 +169,7 @@ export function start(api) {
       p.rev.push(idxFromTop);
       const face = p.stack[p.stack.length - 1 - idxFromTop];
       H.flipped.push({ o, face });
-      api.broadcast('note', { k: face === 'S' ? 'boom' : 'pop' });
+      api.broadcast('note', { k: face === 'S' ? 'boom' : 'flip' });
       if (own && P[H.chal].rev.length >= P[H.chal].stack.length) H.ownDone = true;
       if (face === 'S') return fail(o);
       if (H.flipped.length >= H.bid.n) return success();
