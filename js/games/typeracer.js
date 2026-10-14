@@ -71,6 +71,7 @@ export function start(api) {
     if (S.phase !== 'race' || finished) return;
     const v = input.value, t = S.text;
     if (v.length > lastLen) { if (t.startsWith(v)) good += v.length - lastLen; else bad += v.length - lastLen; }
+    if (v.length !== lastLen) api.sfx(v.length < lastLen || t.startsWith(v) ? 'type' : 'typo', v.length < lastLen ? 0.55 : 0.75 + Math.random() * 0.25);
     lastLen = v.length;
     let c = 0;
     while (c < v.length && v[c] === t[c]) c++;

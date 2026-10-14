@@ -236,7 +236,7 @@ export function start(api) {
       let dx = p.ix, dy = p.iy;
       if (!dx && !dy) { const sp = Math.hypot(p.vx, p.vy); if (sp < 5) return; dx = p.vx / sp; dy = p.vy / sp; }
       const l = Math.hypot(dx, dy);
-      p.vx += (dx / l) * 470; p.vy += (dy / l) * 470; p.dash = 1; G.ev.push('shoot');
+      p.vx += (dx / l) * 470; p.vy += (dy / l) * 470; p.dash = 1; G.ev.push('dash');
     });
     // ---- computer players: get on the centre side of an opponent and shove them outward; never wander near the edge
     api.interval(() => {

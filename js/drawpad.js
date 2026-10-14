@@ -2,6 +2,7 @@
 // Drawings leave the pad as small JPEG data-URLs (toDataURL) so they can be sent through the host.
 import { h, canvasPoint, clamp } from './util.js';
 import { icon } from './ui.js';
+import { sfx } from './audio.js';
 
 export const PAD_COLORS = ['#202124', '#5f6368', '#ffffff', '#bdc1c6', '#ea4335', '#f57c00', '#fbbc04', '#34a853', '#0f9d58', '#12b5cb', '#1a73e8', '#8e4de8', '#e5399b', '#a0522d', '#ffb6a0', '#3a2a12'];
 const SIZES = [4, 10, 20, 38];
@@ -76,7 +77,7 @@ export function createDrawPad({ w = 560, h: hh = 420, bg = '#ffffff', colors = P
     canvas.setPointerCapture(e.pointerId);
     const p = canvasPoint(canvas, e);
     const x = Math.round(p.x), y = Math.round(p.y);
-    if (tool === 'fill') { ops.push({ k: 'f', x, y, c: color }); floodFill(ctx, x, y, color); onChange?.(); return; }
+    if (tool === 'fill') { ops.push({ k: 'f', x, y, c: color }); floodFill(ctx, x, y, color); sfx('pop'); onChange?.(); return; }
     drawing = true;
     const op = { k: 's', c: tool === 'eraser' ? bg : color, w: tool === 'eraser' ? Math.max(size, 16) : size, p: [x, y] };
     ops.push(op);
@@ -91,6 +92,7 @@ export function createDrawPad({ w = 560, h: hh = 420, bg = '#ffffff', colors = P
       const x = Math.round(p.x), y = Math.round(p.y);
       const lx = o.p[o.p.length - 2], ly = o.p[o.p.length - 1];
       if (Math.abs(x - lx) + Math.abs(y - ly) < 2) continue;
+      sfx(tool === 'eraser' ? 'rub' : 'scribble', Math.hypot(x - lx, y - ly));
       seg(o.c, o.w, lx, ly, x, y);
       o.p.push(x, y);
     }

@@ -263,7 +263,7 @@ export function start(api) {
         // power-ups
         const tx = Math.floor(pl.x), ty = Math.floor(pl.y);
         const pi = G.pus.findIndex((p) => p.x === tx && p.y === ty);
-        if (pi >= 0) { const p = G.pus.splice(pi, 1)[0]; if (p.t === 'b') pl.maxB++; else if (p.t === 'f') pl.range++; else pl.speed = Math.min(6.2, pl.speed + 0.6); G.ev.push('coin'); }
+        if (pi >= 0) { const p = G.pus.splice(pi, 1)[0]; if (p.t === 'b') pl.maxB++; else if (p.t === 'f') pl.range++; else pl.speed = Math.min(6.2, pl.speed + 0.6); G.ev.push('pickup'); }
       }
       for (const b of [...G.bombs]) { b.t -= dt; if (b.t <= 0) explode(b); }
       for (const f of G.flames) f.t -= dt;
@@ -284,7 +284,7 @@ export function start(api) {
           const bi = G.bombs.findIndex((b) => b.x === x && b.y === y); if (bi >= 0) G.bombs.splice(bi, 1);
           G.pus = G.pus.filter((p) => !(p.x === x && p.y === y));
           for (const pl of Object.values(G.players)) if (Math.floor(pl.x) === x && Math.floor(pl.y) === y) kill(pl);
-          G.ev.push('bump');
+          G.ev.push('break');
         }
       }
       const alive = Object.values(G.players).filter((p) => p.alive);
@@ -319,7 +319,7 @@ export function start(api) {
       const pass = new Set(Object.values(G.players).filter((p) => p.alive && Math.floor(p.x) === x && Math.floor(p.y) === y).map((p) => p.id));
       G.bombs.push({ x, y, t: FUSE, owner: from, range: pl.range, pass, id: ++G.bid });
       pl.out++;
-      G.ev.push('click');
+      G.ev.push('plant');
     });
     // ---- computer players: dodge blast zones first, then hunt for power-ups, soft blocks and rivals — bombing only when there is a way out
     const K = (x, y) => x + ',' + y;

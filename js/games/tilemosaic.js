@@ -111,7 +111,7 @@ export function start(api) {
       if (m.src === 'f') { H.center.push(...rest); H.facs[m.idx] = []; } else { H.center = rest; if (H.marker) { H.marker = false; b.marker = true; H.start = me; } }
       if (line === 'floor') b.floor.push(...taken);
       else { const L = b.lines[line]; let k = 0; while (k < taken.length && L.length < line + 1) L.push(taken[k++]); b.floor.push(...taken.slice(k)); }
-      H.sfx = 'card';
+      H.sfx = 'chips';
       if (H.facs.every((f) => !f.length) && !H.center.length) return endRound();
       H.turn = (H.turn + 1) % N;
       pub();

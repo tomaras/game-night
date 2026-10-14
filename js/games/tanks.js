@@ -255,7 +255,7 @@ export function start(api) {
               // erode the 2-cell-wide strip (perpendicular to the shot) like classic tank games
               const strip = b.dir % 2 === 1 ? [[cx, cy & ~1], [cx, cy | 1]] : [[cx & ~1, cy], [cx | 1, cy]];
               for (const [x, y] of strip) if (cells[y * CWc + x] === 1) { cells[y * CWc + x] = 0; G.destroyed.push(y * CWc + x); }
-              G.ev.push('hit');
+              G.ev.push('crash');
             } else G.ev.push('bump');
             G.fx.push({ x: b.x, y: b.y, t: 0.2 });
             break;
@@ -278,7 +278,7 @@ export function start(api) {
       const [dx, dy] = DIRV[t.dir];
       G.bullets.push({ x: t.x + dx * 18, y: t.y + dy * 18, dir: t.dir, owner: from });
       t.shots++; t.reload = 0.28;
-      G.ev.push('shoot');
+      G.ev.push('cannon');
     });
     // ---- computer players: hunt the nearest tank, shoot when lined up, blast through bricks that block the way
     const brain = {};

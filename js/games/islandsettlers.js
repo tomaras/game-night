@@ -352,12 +352,12 @@ export function start(api) {
           if (H.phase !== 'setup' || !mineTurn) return;
           if (H.step === 'settle') {
             if (!(m.at >= 0 && m.at < T.V.length) || !settleFree(H.b, m.at)) return;
-            H.b[m.at] = [me, 'S']; H.last = m.at; H.step = 'road'; H.sfx = 'pop';
+            H.b[m.at] = [me, 'S']; H.last = m.at; H.step = 'road'; H.sfx = 'place';
             if (H.si >= N) T.V[m.at].hexes.forEach((hi) => { const t = board.hexes[hi].t; if (t !== 'desert') give(me, t); });
           } else {
             const e = T.E[m.at];
             if (!e || H.r[m.at] !== undefined || (e.a !== H.last && e.b !== H.last)) return;
-            H.r[m.at] = me; H.sfx = 'pop'; H.si++;
+            H.r[m.at] = me; H.sfx = 'place'; H.si++;
             if (H.si >= 2 * N) { H.phase = 'roll'; H.turn = ids.findIndex((_, i) => !left(i)); H.step = ''; H.log = 'Setup complete — let the game begin!'; }
             else { H.turn = H.seq[H.si]; H.step = 'settle'; }
           }
@@ -425,7 +425,7 @@ export function start(api) {
             if (H.free > 0 || !H.b[at] || H.b[at][0] !== me || H.b[at][1] !== 'S' || !can(P[me].res, COST.city) || piece(me, 'C') >= 4) return;
             pay(me, COST.city); H.b[at] = [me, 'C']; H.log = `${nameOf(from)} upgrades to a city!`;
           } else return;
-          H.sfx = 'card';
+          H.sfx = 'place';
           pub();
           checkWin(me);
           return;
@@ -452,7 +452,7 @@ export function start(api) {
           else if (m.d === 'knight') { P[me].kn++; H.after = H.phase; H.phase = 'robber'; H.log = `${nameOf(from)} plays a Knight!`; }
           else return;
           P[me].dev.splice(d, 1);
-          H.devPlayed = true; H.sfx = 'pop';
+          H.devPlayed = true; H.sfx = 'card';
           pub();
           return;
         }
@@ -461,7 +461,7 @@ export function start(api) {
           const rate = rateFor(H.b, board.ports, me, m.give);
           if (P[me].res[m.give] < rate) return;
           P[me].res[m.give] -= rate; P[me].res[m.get]++;
-          H.log = `${nameOf(from)} trades ${rate}${EM[m.give]} with the bank for 1${EM[m.get]}.`; H.sfx = 'pop';
+          H.log = `${nameOf(from)} trades ${rate}${EM[m.give]} with the bank for 1${EM[m.get]}.`; H.sfx = 'deal';
           return pub();
         }
         case 'offer': {

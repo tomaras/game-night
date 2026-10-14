@@ -245,6 +245,7 @@ export function start(api) {
       const pt = canvasPoint(canvas, ev);
       const x = Math.round(pt.x), y = Math.round(pt.y);
       if (Math.abs(x - lastPt[0]) + Math.abs(y - lastPt[1]) < 2) continue;
+      api.sfx(tool === 'eraser' ? 'rub' : 'scribble', Math.hypot(x - lastPt[0], y - lastPt[1]));
       lastPt = [x, y];
       const o = ops[ops.length - 1];
       drawSeg(o.c, o.w, o.p[o.p.length - 2], o.p[o.p.length - 1], x, y);

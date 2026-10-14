@@ -198,7 +198,7 @@ export function start(api) {
         const base = { L: 0, R: Math.PI, T: Math.PI / 2, B: -Math.PI / 2 }[side];
         const a = side === 'L' || side === 'T' ? base + (side === 'L' ? ang : -ang) : base + (side === 'R' ? -ang : ang);
         b.vx = Math.cos(a) * b.sp; b.vy = Math.sin(a) * b.sp;
-        G.ev.push('clack');
+        G.ev.push('paddle');
         return true;
       };
       for (const side of SIDES) { const id = ownerOf(side); if (id && hitPad(id, side)) break; }
