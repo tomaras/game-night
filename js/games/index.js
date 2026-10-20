@@ -6,10 +6,21 @@ export const CATEGORIES = ['Party', 'Drawing', 'Words', 'Bluffing', 'Cards', 'St
 export const GAMES = [
   // ---- hive: owned by the hive agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'hive', name: 'Hive (working title)', emoji: '🐝', color: '#FBBC05', cat: 'Board', tags: [], min: 2, max: 2,
-    tagline: 'Coming soon.',
-    desc: 'Coming soon.',
-    howto: ['Coming soon.'],
+    id: 'hive', name: 'Swarmfront', emoji: '🐝', color: '#FBBC05', cat: 'Strategy', tags: ['Abstract', 'Tactical'], min: 2, max: 2,
+    tagline: 'A living battlefield. One colony survives.',
+    desc: 'Build the battlefield as you play. Deploy a colony of creatures with distinct movement powers, keep every piece connected and close all six sides around the rival Monarch before they surround yours.',
+    howto: [
+      'Deploy one creature beside your own colony without touching an opposing piece. The first two pieces simply meet; your Monarch must enter by your fourth turn.',
+      'Once your Monarch is down, either deploy a reserve creature or move one already in play. Every move must leave the whole colony connected.',
+      'Ground creatures slide through open gaps. Scouts roam the edge, Weavers move exactly three spaces, Leapers jump occupied lines and Shells climb onto other pieces.',
+      'Close all six sides around the opposing Monarch to win. Either colour can fill the surrounding spaces; surrounding both Monarchs at once is a draw.',
+    ],
+    help: {
+      goal: 'Surround the opposing Monarch on all six sides while keeping yours open.',
+      controls: [['Tap a reserve', 'show legal deployment spaces'], ['Tap a creature', 'show legal moves'], ['Drag', 'pan the colony'], ['Pinch or scroll', 'zoom'], ['Target', 'place or move']],
+      tips: ['Your Monarch must be deployed by your fourth turn.', 'A creature holding two halves of the colony together is pinned.', 'Shells on top control that stack for deployment and movement.'],
+    },
+    options: [{ key: 'pieces', label: 'Creature set', choices: [{ value: 'complete', label: 'Complete · 14 each' }, { value: 'base', label: 'Core · 11 each' }, { value: 'mobility', label: 'Mobility · 13 each' }], default: 'complete' }],
     load: () => import('./hive.js'),
   },
   // ---- cascadia: owned by the cascadia agent (edit only this entry, its CAPS line and its module) ----
@@ -747,7 +758,7 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 //   otb — can be played by two people over the board on one phone (a 'Same device' button in the game sheet)
 //   watch:false — every player's screen is private (or built around having a seat), so the audience gets a stand-in screen instead
 const CAPS = {
-  hive: {}, // hive agent
+  hive: { bots: true, async: true, otb: true }, // hive agent
   cascadia: {}, // cascadia agent
   harmonies: {}, // harmonies agent
   wingspan: {}, // wingspan agent
