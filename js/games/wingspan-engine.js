@@ -937,4 +937,4 @@ Game.prototype.rowAffinity = function rowAffinity(pid, hab) {
   return n < 5 ? rowReward(hab, n + 1).n - rowReward(hab, n).n + n * 0.08 : -9;
 };
 
-export { BIRDS, BONUS, GOALS };
+export { BIRDS, BONUS, GOALS, FOODS };
