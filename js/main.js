@@ -188,13 +188,14 @@ function appSection() {
 }
 
 // ------------------------------------------------------------------ header / app bar
-/** In a game the translucent app bar picks up a tint of the game's colour; the status bar matches the page. */
+/** The app bar is plain paper; in a room it carries the game's colour as a thin stripe along its bottom edge
+ *  (and on the room chip). The status bar matches the bar. */
 function setBar(color) {
   const dark = document.documentElement.dataset.theme === 'dark';
-  if (color) { S.headerEl.style.setProperty('--bar', `color-mix(in srgb, ${color} ${dark ? 16 : 12}%, color-mix(in srgb, var(--bg) 88%, transparent))`); S.headerEl.style.setProperty('--gc', color); }
-  else { S.headerEl.style.removeProperty('--bar'); S.headerEl.style.removeProperty('--gc'); }
+  S.headerEl.classList.toggle('ingame', !!color);
+  if (color) S.headerEl.style.setProperty('--gc', color); else S.headerEl.style.removeProperty('--gc');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = dark ? '#121117' : '#F6F3EE';
+  if (meta) meta.content = dark ? '#272727' : '#FFFFFF';
 }
 function renderHeader() {
   const room = S.room;
@@ -218,7 +219,7 @@ function renderHeader() {
   const ids = st.game ? st.game.playerIds : st.players.map((p) => p.id);
   mount(S.headerEl,
     iconBtn('arrow_back', 'Leave room', () => requestLeave()),
-    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? (st.players.some((p) => p.bot) ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('span.codechip.static', icon('groups', 'sm'), 'Same device')) : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
+    h('div.tb-title', h('b', inGame && def ? def.name : room.local ? 'Solo' : 'Lobby'), room.isAudience ? h('span.codechip.static', icon('visibility', 'sm'), 'Room ' + room.number) : room.match ? h('span.codechip.static', icon('sms', 'sm'), room.match.mode === 'cpu' ? 'vs computer' : room.match.mode === 'local' ? 'Pass & play' : 'By message') : room.local ? (st.players.some((p) => p.bot) ? h('span.codechip.static', icon('smart_toy', 'sm'), 'vs computer') : h('span.codechip.static', icon('smartphone', 'sm'), 'Same device')) : h('button.codechip', { onclick: copyInvite, title: 'Copy invite link' }, 'Room ' + room.number, icon('content_copy'))),
     h('div.tb-players', ids.map((id) => room.player(id)).filter(Boolean).slice(0, 10).map((p) => avatarEl(p, 'sm', { still: true }))),
     h('div.spacer'),
     S.rec?.active ? h('button.recpill', { onclick: () => openRecordings(S.rec, { toast }), title: 'Recording — tap to save a clip' }, icon('fiber_manual_record', 'sm'), 'REC') : null,
@@ -262,7 +263,7 @@ function openRoomMenu(anchor) {
     { icon: isMuted() ? 'volume_off' : 'volume_up', label: isMuted() ? 'Turn sound on' : 'Turn sound off', onClick: () => { setMuted(!isMuted()); toast(isMuted() ? 'Sound off' : 'Sound on'); } },
     { icon: 'menu_book', label: 'Rules & how to play', onClick: () => openRules(currentDef()) },
     room.local ? null : { icon: 'headset', label: 'Voice, video & chat…', onClick: openComms },
-    S.rec?.active ? { icon: 'save_alt', label: `Save last ${S.rec.settings.minutes} min as a clip`, onClick: async () => { try { const r = await S.rec.save(); toast(r.stitched ? 'Stitched onto your earlier clip ✓' : 'Clip saved ✓', 'good'); } catch (e) { toast(e.message, 'bad'); } } } : { icon: 'videocam', label: 'Record…', onClick: () => openRecordings(S.rec, { toast }) },
+    S.rec?.active ? { icon: 'save_alt', label: `Save last ${S.rec.settings.minutes} min as a clip`, onClick: async () => { try { const r = await S.rec.save(); toast(r.stitched ? 'Stitched onto your earlier clip ✓' : 'Clip saved ✓', 'good'); } catch (e) { toast(e.message, 'bad'); } } } : { icon: 'fiber_manual_record', label: 'Record…', onClick: () => openRecordings(S.rec, { toast }) },
     room.local ? null : { icon: 'tune', label: 'Room settings & invite', onClick: () => openPanel('room') },
     room.isHost && st.phase !== 'lobby' ? { icon: 'stop', label: 'End game', onClick: async () => { if (await confirmDialog('End this game?', 'Everyone goes back to the lobby.', { ok: 'End game', danger: true })) room.toLobby(); } } : null,
     '-',
@@ -432,7 +433,7 @@ function openGameSheet(def) {
       (() => {
         const alt = [
           def.bots || def.solo ? ['smart_toy', def.bots ? 'Vs computer' : 'Play alone', () => startSolo(def)] : null,
-          def.otb ? ['groups', 'Same device', () => startOtb(def)] : null,
+          def.otb ? ['smartphone', 'Same device', () => startOtb(def)] : null,
           def.async ? ['sms', 'Turn by turn', () => startMatch(def)] : null,
         ].filter(Boolean);
         return alt.length ? h('div.galt', { style: `--n:${alt.length}` }, alt.map(([ic, label, fn]) => h('button.btn.tonal.gbtn', { onclick: () => { sheet.close(); fn(); } }, icon(ic), h('span', label)))) : null;
@@ -508,7 +509,7 @@ function startMatch(def) {
   if (S.room || S.joining) return;
   const cfg = { mode: 'link', level: 'normal', name: '', opts: fillOpts(def, {}) };
   const body = h('div.col', { style: 'gap:14px' });
-  const MODES = [['link', 'sms', 'A friend, by message', 'Play whenever you like — each move is sent as a link by text.'], ['cpu', 'smart_toy', 'The computer', 'Offline; pick up where you left off any time.'], ['local', 'groups', 'Pass & play', 'Two people, one phone — hand it over after each move.']];
+  const MODES = [['link', 'sms', 'A friend, by message', 'Play whenever you like — each move is sent as a link by text.'], ['cpu', 'smart_toy', 'The computer', 'Offline; pick up where you left off any time.'], ['local', 'smartphone', 'Pass & play', 'Two people, one phone — hand it over after each move.']];
   const paint = () => mount(body,
     h('div.gsel', { style: { '--gc': def.color } }, [h('div.tile.emo', gameIcon(def, 48)), h('div.grow', [h('h2', def.name), h('div.muted', 'Turn by turn')])]),
     h('div.mcards', MODES.map(([v, ic, t, d]) => h('button.mcard' + (cfg.mode === v ? '.on' : ''), { onclick: () => { cfg.mode = v; paint(); } }, icon(ic), h('div', h('b', t), h('small', d))))),

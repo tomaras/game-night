@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Game Night — play with friends</title>
   <meta name="description" content="Free multiplayer party games you can play with friends in your browser: drawing, cards, pool, chess, arcade and more. Make a room, share the link, play.">
-  <meta name="theme-color" content="#F6F3EE">
+  <meta name="theme-color" content="#FFFFFF">
   <meta name="color-scheme" content="light">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -19,11 +19,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">
-  <link rel="preload" href="assets/fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
   <script>
     // paint the right theme on the very first frame (full logic lives in js/theme.js)
-    (function () { try { var p = localStorage.getItem('gn.theme'); var dark = p === 'night' || ((p === 'system' || !p) && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; if (dark) { document.querySelector('meta[name="theme-color"]').content = '#121117'; document.querySelector('meta[name="color-scheme"]').content = 'dark'; } } catch (e) {} })();
+    (function () { try { var p = localStorage.getItem('gn.theme'); var dark = p === 'night' || ((p === 'system' || !p) && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; if (dark) { document.querySelector('meta[name="theme-color"]').content = '#272727'; document.querySelector('meta[name="color-scheme"]').content = 'dark'; } } catch (e) {} })();
   </script>
   <link rel="stylesheet" href="css/style.css">
   <script>
@@ -49,8 +48,8 @@
         var app = document.getElementById('app');
         if (app && !app.firstChild) app.innerHTML = '<div style="margin:auto;max-width:320px;padding:32px 24px;text-align:center;font:16px/1.5 system-ui,sans-serif;color:inherit">' +
           '<div style="font-size:44px">🎲</div><p style="margin:12px 0 20px">Game Night didn\u2019t start properly.</p>' +
-          '<button onclick="location.reload()" style="font:600 15px system-ui;padding:12px 20px;border-radius:12px;border:0;margin:4px;cursor:pointer">Try again</button>' +
-          '<button onclick="location.href=location.pathname+\'?reset\'" style="font:600 15px system-ui;padding:12px 20px;border-radius:12px;border:0;margin:4px;cursor:pointer;background:#5b5bf0;color:#fff">Reset app</button></div>';
+          '<button onclick="location.reload()" style="font:600 15px system-ui;padding:12px 20px;border-radius:4px;border:0;margin:4px;cursor:pointer">Try again</button>' +
+          '<button onclick="location.href=location.pathname+\'?reset\'" style="font:600 15px system-ui;padding:12px 20px;border-radius:4px;border:0;margin:4px;cursor:pointer;background:#4285F4;color:#fff">Reset app</button></div>';
       }
       function check() { if (window.__gnReady) { try { sessionStorage.removeItem('gn.healed'); } catch (e) {} return; } if (failed || navigator.serviceWorker && navigator.serviceWorker.controller) heal(); else setTimeout(check, 6000); }
       addEventListener('load', function () { setTimeout(check, 5000); });
