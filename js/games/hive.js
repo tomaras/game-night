@@ -2,7 +2,7 @@
 // Original presentation and artwork; rules logic lives in ../engines/hive-rules.js.
 import { h, clamp } from '../util.js';
 import { avatarEl } from '../avatar.js';
-import { iconBtn, openSheet, confirmDialog } from '../ui.js';
+import { icon, iconBtn, openSheet, confirmDialog } from '../ui.js';
 import {
   Position, replay, K_PLACE, K_MOVE, K_PASS,
   typeOfPiece, colorOfPiece, qOf, rOf, cellOf,
@@ -44,7 +44,7 @@ const xyOf = (cell) => ({ x: STEP * SQ3 * (qOf(cell) + rOf(cell) / 2), y: STEP *
 const cellKey = (cell) => `${qOf(cell)},${rOf(cell)}`;
 
 const CSS = `
-.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:190px minmax(340px,1fr) 220px; grid-template-rows:minmax(0,1fr) auto auto; grid-template-areas:"rail arena info" "rail tray info" "rail command info"; overflow:hidden; background:#100d09; color:#f7efe3; --hv-board:#442816; --hv-board2:#1f130c; }
+.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:268px minmax(340px,1fr) 304px; grid-template-rows:auto minmax(0,1fr); grid-template-areas:"head head head" "rail center info"; overflow:hidden; background:#100d09; color:#f7efe3; --hv-board:#442816; --hv-board2:#1f130c; }
 .hv * { box-sizing:border-box; }
 .hv-defs { pointer-events:none; }
 ${GLYPH_CSS}
@@ -72,7 +72,7 @@ ${GLYPH_CSS}
 .hv-arena.d3::before { box-shadow:inset 0 0 90px rgba(10,8,3,.5); }
 .hv.d3 .hv-tray { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); padding:0; }
 .hv.d3 .hv-bag { display:none; }
-.hv-tray { grid-area:tray; display:flex; justify-content:center; padding:6px 10px 4px; background:#120f0b; min-width:0; }
+.hv-tray { display:flex; justify-content:center; padding:6px 10px 4px; background:#120f0b; min-width:0; }
 .hv-trayrow { position:relative; width:min(100%, calc(var(--n) * 104px)); aspect-ratio:var(--ratio); background-size:100% 100%; background-repeat:no-repeat; filter:drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
 .hv-trayrow .hv-rpiece { position:absolute; top:46%; width:var(--tw); height:auto; aspect-ratio:1; transform:translate(-50%,-50%); filter:drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
 .hv-trayrow .hv-rpiece svg { width:100%; height:auto; }
@@ -91,7 +91,9 @@ ${GLYPH_CSS}
 .hv-seg button:last-child { border-right:0; }
 .hv-seg button.on { background:var(--blue); color:#fff; }
 .hv-set small { display:block; color:var(--on2); font:500 12px/1.4 var(--font); margin:-2px 0 4px; }
-.hv-arena { grid-area:arena; position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-table-v2.png") center/cover no-repeat; border:1px solid #25170e; touch-action:none; user-select:none; }
+.hv-center { grid-area:center; display:flex; flex-direction:column; min-height:0; min-width:0; }
+.hv-center > .hv-arena { flex:1; min-height:0; }
+.hv-arena { position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-table-v2.png") center/cover no-repeat; border:1px solid #25170e; touch-action:none; user-select:none; }
 .hv-arena::before { content:''; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 70px rgba(15,8,3,.42); }
 .hv-board { position:absolute; inset:0; width:100%; height:100%; overflow:visible; touch-action:none; }
 .hv-world { transform-origin:0 0; }
@@ -119,7 +121,7 @@ ${GLYPH_CSS}
 .hv-float { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:7px; z-index:3; }
 .hv-float .iconbtn { background:var(--surface); color:var(--on); box-shadow:var(--z2); }
 .hv-zoom { position:absolute; left:10px; bottom:9px; padding:5px 9px; background:var(--surface); color:var(--on2); box-shadow:var(--z1); border-radius:2px; font:700 10px var(--font); pointer-events:none; }
-.hv-command { grid-area:command; display:grid; grid-template-columns:minmax(150px,1fr) auto auto; gap:8px; align-items:center; min-height:64px; padding:7px 10px; background:#171512;color:#f7efe3;border-top:2px solid #b47b2d; z-index:4; }
+.hv-command { display:grid; grid-template-columns:minmax(150px,1fr) auto auto; gap:8px; align-items:center; min-height:64px; padding:7px 10px; background:#171512;color:#f7efe3;border-top:2px solid #b47b2d; z-index:4; }
 .hv-status { min-width:0; }
 .hv-status b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 14px var(--font); }
 .hv-status span { display:block; color:#bca98c; font:500 12px var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -155,8 +157,86 @@ ${GLYPH_CSS}
 .hv-log-row b { color:var(--on3); text-align:right; }
 .hv-empty { padding:20px; text-align:center; color:var(--on2); }
 :root[data-theme="dark"] .hv { --hv-board:#2d1b10; --hv-board2:#100a06; }
+
+/* ---- the dark, gold-edged look of the design: serif titles, black panels, labelled buttons ---- */
+.hv-head { grid-area:head; display:flex; align-items:center; gap:26px; padding:6px 16px; background:#0c0a07; border-bottom:1px solid #6d4a22; z-index:5; min-width:0; }
+.hv-logo { display:flex; align-items:center; gap:10px; flex:none; }
+.hv-logo svg { width:34px; height:34px; display:block; }
+.hv-logo b { display:block; font:700 28px/1 Georgia,'Times New Roman',serif; letter-spacing:.16em; color:#e8b64a; }
+.hv-logo small { display:block; margin-top:3px; font:600 8.5px var(--font); letter-spacing:.34em; color:#b99a5c; }
+.hv-tabs { display:flex; gap:2px; padding:3px; background:#13100c; border:1px solid #3d2f1b; }
+.hv-tabs button { border:0; background:transparent; color:#eadfc9; font:600 15px Georgia,'Times New Roman',serif; padding:8px 22px; cursor:pointer; }
+.hv-tabs button.on { background:#e6a72a; color:#1d1307; box-shadow:inset 0 0 0 1px #ffe08a; }
+.hv-tabs button:not(.on):hover { background:#211b12; }
+.hv-rail { background:#0b0907; gap:8px; padding:10px; min-height:0; overflow:auto; contain:size; scrollbar-width:none; }
+.hv-player { background:#12100c; border:1px solid #5d452c; gap:10px; padding:12px 12px 14px; justify-content:flex-start; }
+.hv-player.turn { border:2px solid #e6a72a; padding:11px 11px 13px; box-shadow:inset 0 0 0 1px #3a2a10; }
+.hv-who { gap:12px; }
+.hv-who .name { font:700 18px Georgia,'Times New Roman',serif; white-space:normal; }
+.hv-who small { text-transform:none; letter-spacing:0; font:500 13px var(--font); color:#bda985; margin-top:2px; }
+.hv-who small.turn { color:#f0c250; font-weight:700; }
+.hv-chips { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; }
+.hv-chip { display:flex; align-items:center; gap:5px; color:#e9dec8; font:600 14px var(--font); }
+.hv-chip .hv-timg { width:38px; height:38px; }
+.hv-chip .x u { text-decoration:none; }
+.hv-chip.none { opacity:.38; }
+.hv-chip.queen .hv-timg { filter:drop-shadow(0 0 5px rgba(232,182,74,.7)) drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
+.hv-danger { margin-top:auto; }
+.hv-inspector { background:#0b0907; padding:10px; display:flex; flex-direction:column; gap:10px; border-left:1px solid #6d4a22; min-height:0; contain:size; }
+.hv-info-card,.hv-stats-card,.hv-hist-card { border:1px solid #6d4a22; background:#12100c; box-shadow:inset 0 0 0 1px #040302; padding:14px 16px; }
+.hv-info-head { grid-template-columns:62px 1fr; gap:12px; border-bottom:0; padding-bottom:6px; }
+.hv-info-head h3 { font:700 24px Georgia,'Times New Roman',serif; margin:0; }
+.hv-info-head small { color:#e0a83a; font:600 17px Georgia,'Times New Roman',serif; text-transform:none; letter-spacing:0; }
+.hv-rules { list-style:none; padding:0; margin:6px 0 0; font:500 14.5px/1.45 var(--font); color:#e5dbc8; }
+.hv-rules li { position:relative; padding-left:18px; margin:7px 0; }
+.hv-rules li::before { content:''; position:absolute; left:2px; top:.55em; width:7px; height:7px; border-radius:50%; background:#e6a72a; }
+.hv-hist-card { flex:1; min-height:0; display:flex; flex-direction:column; padding:12px 14px; }
+.hv-card-title { display:flex; align-items:center; justify-content:space-between; font:700 19px Georgia,'Times New Roman',serif; color:#f3e9d4; padding-bottom:8px; }
+.hv-card-title button { border:0; background:transparent; color:#c9b58c; cursor:pointer; padding:2px; display:grid; place-items:center; }
+.hv-hist { overflow:auto; min-height:0; scrollbar-width:thin; }
+.hv-hrow { display:grid; grid-template-columns:20px 28px 52px 1fr; gap:8px; align-items:center; padding:7px 0; border-top:1px solid #2a231a; font:500 13px var(--font); color:#d6cab4; }
+.hv-hrow:first-child { border-top:0; }
+.hv-hrow b { color:#9d8f78; font-weight:500; text-align:right; }
+.hv-hrow .hv-timg { width:26px; height:26px; }
+.hv-hrow.last { background:#1d170e; }
+.hv-stat { display:grid; grid-template-columns:34px 1fr auto; gap:10px; align-items:center; padding:10px 0; border-top:1px solid #2a231a; color:#e9dfca; font:500 15px var(--font); }
+.hv-stat:first-of-type { border-top:0; }
+.hv-stat i { color:#e0a83a; display:grid; place-items:center; }
+.hv-stat b { font:700 17px var(--font); }
+.hv-stat small { display:block; color:#a09076; font:500 12px var(--font); }
+.hv-final { display:grid; grid-template-columns:30px 1fr; gap:10px; align-items:center; padding:8px 0; border-top:1px solid #2a231a; font:500 13.5px var(--font); color:#e5dbc8; }
+.hv-final.win { color:#f3c85c; }
+.hv-victory { position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:4; text-align:center; padding:8px 44px 10px; background:#0d0b08; border:1px solid #c28a2c; box-shadow:inset 0 0 0 3px #0d0b08,inset 0 0 0 4px #5d452c,0 6px 18px rgba(0,0,0,.6); clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%); pointer-events:none; }
+.hv-victory b { display:block; font:700 32px/1 Georgia,'Times New Roman',serif; letter-spacing:.14em; color:#efbd4e; }
+.hv-victory span { display:block; margin-top:4px; font:500 15px Georgia,serif; color:#f1e6cf; }
+.hv-command { background:#0e0c09; border-top:1px solid #6d4a22; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; padding:10px 14px; }
+.hv-status { flex:1 1 100%; min-width:0; }
+.hv-confirm { margin-left:auto; }
+.hv-status b { font:600 14px var(--font); white-space:normal; color:#efe4cd; }
+.hv-status span { display:none; }
+.hv-actions { display:flex; gap:8px; }
+.hv-btn { display:flex; align-items:center; gap:9px; height:50px; padding:0 18px; background:#14110d; border:1px solid #5d452c; color:#f1e7d3; font:600 16px var(--font); cursor:pointer; }
+.hv-btn:hover:not(:disabled) { border-color:#c28a2c; background:#1b160f; }
+.hv-btn:disabled { opacity:.38; cursor:default; }
+.hv-btn svg,.hv-btn .ic { flex:none; }
+.hv-confirm { height:50px; min-width:168px; padding:0 22px; background:#e6a72a; border:1px solid #f6cc6a; color:#1f1407; font:800 17px var(--font); box-shadow:inset 0 1px 0 #ffe9a8; }
+.hv-float .iconbtn { background:#14110d; color:#eadfc9; border:1px solid #5d452c; box-shadow:0 3px 8px rgba(0,0,0,.5); }
+.hv-learn { display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; }
+.hv-lp { flex:1 1 92px; border:1px solid var(--line2); background:var(--surface); padding:10px 6px; cursor:pointer; text-align:center; font:700 14px Georgia,serif; color:var(--on); }
+.hv-lp.on { border-color:#e6a72a; box-shadow:inset 0 0 0 1px #e6a72a; }
+.hv-lp small { display:block; font:500 12px var(--font); color:var(--on2); margin-top:3px; }
+.hv-lessons { display:grid; gap:2px; margin-top:8px; }
+.hv-lesson { display:grid; grid-template-columns:44px 1fr; gap:12px; align-items:center; padding:10px 6px; border-bottom:1px solid var(--line); }
+.hv-lesson i { width:40px; height:44px; display:grid; place-items:center; background:#1c1710; color:#e6a72a; font:700 18px Georgia,serif; clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%); font-style:normal; }
+.hv-lesson b { display:block; font:700 16px Georgia,serif; }
+.hv-lesson span { color:var(--on2); font-size:13.5px; }
+@container hv (max-width:1180px) { .hv { grid-template-columns:232px minmax(0,1fr) 0; } .hv-inspector { display:none; } .hv-who .name { font-size:16px; } .hv-chip .hv-timg { width:34px; height:34px; } }
 @media (max-width:900px) {
   .hv { grid-template-columns:1fr; grid-template-rows:auto minmax(220px,1fr) auto auto auto; grid-template-areas:"top" "arena" "bottom" "tray" "command"; }
+  .hv-center { display:contents; }
+  .hv-center > .hv-arena { grid-area:arena; }
+  .hv-tray { grid-area:tray; }
+  .hv-command { grid-area:command; }
   .hv-bag { max-width:72px; margin:0 0 0 auto; }
   .hv-player.bottom { grid-template-columns:minmax(110px,auto) 1fr 76px; }
   .hv-player.bottom .hv-bag { margin-top:-6px; }
@@ -167,6 +247,25 @@ ${GLYPH_CSS}
   .hv-reserve { display:flex; align-items:center; justify-content:flex-start; gap:1px; overflow-x:auto; }
   .hv-danger { grid-template-columns:repeat(3,6px); width:30px; }
   .hv-inspector { display:none; }
+  .hv-head { display:none; }
+  .hv-player { gap:8px; padding:6px 10px; }
+  .hv-player.turn { padding:5px 9px; }
+  .hv-who .name { font:700 14px Georgia,serif; white-space:nowrap; }
+  .hv-who small { font-size:11px; }
+  .hv-chips { gap:2px 3px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+  .hv-chip { position:relative; }
+  .hv-chip .x u { display:none; }
+  .hv-chip .hv-timg { width:29px; height:29px; }
+  .hv-chips { gap:0 !important; }
+  .hv-who .avatar { transform:scale(.8); margin:-4px; }
+  .hv-who .name { max-width:92px; overflow:hidden; text-overflow:ellipsis; }
+  .hv-player.bottom .hv-chips { display:none; }
+  .hv-chip .x { position:absolute; right:-2px; bottom:-1px; min-width:16px; height:16px; padding:0 3px; border-radius:8px; background:#4285F4; color:#fff; font:800 10px/16px var(--font); text-align:center; border:1.5px solid #0c0a07; }
+  .hv-victory { top:8px; padding:6px 30px 8px; } .hv-victory b { font-size:22px; } .hv-victory span { font-size:12px; }
+  .hv-command { padding:7px 8px; min-height:60px; gap:6px; flex-wrap:wrap; }
+  .hv-status { flex:1 1 100%; }
+  .hv-status b { font-size:14px; } .hv-status span { display:none; }
+  .hv-confirm { flex:1; } .hv-btn { height:44px; padding:0 12px; } .hv-btn span.t { display:none; } .hv-confirm { min-width:108px; height:44px; font-size:15px; }
 }
 @media (max-width:480px) {
   .hv-player { grid-template-columns:112px 1fr 28px; padding-inline:7px; min-height:62px; }
@@ -177,11 +276,9 @@ ${GLYPH_CSS}
   .hv-rpiece svg { width:42px; height:46px; }
   .hv-count { width:18px; height:18px; }
   .hv-danger { width:28px; }
-  .hv-command { grid-template-columns:1fr auto; min-height:50px; padding:5px 7px; }
-  .hv-actions { display:none; }
-  .hv-confirm { min-width:100px; height:38px; }
+  .hv-command { min-height:56px; }
+  .hv-confirm { min-width:104px; height:42px; }
   .hv-status b { font-size:13px; }
-  .hv-actions .iconbtn { width:38px; height:38px; }
 }
 @media (prefers-reduced-motion:reduce) { .hv-target polygon,.hv-arrive { animation:none; } }
 `;
@@ -225,7 +322,15 @@ export function start(api) {
   const actions = h('div.hv-actions');
   const confirmMove = h('button.hv-confirm', { disabled: true, onclick: () => commitPending() }, 'Confirm move');
   const command = h('div.hv-command', statusEl, actions, confirmMove);
-  root.append(rail, arena, trayEl, inspector, command);
+  const tab = (label, fn, on) => h('button' + (on ? '.on' : ''), { onclick: fn }, label);
+  const head = h('header.hv-head',
+    h('div.hv-logo', h('span', { innerHTML: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="#e8b64a"><path d="M20 3l8 4.6v9.2L20 21.4l-8-4.6V7.6z"/><path d="M11 18.6l8 4.6v9.2L11 37l-8-4.6v-9.2z" transform="translate(1 -1)"/><path d="M29 18.6l8 4.6v9.2L29 37l-8-4.6v-9.2z" transform="translate(-1 -1)"/></g></svg>' }), h('div', h('b', 'HIVE'), h('small', 'A GAME OF SURROUNDING'))),
+    h('nav.hv-tabs', tab('Play', () => {}, true), tab('Learn', () => showGuide()), tab('Rules', () => showRules()), tab('Settings', () => showSettings())));
+  const victoryEl = h('div.hv-victory', { hidden: true });
+  arena.append(victoryEl);
+  const center = h('div.hv-center', arena, trayEl, command);
+  root.append(head, rail, center, inspector);
+  api.root.style.containerType = 'inline-size'; api.root.style.containerName = 'hv';   // panels adapt to the room the game is given (chat docked, split view…)
   api.root.append(h('style', CSS), root);
 
   // ---- 3D table (falls back to the flat SVG board if WebGL or the art cannot load)
@@ -276,7 +381,9 @@ export function start(api) {
     if (view3d) { try { return `<img class="hv-timg" src="${view3d.thumb(type, color)}" width="${size}" height="${size}" alt="">`; } catch (e) { console.warn('[hive] thumb', e); } }
     return tileSVG(type, color === 0 ? 'w' : 'b', size);
   }
-  const SHAPE_NAMES = ['circle', 'diamond', 'triangle', 'square', 'star', 'hex', 'plus', 'ring'];
+  // every move of one insect shares its colour; each insect has its own
+  const INSECT_COLOR = { Q: '#FBBC05', A: '#4285F4', S: '#EA4335', G: '#34A853', B: '#A142F4', M: '#12B5CB', L: '#FF6D00', P: '#F538A0' };
+  const colourOfMove = (m) => INSECT_COLOR[typeOfPiece(m.k === K_PLACE ? m.p : pos.top(m.from))] || '#FBBC05';
   const DEST_COLORS = ['#FBBC05', '#4285F4', '#EA4335', '#34A853', '#A142F4', '#12B5CB', '#FF6D00', '#F538A0'];
   const lvl = (c) => pos.H[c];
 
@@ -326,7 +433,7 @@ export function start(api) {
       }
     });
     for (const e of edges.values()) {
-      const colour = prefs.routeColors ? (e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8]) : '#FBBC05';
+      const colour = colourOfMove(moves[e.dests[0]]);
       out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: 0.017, opacity: 0.96, dests: e.dests });
     }
     return out;
@@ -354,7 +461,7 @@ export function start(api) {
     const targets = targetMoves.map((m, i) => {
       const key = JSON.stringify(pos.toJSON(m));
       return { id: i, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: m.k === K_PLACE ? 'place' : 'move', pending: key === pendingKey, hint: key === hintKey,
-        color: m.k !== K_MOVE ? '#34A853' : prefs.routeColors ? DEST_COLORS[i % 8] : '#FBBC05', shape: prefs.routeColors ? SHAPE_NAMES[i % 8] : 'circle' };
+        color: m.k !== K_MOVE ? '#34A853' : colourOfMove(m), shape: 'circle' };
     });
     let arrows = prefs.hints >= 2 && fp != null ? buildArrows(chosen) : [];
     if (prefs.hints >= 3 && fp != null && !selected && !pendingMove) {
@@ -363,7 +470,7 @@ export function start(api) {
       for (const m of moves) {
         if (m.k !== K_MOVE || pos.top(m.from) === fp) continue;
         const key = `${qOf(m.to)},${rOf(m.to)},${pos.H[m.to]}`;
-        if (!seen.has(key)) { seen.add(key); targets.push({ id: null, faint: true, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: 'move', color: '#FBBC05', shape: 'circle' }); }
+        if (!seen.has(key)) { seen.add(key); targets.push({ id: null, faint: true, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: 'move', color: colourOfMove(m), shape: 'circle' }); }
       }
       const others = new Map();
       for (const m of moves) if (m.k === K_MOVE && pos.top(m.from) !== fp) { const p = pos.top(m.from); (others.get(p) || others.set(p, []).get(p)).push(m); }
@@ -496,12 +603,19 @@ export function start(api) {
     const id = idOf(color);
     const player = api.player(id);
     const danger = Math.max(0, pos.queenNeighbours(color));
-    const reserve = h('div.hv-reserve', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => reserveButton(color, t, bottom)));
-    const who = h('div.hv-who', avatarEl(player, 'sm', { still: true }), h('div.name', nameOf(id), h('small', color === 0 ? 'White pieces' : 'Black pieces')));
+    const chips = h('div.hv-chips', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => {
+      const n = pos.handCount(color, t);
+      const c = h('div.hv-chip' + (n ? '' : '.none') + (t === 'Q' ? '.queen' : ''), { title: `${LABEL[t]} ×${n}` });
+      c.innerHTML = tileArt(t, 0, 38) + `<span class="x"><u>×</u>${n}</span>`;
+      return c;
+    }));
+    const turn = pos.turn === color && !S.result;
+    const sub = turn ? (canAct() && (otb || color === myColor) ? 'Your turn' : 'To act') : (color === 0 ? 'White pieces' : 'Black pieces');
+    const who = h('div.hv-who', avatarEl(player, 'sm', { still: true }), h('div.name', nameOf(id), h('small' + (turn ? '.turn' : ''), turn ? `● ${sub}` : sub)));
     const pips = h('div.hv-danger', { title: `${danger} of 6 sides closed`, 'aria-label': `${danger} of 6 sides closed` }, Array.from({ length: 6 }, (_, i) => h('i' + (i < danger ? '.on' : ''))));
     const el = bottom ? bottomBar : topBar;
-    el.classList.toggle('turn', pos.turn === color && !S.result);
-    el.replaceChildren(who, bottom ? pips : reserve, bottom ? bagEl(color) : pips);
+    el.classList.toggle('turn', turn);
+    el.replaceChildren(who, chips, pips);
   }
 
   function chosenMoves() {
@@ -642,7 +756,7 @@ export function start(api) {
     if (pos.mustPlaceQueen()) return 'Place your Queen Bee now';
     if (selected?.kind === 'reserve') return `Choose a space for ${LABEL[selected.type]}`;
     if (selected?.kind === 'board') return `Choose a destination for ${LABEL[typeOfPiece(pos.top(selected.cell))]}`;
-    return pos.ply < 2 ? 'Place any insect' : 'Place or move one insect';
+    return 'Place a piece from your reserve, or select a piece on the board to move.';
   }
 
   function canUndo() {
@@ -653,19 +767,16 @@ export function start(api) {
   }
 
   function renderActions() {
-    const buttons = [
-      iconBtn('undo', 'Undo last turn', () => api.toHost('undo')),
-      iconBtn('lightbulb', 'Hint', requestHint),
-      iconBtn('history', 'Move log', showLog),
-      iconBtn('info', 'Insect guide', showGuide),
-      iconBtn('flag', 'Resign', resign),
-    ];
-    buttons[0].disabled = !canUndo();
-    buttons[1].disabled = !canAct() || hintBusy || pos.legalMoves().every((m) => m.k === K_PASS);
-    buttons[4].disabled = !!S.result || (myColor < 0 && !otb);
-    actions.replaceChildren(...buttons);
+    const btn = (name, label, fn, title) => { const b = h('button.hv-btn', { title: title || label, 'aria-label': title || label, onclick: fn }); b.append(icon(name), h('span.t', label)); return b; };
+    const undo = btn('undo', 'Undo', () => api.toHost('undo'), 'Undo last turn');
+    const zoom = btn('search', 'Zoom', fitBoard, 'Fit the whole hive in view');
+    const hint = btn('lightbulb', 'Hint', requestHint);
+    undo.disabled = !canUndo();
+    hint.disabled = !canAct() || hintBusy || pos.legalMoves().every((m) => m.k === K_PASS);
+    actions.replaceChildren(undo, zoom, hint);
     confirmMove.disabled = !pendingMove || !canAct();
-    confirmMove.textContent = pendingMove ? 'Confirm move' : 'Select a space';
+    confirmMove.replaceChildren(icon('chevron_right'), h('span', pendingMove ? 'Confirm Move' : 'Select a space'));
+    confirmMove.style.display = 'flex'; confirmMove.style.alignItems = 'center'; confirmMove.style.justifyContent = 'center'; confirmMove.style.gap = '6px';
   }
 
   function activeType() {
@@ -675,18 +786,47 @@ export function start(api) {
     return last ? typeOfPiece(last.p) : 'Q';
   }
 
+  function historyRows() {
+    const p = new Position(opts), rows = [];
+    (S.moves || []).forEach((j, i) => {
+      const mv = p.fromJSON(j); if (!mv) return;
+      if (mv.k === K_PASS) { rows.push({ n: i + 1, color: p.turn, type: null, text: 'No legal move — passes' }); p.play(mv); return; }
+      const color = p.turn, piece = mv.k === K_PLACE ? mv.p : p.top(mv.from), type = typeOfPiece(piece);
+      const text = mv.k === K_MOVE && p.H[mv.to] > 0 ? `${LABEL[type]} climbs on ${LABEL[typeOfPiece(p.top(mv.to))]}` : `${LABEL[type]} to (${qOf(mv.to)}, ${rOf(mv.to)})`;
+      rows.push({ n: i + 1, color, type, text }); p.play(mv);
+    });
+    return rows;
+  }
+  const thumbHtml = (type, color, size) => (type ? tileArt(type, color, size) : '');
+
   function renderInspector() {
     const type = activeType();
     const art = h('div');
-    art.innerHTML = tileArt(type, pos.turn, 58);
-    const heading = h('div.hv-info-head', art, h('div', h('small', selected ? 'Selected insect' : 'Movement rules'), h('h3', LABEL[type])));
+    art.innerHTML = tileArt(type, pos.turn, 62);
+    const heading = h('div.hv-info-head', art, h('div', h('h3', LABEL[type]), h('small', selected ? 'Selected piece' : 'Movement Rules')));
     const rules = h('ul.hv-rules', RULE_DETAILS[type].map((line) => h('li', line)));
-    const history = h('div.hv-history', S.logs.length
-      ? S.logs.slice(-7).reverse().map((line, i) => h('div.hv-history-row', h('b', `${S.logs.length - i}.`), h('span', line)))
-      : h('div.hv-empty', 'Moves will appear here.'));
-    const card = h('div.hv-info-card', heading, rules, h('div.hv-history-title', 'Move history'), history);
-    const result = S.result ? h('div.hv-result-card', h('strong', S.result.winner === 2 ? 'Draw' : 'Hive complete'), h('span', S.result.text), h('small', `${pos.ply} turns · ${pos.occ.length} occupied spaces`)) : null;
-    inspector.replaceChildren(...(result ? [result, card] : [card]));
+    const info = h('div.hv-info-card', heading, rules);
+    const rows = historyRows();
+    const histBody = h('div.hv-hist', rows.length ? rows.slice().reverse().map((r, idx) => {
+      const row = h('div.hv-hrow' + (idx === 0 ? '.last' : ''), h('b', String(r.n)), h('span'), h('span', r.color === 0 ? 'White' : 'Black'), h('span', r.text));
+      row.children[1].innerHTML = thumbHtml(r.type, r.color, 26);
+      return row;
+    }) : h('div.hv-empty', 'Moves will appear here.'));
+    const hist = h('div.hv-hist-card', h('div.hv-card-title', 'Move History', h('button', { title: 'Full move log', 'aria-label': 'Full move log', onclick: showLog }, icon('keyboard_double_arrow_right'))), histBody);
+    if (!S.result) return inspector.replaceChildren(info, hist);
+    const placed = [0, 0]; let total = 0;
+    (S.moves || []).forEach((j) => { if (j.k === 'place') { /* colour of the placer follows turn order */ } });
+    const pp = new Position(opts);
+    (S.moves || []).forEach((j) => { const mv = pp.fromJSON(j); if (!mv) return; if (mv.k !== K_PASS) total++; if (mv.k === K_PLACE) placed[pp.turn]++; pp.play(mv); });
+    const draw = S.result.winner === 2;
+    const stat = (ic, label, val, sub) => h('div.hv-stat', h('i', icon(ic)), h('div', label, sub ? h('small', sub) : null), h('b', val));
+    const stats = h('div.hv-stats-card', h('div.hv-card-title', 'Match Statistics'),
+      stat('swap_horiz', 'Total Moves', String(total)),
+      stat('layers', 'Pieces Placed', String(placed[0] + placed[1]), `${nameOf(idOf(0))} ${placed[0]}  |  ${nameOf(idOf(1))} ${placed[1]}`),
+      stat('check_circle', draw ? 'Both Queens Surrounded' : 'Queen Surrounded', draw ? '—' : 'Yes', `Move ${(S.moves || []).length}`));
+    const finals = rows.slice(-3).map((r, k, a) => { const f = h('div.hv-final' + (k === a.length - 1 ? '.win' : ''), h('span'), h('span', `${r.n}. ${r.text}`)); f.children[0].innerHTML = thumbHtml(r.type, r.color, 28); return f; });
+    const key = h('div.hv-stats-card', h('div.hv-card-title', 'Key Final Moves'), ...finals);
+    inspector.replaceChildren(stats, key, hist);
   }
 
   function render() {
@@ -697,10 +837,12 @@ export function start(api) {
     const current = idOf(pos.turn);
     statusEl.replaceChildren(
       h('b', statusText()),
-      h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `${pos.ply + 1}. ${pos.turn === 0 ? 'White' : 'Black'} to act`),
+      h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `Turn ${pos.ply + 1} · ${pos.turn === 0 ? 'White' : 'Black'} to act`),
     );
     if (view3d) { pushModel(pendingAnim); pendingAnim = null; } else drawBoard();
     syncSpot();
+    victoryEl.hidden = !S.result;
+    if (S.result) { victoryEl.replaceChildren(h('b', S.result.winner === 2 ? 'DRAW' : 'VICTORY'), h('span', S.result.winner === 2 ? 'Both Queen Bees surrounded' : 'Queen Bee Surrounded')); }
     renderActions();
     renderInspector();
     if (freshBoard) { freshBoard = false; requestAnimationFrame(fitBoard); }
@@ -714,17 +856,23 @@ export function start(api) {
       seg('hints', [[0, 'Off'], [1, 'Destinations'], [2, 'Paths'], [3, 'All pieces']]),
       h('b', 'Piece rotation'), h('small', 'How each stone lies after it is placed or moved. Natural adds a tiny hand-set tilt.'),
       seg('rotation', [['off', 'Upright'], ['neat', 'Neat'], ['natural', 'Natural']]),
-      h('b', 'Route colours'), h('small', 'Off keeps every route amber and highlights one when you point at its destination. On gives each route its own colour and shape.'),
-      seg('routeColors', [[0, 'Off'], [1, 'On']]),
     ), { wide: true });
   }
 
   function showGuide() {
-    const content = h('div.hv-sheet', h('h3', 'Insect guide'), h('div.hv-guide', pos.types.map((type) => {
-      const art = h('div'); art.innerHTML = tileArt(type, 0, 48);
-      return h('div.hv-guide-row', art, h('b', LABEL[type]), h('span', SHORT_RULE[type]));
-    })), h('p.muted', 'Keep every piece connected. Ground insects must slide through open gaps. Surround all six sides of the opposing Queen Bee to win.'));
-    openSheet(content, { wide: true });
+    let cur = pos.types[0];
+    const detail = h('div'), row = h('div.hv-learn');
+    const draw = () => {
+      row.replaceChildren(...pos.types.map((t) => { const b = h('button.hv-lp' + (t === cur ? '.on' : ''), { onclick: () => { cur = t; draw(); } }); b.innerHTML = tileArt(t, 0, 46); b.append(h('div', LABEL[t]), h('small', SHORT_RULE[t])); return b; }));
+      const art = h('div'); art.innerHTML = tileArt(cur, 0, 56);
+      detail.replaceChildren(h('div.hv-info-head', art, h('div', h('h3', LABEL[cur]), h('small', 'Piece Details'))), h('ul.hv-rules', RULE_DETAILS[cur].map((l) => h('li', l))));
+    };
+    draw();
+    openSheet(h('div.hv-sheet', h('h3', 'How the Pieces Move'), h('p.muted', 'Each insect moves in a unique way. Select a piece to see its details.'), row, h('div.hv-info-card', { style: 'background:#12100c;color:#f4ead6' }, detail)), { wide: true });
+  }
+  function showRules() {
+    const L = [['Basics', 'Meet the pieces and learn how they move. Each turn you place a piece from your reserve or move one already on the board.'], ['One Hive Rule', 'Your pieces must always stay connected in a single group. Never break the hive.'], ['Sliding', 'Ground insects move between pieces without breaking the hive, and must be able to squeeze through the gap.'], ['Jumping', 'The Grasshopper leaps in a straight line over at least one piece and lands in the first empty space.'], ['Stacking', 'The Beetle can climb on top of the hive. A covered piece cannot move, and a stacked Beetle still counts as part of the hive.'], ['Winning', "Surround your opponent's Queen Bee on all six sides. Place your own Queen by your fourth turn."]];
+    openSheet(h('div.hv-sheet', h('h3', 'Rules'), h('div.hv-lessons', L.map(([t, d], i) => h('div.hv-lesson', h('i', String(i + 1)), h('div', h('b', t), h('span', d)))))), { wide: true });
   }
 
   function showLog() {
@@ -843,7 +991,7 @@ export function start(api) {
     if (first) fitBoard(); else worldTransform();
   });
   resize.observe(arena);
-  floatTools.append(iconBtn('gps_fixed', 'Recenter hive', fitBoard), iconBtn('tune', 'Display and hints', showSettings));
+  floatTools.append(iconBtn('tune', 'Display and hints', showSettings), iconBtn('history', 'Move log', showLog), iconBtn('flag', 'Resign', resign));
 
   let maybeBot = () => {};
   if (api.isHost) {
@@ -876,7 +1024,7 @@ export function start(api) {
         ended = true;
         api.timeout(() => api.endGame({
           title: draw ? 'Hive ends in a draw' : `${nameOf(idOf(winner))} wins Hive!`,
-          subtitle: why || (draw ? `${H.moves.length} turns · both queens surrounded` : `Queen Bee surrounded in ${H.moves.length} turns`),
+          subtitle: why || (draw ? `${H.moves.length} turns · both queens surrounded` : `Queen Bee surrounded in ${H.moves.length} turns · ${H.pos.occ.length} insects in the hive`),
           ranking: draw ? ids.map((id) => ({ id, score: 'draw' })) : [winner, 1 - winner].map((c) => ({ id: idOf(c), score: c === winner ? 'victory' : 'defeat', note: `${H.pos.queenNeighbours(c)} spaces around their Queen Bee` })),
           winners: draw ? ids.slice() : [idOf(winner)],
         }), 1450);

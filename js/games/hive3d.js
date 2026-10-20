@@ -132,8 +132,8 @@ export async function createHive3D(host, handlers = {}) {
   scene.fog = new THREE.FogExp2(0x14180f, 0.012);
 
   const SK = 1;
-  const stumpW = 15.5, stumpH = stumpW * 1024 / 1536;
-  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.62), transparent: true, color: 0xdccab4 });
+  const stumpW = 9.4, stumpH = stumpW * 1024 / 1536;
+  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.5), transparent: true, color: 0xdccab4 });
   // The cell lattice is analytic (no texture), so the grooves stay razor sharp at any zoom and always line up with the pieces.
   stumpMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
@@ -159,7 +159,7 @@ export async function createHive3D(host, handlers = {}) {
         float gw = max(0.017, fwidth(e) * 1.7);
         float groove = 1.0 - smoothstep(0.0, gw, e);
         float pocket = smoothstep(0.0, 0.085, e);
-        float groveFade = 1.0 - smoothstep(0.30, 0.46, length((vMapUv - 0.5) * vec2(1.0, 0.92)));
+        float groveFade = 1.0 - smoothstep(0.28, 0.46, length((vMapUv - 0.5) * vec2(1.0, 0.92)));
         groveH = (-2.1 * groove - 0.5 * (1.0 - pocket)) * groveFade;
         diffuseColor.rgb *= 1.0 - (0.6 * groove + 0.15 * (1.0 - pocket)) * groveFade;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
@@ -179,27 +179,45 @@ export async function createHive3D(host, handlers = {}) {
   // dressing: cut-outs standing at the camera's tilt so they read like the pictures they came from
   const props = new THREE.Group(); scene.add(props);
   const shadowTex = dropShadowTexture();
-  async function dress(file, x, z, w, { rot = 0, flip = false } = {}) {
+  // Foliage lies on the ground (as it does in the forest-floor picture) instead of standing up as cut-outs; only solid things (stones, mushrooms) stand.
+  async function laid(file, x, z, w, rotY, { stretch = 1.18, tint = 0xcfc7b4, lift = 0 } = {}) {
     const t = await tex(file);
     const aspect = t.image.height / t.image.width;
-    const geo = new THREE.PlaneGeometry(w, w * aspect); geo.translate(0, w * aspect / 2, 0);
-    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.08, roughness: 0.9, side: THREE.DoubleSide, color: 0xe6dfd2 });
-    const m = new THREE.Mesh(geo, mat);
-    m.rotation.order = 'YXZ'; m.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; m.rotation.z = rot;
-    if (flip) m.scale.x = -1;
-    m.position.set(x, 0, z);
-    props.add(m);
-    scenery.push({ m: mat, c: mat.color.clone() });
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.15, w * 0.55), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.85 }));
-    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.2, 0.004, z - w * 0.02 + 0.05); props.add(sh); // falls away from the low light on the left
+    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.2, roughness: 1, side: THREE.DoubleSide, color: tint });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * aspect * stretch), mat);
+    m.rotation.order = 'YXZ'; m.rotation.x = -Math.PI / 2 + 0.07; m.rotation.y = 0; m.rotation.z = rotY;
+    m.position.set(x, 0.012 + lift, z); m.receiveShadow = true; m.castShadow = true;
+    props.add(m); scenery.push({ m: mat, c: mat.color.clone() });
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.15, w * 1.0), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.55 }));
+    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.1, 0.005, z + w * 0.03); props.add(sh);
   }
-  const dressing = Promise.all([
-    dress('fol-fern1.webp', -5.3, 0.1, 2.5), dress('fol-fern2.webp', 5.0, 2.5, 2.1, { flip: true }),
-    dress('fol-moss.webp', -3.4, -3.0, 1.35), dress('prop-stone1.webp', 4.8, -2.3, 1.3), dress('prop-stone2.webp', 4.0, -3.2, 0.8),
-    dress('prop-mushrooms.webp', -4.8, -2.8, 1.05), dress('prop-pinecone.webp', 4.2, 1.1, 0.78), dress('prop-acorns.webp', 3.0, -3.8, 0.68),
-    dress('fol-leaves.webp', 5.3, 0.3, 1.4), dress('fol-ivy.webp', -2.2, -3.8, 1.25), dress('prop-twig.webp', 1.8, -3.9, 1.05, { rot: -0.4 }),
-    dress('fol-clover.webp', -4.5, -1.2, 0.9), dress('fol-fern2.webp', -5.4, 3.2, 1.8), dress('fol-leaves.webp', 0.3, -4.3, 1.15),
-  ]).catch((e) => console.warn('[hive3d] dressing', e));
+  async function stand(file, x, z, w, { tint = 0xcfc7b4 } = {}) {
+    const t = await tex(file);
+    const aspect = t.image.height / t.image.width;
+    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.2, roughness: 1, side: THREE.DoubleSide, color: tint });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * aspect).translate(0, w * aspect * 0.45, 0), mat);
+    m.rotation.order = 'YXZ'; m.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; m.position.set(x, 0.01, z); m.castShadow = true;
+    props.add(m); scenery.push({ m: mat, c: mat.color.clone() });
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.2, w * 0.6), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.8 }));
+    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.16, 0.005, z + 0.04); props.add(sh);
+  }
+  const FLAT = [['fol-fern1.webp', 2.5, 3], ['fol-fern2.webp', 2.1, 3], ['fol-fern1.webp', 1.9, 2], ['fol-moss.webp', 1.7, 3], ['fol-leaves.webp', 1.3, 3], ['fol-ivy.webp', 1.3, 2], ['fol-clover.webp', 0.95, 2], ['prop-twig.webp', 1.2, 1], ['fol-fern2.webp', 1.6, 2], ['fol-leaves.webp', 1.0, 2], ['prop-acorns.webp', 0.55, 1], ['prop-pinecone.webp', 0.7, 1]];
+  const jobs = [];
+  // a ring of ground cover around the wood, thickest at the outside, slightly overlapping its edge
+  for (let i = 0; i < 46; i++) {
+    const a = (i / 46) * Math.PI * 2 + hash(i * 3 + 1) * 0.5, ring = 0.82 + hash(i * 5 + 2) * 0.7;
+    const rx = (portrait ? 3.5 : 5.0) * ring, rz = (portrait ? 5.0 : 3.5) * ring;
+    const [file, w, weight] = FLAT[Math.floor(hash(i * 7 + 3) * FLAT.length)];
+    jobs.push(laid(file, Math.cos(a) * rx, Math.sin(a) * rz, w * (0.85 + hash(i * 11 + 4) * 0.4) * (portrait ? 0.9 : 1), hash(i * 13 + 5) * 6.28, { tint: 0xb9b19c + (Math.floor(hash(i * 17) * 12) << 8) }));
+  }
+  // an outer band so the edge of any view is forest
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2 + 0.2, rx = (portrait ? 5.3 : 7.2) + hash(i + 90) * 1.2, rz = (portrait ? 7.4 : 5.2) + hash(i + 91) * 1.0;
+    const [file, w] = FLAT[Math.floor(hash(i * 3 + 70) * 9)];
+    jobs.push(laid(file, Math.cos(a) * rx, Math.sin(a) * rz, w * 1.2, hash(i * 9 + 6) * 6.28, { tint: 0xa8a08c, lift: 0.004 }));
+  }
+  jobs.push(stand('prop-stone1.webp', 4.1, -2.7, 1.2, { tint: 0xa8a090 }), stand('prop-stone2.webp', -4.3, -2.4, 0.85, { tint: 0xa8a090 }), stand('prop-mushrooms.webp', -3.6, -3.1, 0.95), stand('prop-stone2.webp', 3.4, 3.6, 0.7, { tint: 0xa8a090 }), stand('prop-mushrooms.webp', 4.7, 0.6, 0.7));
+  const dressing = Promise.all(jobs).catch((e) => console.warn('[hive3d] dressing', e));
 
   // ---------------- stones
   const tileGeo = new THREE.ExtrudeGeometry(hexShape(R - 0.0015 - 0.03, 0.06), { depth: TH, bevelEnabled: true, bevelThickness: BEV, bevelSize: 0.03, bevelSegments: 4, curveSegments: 6 }); // outer wall at R: stones touch
@@ -215,7 +233,7 @@ export async function createHive3D(host, handlers = {}) {
     const e = emblems[type];
     const m = new THREE.MeshPhysicalMaterial({
       bumpMap: e.height, bumpScale: col === 'w' ? 34 : 28, color: 0xffffff,
-      roughness: col === 'w' ? 0.5 : 0.26, clearcoat: col === 'w' ? 0.28 : 0.85, clearcoatRoughness: col === 'w' ? 0.4 : 0.1,
+      roughness: col === 'w' ? 0.5 : 0.34, clearcoat: col === 'w' ? 0.28 : 0.4, clearcoatRoughness: col === 'w' ? 0.4 : 0.22,
       sheen: col === 'w' ? 0.25 : 0, sheenColor: new THREE.Color(0xffe9bf), sheenRoughness: 0.6,
     });
     m.userData.u = { uBodyTex: { value: bodyTex[col] }, uEmb: { value: e.color }, uBody: { value: new THREE.Vector4(0, 0, 0.34, 0) }, uTint: { value: new THREE.Color(col === 'w' ? 0xf4ecd8 : 0xffffff) } };
@@ -244,7 +262,7 @@ export async function createHive3D(host, handlers = {}) {
   }
   const sideBase = {
     w: new THREE.MeshPhysicalMaterial({ color: 0xd6c8a3, roughness: 0.55, clearcoat: 0.2, clearcoatRoughness: 0.3 }),
-    b: new THREE.MeshPhysicalMaterial({ color: 0x14161d, roughness: 0.32, clearcoat: 0.8, clearcoatRoughness: 0.12 }),
+    b: new THREE.MeshPhysicalMaterial({ color: 0x0c0d11, roughness: 0.5, clearcoat: 0.25, clearcoatRoughness: 0.3 }),
   };
   /** One material set per piece (the shared look with its own stone offset), so no two stones are alike and each can dim alone. */
   function pieceMaterials(piece, type, col) {
@@ -403,9 +421,10 @@ export async function createHive3D(host, handlers = {}) {
     if (!m) { m = new THREE.Mesh(tileGeo, pieceMaterials(2000 + idx, type, colour === 0 ? 'w' : 'b')); m.castShadow = true; m.receiveShadow = true; hud.add(m); trayStones.set(key, m); }
     return m;
   }
-  const trayMeshes = () => [...trayStones.values()].filter((m) => m.visible);
-  const hudRay = new THREE.Raycaster(), hudPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.03), ndc2 = new THREE.Vector2();
-  const groundAt = (nx, ny, out) => { hudRay.setFromCamera(ndc2.set(nx, ny), stage.camera); return hudRay.ray.intersectPlane(hudPlane, out); };
+  const trayMeshes = () => [...trayStones.values()].filter((m) => m.visible && m.userData.reserve != null);
+  const TRAY_Y = 1.25;                                     // the tray hovers well above the table
+  const hudRay = new THREE.Raycaster(), hudPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ndc2 = new THREE.Vector2();
+  const groundAt = (nx, ny, out, y = 0.03) => { hudPlane.constant = -y; hudRay.setFromCamera(ndc2.set(nx, ny), stage.camera); return hudRay.ray.intersectPlane(hudPlane, out); };
   const hA = new THREE.Vector3(), hB = new THREE.Vector3();
   let hudTime = 0;
   function placeHud() {
@@ -415,15 +434,15 @@ export async function createHive3D(host, handlers = {}) {
     stage.camera.updateMatrixWorld();
     const n = Math.max(2, Math.min(8, items.length)), G = trayGeo(n);
     const px = G.W;
-    if (!groundAt(-0.94, -0.84, hA) || !groundAt(0.94, -0.84, hB)) return;
+    if (!groundAt(portrait ? -0.94 : -0.58, -0.6, hA, TRAY_Y) || !groundAt(0.94, -0.6, hB, TRAY_Y)) return;
     const span = Math.abs(hB.x - hA.x), pitch = Math.min(0.92, span / (px / G.M)), pw = pitch / G.M;
     const wW = px * pw, hW = G.H * pw, cx = (hA.x + hB.x) / 2, cz = hA.z;
     if (trayN !== n) { trayMat.map = trayTexture(n); trayMat.needsUpdate = true; trayN = n; }
-    trayMesh.position.set(cx, 0.03, cz); trayMesh.scale.set(wW, hW, 1);
+    trayMesh.position.set(cx, TRAY_Y, cz); trayMesh.scale.set(wW, hW, 1); trayMesh.castShadow = true;
     const sc = pitch * 0.84, x0 = cx - wW / 2, zRow = cz - hH(hW);
     items.forEach((it, i) => {
       const wx = x0 + (G.C + G.M * i) * pw;
-      trayWell.set(it.type, Object.assign(new THREE.Vector3(wx, 0.03, zRow), { s: sc }));
+      trayWell.set(it.type, Object.assign(new THREE.Vector3(wx, TRAY_Y, zRow), { s: sc }));
       const show = Math.min(it.count, 3);
       for (let k = 0; k < 3; k++) {
         const m = trayStone(`${it.type}:${reserve.color}:${k}`, it.type, reserve.color, i * 3 + k);
@@ -431,31 +450,41 @@ export async function createHive3D(host, handlers = {}) {
         if (!m.visible) continue;
         m.userData.reserve = it.type; m.scale.setScalar(sc);
         const lift = it.selected ? 0.16 + Math.sin(hudTime * 3) * 0.015 : 0;
-        m.position.set(wx, 0.03 + BEV * sc + k * LV * sc + lift, zRow);
+        m.position.set(wx, TRAY_Y + 0.02 + BEV * sc + k * LV * sc + lift, zRow);
         m.rotation.y = hash(i * 31 + k * 7 + 3) * 0.12 - 0.06;
         const v = it.active ? 1 : 0.55;
         m.material[0].color.setScalar(v); m.material[1].color.set(m.material[1].userData.base).multiplyScalar(v);
       }
       const b = badgeSprite('t' + it.type, String(it.count));
-      b.visible = it.count > 0; b.scale.setScalar(pitch * 0.34); b.position.set(wx + pitch * 0.34, 0.03 + (show * LV + 0.1) * sc, zRow + pitch * 0.3);
+      b.visible = it.count > 0; b.scale.setScalar(pitch * 0.34); b.position.set(wx + pitch * 0.34, TRAY_Y + (show * LV + 0.1) * sc, zRow + pitch * 0.3);
     });
     for (const [key, m] of trayStones) if (!items.some((it) => key.startsWith(it.type + ':'))) m.visible = false;
-    // the bag: big, bottom left, mouth open towards the top right, the next stones sitting in and spilling from its mouth
-    if (groundAt(-0.5, -0.52, hA)) {
-      const bw = Math.min(3.8, span * 0.5);
+    // the bag: bottom-left corner, cropped by the edge of the view, mouth towards the top right; the next stones lie in its mouth at board size
+    {
+      const bw = Math.min(5.0, span * 0.66), bh = bw * bagAspect, tl = (portrait ? 58 : 53) * Math.PI / 180;
+      const upv = new THREE.Vector3(0, Math.cos(tl), -Math.sin(tl)), nrm = new THREE.Vector3(0, Math.sin(tl), Math.cos(tl));
+      // bottom-left corner: the lowest quarter of the bag and its left edge fall outside the view
+      groundAt(-1.0, -1.0, hA, 0); const x0 = hA.x; groundAt(1.0, -1.0, hB, 0);
+      const k = (hB.x - x0) / 2;                                         // world units per half-screen
+      groundAt(-1.0 + (bw / (2 * k)) * 0.5 * 0.9, -1.0, hA, 0);          // bag centre a little inside the left edge
+      const topP = hA.clone().addScaledVector(upv, bh).project(stage.camera);
+      groundAt(-1.0 + (bw / (2 * k)) * 0.5 * 0.9, -1.0 - 0.27 * Math.max(0.1, topP.y + 1.0), hA, 0);   // drop it until 27% of the bag is below the bottom edge
       bagMesh.scale.set(bw, bw, 1); bagMesh.position.set(hA.x, 0.0, hA.z);
-      bagShadow.scale.set(bw * 1.15, bw * 0.9, 1); bagShadow.position.set(hA.x + bw * 0.1, 0.004, hA.z + 0.05);
+      bagShadow.scale.set(bw * 1.1, bw * 0.8, 1); bagShadow.position.set(hA.x + bw * 0.1, 0.004, hA.z + 0.05);
       const next = items.filter((it) => it.count > 0).slice(-3);
-      const mouth = { x: hA.x + bw * 0.34, z: hA.z - bw * 0.22 };
+      // mouth of the bag in the picture (about 62% across, 17% from the top), expressed along the standing plane
+      const up = upv;
+      const mouth = new THREE.Vector3(hA.x + (0.62 - 0.5) * bw, 0, hA.z).addScaledVector(up, bh * 0.6).addScaledVector(nrm, 0.14);
       next.forEach((it, i) => {
         const m = trayStone(`bag:${it.type}:${reserve.color}`, it.type, reserve.color, 80 + i);
-        m.visible = true; m.userData.reserve = null; m.scale.setScalar(bw * 0.15);
-        m.position.set(mouth.x + bw * (0.14 + i * 0.13), 0.03 + (BEV + (i ? 0 : LV)) * bw * 0.15, mouth.z + bw * (0.04 - i * 0.09));
-        m.rotation.y = 0.5 - i * 0.9; m.rotation.z = i === 0 ? 0.35 : 0; m.rotation.x = i === 0 ? -0.2 : 0;
+        m.visible = true; m.userData.reserve = null; m.scale.setScalar(0.82);               // exactly the size of the stones on the board
+        m.position.copy(mouth).addScaledVector(nrm, i * 0.16).add(new THREE.Vector3((i - 1) * 0.28, -(i % 2) * 0.12, 0));
+        m.rotation.set(Math.PI / 2 - tl, 0, 0); m.rotation.y = 0; m.rotation.z = (i - 1) * 0.35;
+        m.rotation.order = 'YXZ'; m.rotation.x = Math.PI / 2 - tl;
       });
       for (const [key, m] of trayStones) if (key.startsWith('bag:') && !next.some((it) => key === `bag:${it.type}:${reserve.color}`)) m.visible = false;
       const total = items.reduce((a, it) => a + it.count, 0);
-      const b = badgeSprite('bag', String(total)); b.visible = true; b.scale.setScalar(bw * 0.15); b.position.set(hA.x - bw * 0.3, 0.3 * bw, hA.z + bw * 0.16);
+      const b = badgeSprite('bag', String(total)); b.visible = true; b.scale.setScalar(bw * 0.12); b.position.copy(new THREE.Vector3(hA.x + bw * 0.04, 0, hA.z)).addScaledVector(up, bh * 0.62).addScaledVector(nrm, 0.2);
     }
   }
   const hH = (h) => h * 0.04; // the wells sit slightly above the tray's middle
@@ -574,10 +603,7 @@ export async function createHive3D(host, handlers = {}) {
     for (const t of model.tiles) {
       const e = tiles.get(t.piece); if (!e) continue;
       const sel = model.selected === t.piece, can = model.selectable?.has(t.piece), last = model.last === t.piece && !model.selected;
-      e.ring.visible = !!(sel || can || last);
-      e.ringMat.color.set(sel ? 0xffffff : can ? 0xffc107 : 0xffd978);
-      e.ringMat.opacity = sel ? 1 : can ? 0.85 : 0.55;
-      e.can = !!can;
+      e.ring.visible = false; e.can = !!can;
     }
     buildTargets(model); buildArrows(model); buildGhost(model);
     setFocus(new Set(model.focus || []));
@@ -645,6 +671,7 @@ export async function createHive3D(host, handlers = {}) {
     if (hit.object.userData.reserve != null) return handlers.onReserve?.(hit.object.userData.reserve);
     if (hit.object.userData.target != null) return handlers.onTarget?.(hit.object.userData.target);
     const piece = hit.object.userData.piece, e = tiles.get(piece);
+    if (piece == null || !e) return;
     const topLevel = [...tiles.values()].filter((o) => o.q === e.q && o.r === e.r).reduce((m, o) => Math.max(m, o.level), 0);
     if (e.level < topLevel) { const top = [...tiles.entries()].find(([, o]) => o.q === e.q && o.r === e.r && o.level === topLevel); return handlers.onPiece?.(top[0]); }
     handlers.onPiece?.(piece);
@@ -701,7 +728,7 @@ export async function createHive3D(host, handlers = {}) {
     /** Client coordinates of a reserve stone in the 3D tray. */
     trayScreen(type) {
       const w = trayWell.get(type); if (!w) return null;
-      const v = new THREE.Vector3(w.x, 0.12, w.z); stage.camera.updateMatrixWorld(); v.project(stage.camera);
+      const v = new THREE.Vector3(w.x, w.y + 0.1, w.z); stage.camera.updateMatrixWorld(); v.project(stage.camera);
       const b = stage.canvas.getBoundingClientRect();
       return { x: b.left + (v.x + 1) / 2 * b.width, y: b.top + (1 - v.y) / 2 * b.height };
     },
