@@ -228,7 +228,7 @@ export function start(api) {
 
   // ---- 3D table (falls back to the flat SVG board if WebGL or the art cannot load)
   const PREF_KEY = 'gn.hive3d';
-  const prefs = { hints: 2, rotation: 'natural' };
+  const prefs = { hints: 2, rotation: 'natural', routeColors: 0 };
   try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch {}
   const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
   let view3d = null, hoverTarget = null, targetMoves = [], firstState = true, pendingAnim = null;
@@ -323,8 +323,8 @@ export function start(api) {
       }
     });
     for (const e of edges.values()) {
-      const colour = e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8];
-      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: 0.034, opacity: 0.96 });
+      const colour = prefs.routeColors ? (e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8]) : '#FBBC05';
+      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: 0.034, opacity: 0.96, dests: e.dests });
     }
     return out;
   }
@@ -351,7 +351,7 @@ export function start(api) {
     const targets = targetMoves.map((m, i) => {
       const key = JSON.stringify(pos.toJSON(m));
       return { id: i, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: m.k === K_PLACE ? 'place' : 'move', pending: key === pendingKey, hint: key === hintKey,
-        color: m.k === K_MOVE ? DEST_COLORS[i % 8] : '#34A853', shape: SHAPE_NAMES[i % 8] };
+        color: m.k !== K_MOVE ? '#34A853' : prefs.routeColors ? DEST_COLORS[i % 8] : '#FBBC05', shape: prefs.routeColors ? SHAPE_NAMES[i % 8] : 'circle' };
     });
     const arrows = prefs.hints >= 2 && fp != null ? buildArrows(chosen) : [];
     const ghostMove = pendingMove || (hoverTarget != null ? targetMoves[hoverTarget] : null);
@@ -698,6 +698,8 @@ export function start(api) {
       seg('hints', [[0, 'Off'], [1, 'Destinations'], [2, 'Paths'], [3, 'All pieces']]),
       h('b', 'Piece rotation'), h('small', 'How each stone lies after it is placed or moved. Natural adds a tiny hand-set tilt.'),
       seg('rotation', [['off', 'Upright'], ['neat', 'Neat'], ['natural', 'Natural']]),
+      h('b', 'Route colours'), h('small', 'Off keeps every route amber and highlights one when you point at its destination. On gives each route its own colour and shape.'),
+      seg('routeColors', [[0, 'Off'], [1, 'On']]),
     ), { wide: true });
   }
 

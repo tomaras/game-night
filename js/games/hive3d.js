@@ -283,7 +283,7 @@ export async function createHive3D(host, handlers = {}) {
   const arrowGroup = new THREE.Group(); world.add(arrowGroup);
   const hitGeo = new THREE.ShapeGeometry(hexShape(R - 0.005, 0.05)); hitGeo.rotateX(-Math.PI / 2);
   const wellGeo = new THREE.PlaneGeometry(1.0, SQ3 / 2); wellGeo.rotateX(-Math.PI / 2);
-  let targetObjs = [], hoverId = null, flowMats = [];
+  let targetObjs = [], hoverId = null, flowMats = [], arrowParts = [];
   const ghostHolder = new THREE.Group(); world.add(ghostHolder);
   const clearGroup = (g) => { for (const o of [...g.children]) { g.remove(o); o.traverse((c) => { if (c.material && !c.material.map?.userData?.keep) c.material.dispose?.(); if (c.geometry && c.userData.own) c.geometry.dispose(); }); } };
   const pulseTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 4; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 40, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.55, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 40, 4); const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; return t; })();
@@ -306,7 +306,7 @@ export async function createHive3D(host, handlers = {}) {
   }
 
   function buildArrows(model) {
-    clearGroup(arrowGroup); flowMats = [];
+    clearGroup(arrowGroup); flowMats = []; arrowParts = [];
     const up = new THREE.Vector3(0, 1, 0);
     for (const a of model.arrows || []) {
       const col = new THREE.Color(a.color || '#FBBC05');
@@ -319,17 +319,18 @@ export async function createHive3D(host, handlers = {}) {
         const mid = A0.clone().lerp(B0, 0.5); mid.y = Math.max(A0.y, B0.y) + peak * 2;  // quadratic control point: the apex is half this height
         const curve = new THREE.QuadraticBezierCurve3(A0, mid, B0);
         const w = a.width || 0.034, op = a.opacity ?? 0.95, seg = Math.max(12, Math.round(dist * 18));
-        const mk = (radius, mat, order) => { const m = new THREE.Mesh(new THREE.TubeGeometry(curve, seg, radius, 10, false), mat); m.renderOrder = order; m.userData.own = true; arrowGroup.add(m); };
+        const part = { dests: a.dests || [], mats: [] }; arrowParts.push(part);
+        const mk = (radius, mat, order) => { const m = new THREE.Mesh(new THREE.TubeGeometry(curve, seg, radius, 10, false), mat); m.renderOrder = order; m.userData.own = true; arrowGroup.add(m); part.mats.push([mat, mat.opacity]); };
         const flat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, depthTest: false });
         mk(w * 1.75, flat(0xffffff, op * 0.92), 14);   // pale outline
         mk(w, flat(col, op), 15);                      // coloured body
         const pulse = pulseTex.clone(); pulse.needsUpdate = true; pulse.repeat.set(Math.max(1, dist * 2.2), 1);
         const pm = new THREE.MeshBasicMaterial({ color: 0xffffff, alphaMap: pulse, transparent: true, opacity: op * 0.9, depthWrite: false, depthTest: false });
-        pm.userData.pulse = pulse; flowMats.push(pm);
+        pm.userData.pulse = pulse; flowMats.push(pm); part.mats.push([pm, pm.opacity]);
         mk(w * 1.12, pm, 16);                          // light pulses travelling along it
         if (a.head === true) {
           const tan = curve.getTangent(1).normalize();
-          const cone = (r, h, c, order, back) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 18), flat(c, op)); m.userData.own = true; m.position.copy(B0).addScaledVector(tan, -back); m.quaternion.setFromUnitVectors(up, tan); m.renderOrder = order; arrowGroup.add(m); };
+          const cone = (r, h, c, order, back) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 18), flat(c, op)); m.userData.own = true; m.position.copy(B0).addScaledVector(tan, -back); m.quaternion.setFromUnitVectors(up, tan); m.renderOrder = order; arrowGroup.add(m); part.mats.push([m.material, m.material.opacity]); };
           cone(w * 4.9, w * 8.4, 0xffffff, 17, w * 3.0); cone(w * 3.7, w * 7.4, col, 18, w * 2.6);
         }
       }
@@ -497,6 +498,7 @@ export async function createHive3D(host, handlers = {}) {
       live = true;
     }
     for (const m of flowMats) { m.userData.pulse.offset.x = -s * 0.8; live = true; }
+    if (arrowParts.length) for (const part of arrowParts) { const on = hoverId == null || part.dests.includes(hoverId); for (const [mat, base] of part.mats) mat.opacity = base * (on ? 1 : 0.22); }
     for (const g of ghostHolder.children) if (g.userData.bob) { g.position.y = levelY(lastModel.ghost?.height || 0) + 0.1 + Math.sin(s * 3.2) * 0.04; live = true; }
     for (const e of tiles.values()) if (e.ring.visible && e.can) { e.ringMat.opacity = 0.6 + 0.3 * Math.sin(s * 3.1 + e.q); live = true; }
     return live;
