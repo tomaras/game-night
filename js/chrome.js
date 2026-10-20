@@ -11,7 +11,7 @@ import { CFG } from './net.js';
 export const TABS = [
   { id: 'games', label: 'Games', icon: 'sports_esports', hash: '#/', color: 'var(--m-blue)' },
   { id: 'rooms', label: 'Rooms', icon: 'meeting_room', hash: '#/rooms', color: 'var(--m-red)' },
-  { id: 'matches', label: 'Matches', icon: 'sms', hash: '#/matches', color: 'var(--m-amber)' },
+  { id: 'matches', label: 'Matches', icon: 'sms', hash: '#/matches', color: 'var(--m-orange)' },
   { id: 'lounge', label: 'Lounge', icon: 'forum', hash: '#/lounge', color: 'var(--m-green)' },
 ];
 

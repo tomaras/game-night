@@ -676,7 +676,7 @@ body:not([data-tab="games"]) .envpill { display: none; }
    Phones: a bottom navigation bar attached to the bottom edge. Wide screens: a rail on the left. Each destination
    has its own colour (blue, red, yellow, green), shown on its icon when it's the current one. */
 .navitem { --tc: var(--m-blue); }
-.navitem:nth-child(2) { --tc: var(--m-red); } .navitem:nth-child(3) { --tc: var(--m-amber); } .navitem:nth-child(4) { --tc: var(--m-green); }
+.navitem:nth-child(2) { --tc: var(--m-red); } .navitem:nth-child(3) { --tc: var(--m-orange); } .navitem:nth-child(4) { --tc: var(--m-green); }
 .bottomnav { flex: none; display: flex; justify-content: space-around; padding: 0 0 var(--sab); background: var(--sf3); box-shadow: 0 -1px 2px rgba(60, 64, 67, 0.2), 0 -2px 6px 1px rgba(60, 64, 67, 0.1); z-index: 24; }
 :root[data-theme="dark"] .bottomnav { box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.5), 0 -2px 6px 1px rgba(0, 0, 0, 0.3); }
 .navitem { flex: 1; max-width: 168px; min-height: var(--nav); position: relative; overflow: hidden; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 0 7px; font: 500 12px var(--font); color: var(--on2); cursor: pointer; transition: color 0.2s var(--std); }

@@ -381,7 +381,7 @@ function fabActions(browser) {
 /** Point the camera at an invite QR code (browsers with BarcodeDetector: Chrome, Edge, Android). */
 async function scanQr() {
   let stream, stop = false;
-  const video = h('video', { autoplay: true, playsinline: true, muted: true, style: 'width:100%;border-radius:18px;background:#000;max-height:60dvh' });
+  const video = h('video', { autoplay: true, playsinline: true, muted: true, style: 'width:100%;border-radius:2px;background:#000;max-height:60dvh' });
   const sheet = openSheet(h('div.col', { style: 'gap:12px' }, h('h2', 'Scan a QR invite'), video), { onClose: () => { stop = true; stream?.getTracks().forEach((t) => t.stop()); } });
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
