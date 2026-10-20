@@ -33,16 +33,16 @@ const CSS = `
 .tt-hearts .ic { width:18px; height:18px; color:var(--red); }
 .tt-hearts .ic.off { color:var(--line2); }
 .tt-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
-.tt-door { aspect-ratio:3/4; max-height:200px; border:0; border-radius:var(--r); cursor:pointer; background:#8D6E63; color:#fff; font:800 44px var(--font); box-shadow:var(--e2); position:relative; }
+.tt-door { aspect-ratio:3/4; max-height:200px; border:0; border-radius:var(--r); cursor:pointer; background:#4285F4; color:#fff; font:800 44px var(--font); box-shadow:var(--z2); position:relative; }
 .tt-door.sel { outline:5px solid var(--blue); }
-.tt-door.dead { background:#E53935; }
-.tt-door.safe { background:#43A047; }
+.tt-door.dead { background:#EA4335; }
+.tt-door.safe { background:#34A853; }
 .tt-doors { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
 .tt-room { display:flex; flex-direction:column; gap:8px; }
 .tt-row { display:flex; align-items:center; gap:10px; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 12px; }
 .tt-row.out { opacity:.45; }
 .tt-row .st { margin-left:auto; display:flex; gap:10px; align-items:center; font-weight:800; }
-.tt-tag { font:700 12px var(--font); padding:2px 10px; border-radius:var(--r); }
+.tt-tag { font:700 12px var(--font); padding:2px 10px; border-radius:var(--r-pill); }
 .tt-tag.ok { background:var(--green-c); color:var(--green-d); } .tt-tag.no { background:var(--red-c); color:var(--red-d); }
 `;
 
@@ -77,11 +77,11 @@ export function start(api) {
     const dead = S.lives[api.me] <= 0;
     const parts = [h('div.kt-card', { style: 'text-align:center;padding:10px;display:flex;justify-content:center;gap:14px;align-items:center' }, h('b', `Question ${S.n}/${total}`), hearts(S.lives[api.me]), dead ? h('span.chip.red', 'Out — spectating') : null)];
     if (S.phase === 'q' && S.q) {
-      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#e5399b' }, S.q.q));
+      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#E52592' }, S.q.q));
       parts.push(h('div.tt-grid', S.q.o.map((t, i) => h('button.kt-choice' + (S.picked === i ? '.sel' : ''), { disabled: dead || S.picked !== null, onclick: () => { S.picked = i; api.toHost('ans', { i }); api.sfx('click'); render(); } }, t))));
       parts.push(roster());
     } else if (S.phase === 'door') {
-      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#a0522d' }, h('small', 'Trap doors!'), 'One door is a trap. Pick a door and hope you’re safe.'));
+      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#009E8E' }, h('small', 'Trap doors!'), 'One door is a trap. Pick a door and hope you’re safe.'));
       parts.push(h('div.tt-doors', [0, 1, 2].map((i) => h('button.tt-door' + (S.door === i ? '.sel' : ''), { disabled: dead || S.door !== null, onclick: () => { S.door = i; api.toHost('door', { i }); api.sfx('click'); render(); } }, i + 1))));
       parts.push(roster());
     } else if (S.phase === 'reveal' && S.res) {

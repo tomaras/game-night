@@ -9,10 +9,10 @@ import { channelInfo } from './channel.js';
 import { CFG } from './net.js';
 
 export const TABS = [
-  { id: 'games', label: 'Games', icon: 'sports_esports', hash: '#/' },
-  { id: 'rooms', label: 'Rooms', icon: 'meeting_room', hash: '#/rooms' },
-  { id: 'matches', label: 'Matches', icon: 'sms', hash: '#/matches' },
-  { id: 'lounge', label: 'Lounge', icon: 'forum', hash: '#/lounge' },
+  { id: 'games', label: 'Games', icon: 'sports_esports', hash: '#/', color: 'var(--m-blue)' },
+  { id: 'rooms', label: 'Rooms', icon: 'meeting_room', hash: '#/rooms', color: 'var(--m-red)' },
+  { id: 'matches', label: 'Matches', icon: 'sms', hash: '#/matches', color: 'var(--m-orange)' },
+  { id: 'lounge', label: 'Lounge', icon: 'forum', hash: '#/lounge', color: 'var(--m-green)' },
 ];
 
 export function createChrome(ctx) {
@@ -60,12 +60,12 @@ export function createChrome(ctx) {
     const close = () => { if (!drawerEls) return; setDie(false); drawerEls.back.classList.add('out'); drawerEls.panel.classList.add('out'); const d = drawerEls; drawerEls = null; setTimeout(() => { d.back.remove(); d.panel.remove(); }, 200); removeEventListener('keydown', onKey); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     addEventListener('keydown', onKey);
-    const item = (ic, label, fn, extra) => h('button.ditem', { onclick: () => { close(); fn(); } }, icon(ic), h('span', label), extra || null);
+    const item = (ic, label, fn, extra, tc) => h('button.ditem', { onclick: () => { close(); fn(); }, 'data-tc': tc || null, style: tc ? { '--tc': tc } : null }, icon(ic), h('span', label), extra || null);
     const prof = ctx.S.profile;
     const panel = h('aside.drawer', { 'aria-label': 'Menu' },
       h('button.dprofile', { onclick: () => { close(); ctx.editProfile(); } }, avatarEl({ avatar: prof.avatar }, 'lg'), h('div', h('b', prof.name), h('small', 'Edit name & avatar')), h('span.spacer'), icon('edit')),
       h('div.dsec', 'Go to'),
-      ...TABS.map((t) => item(t.icon, t.label, () => ctx.go(t.hash), badges[t.id] ? h('span.chip.red', badges[t.id]) : null)),
+      ...TABS.map((t) => item(t.icon, t.label, () => ctx.go(t.hash), badges[t.id] ? h('span.chip.red', badges[t.id]) : null, t.color)),
       h('div.dsec', 'Appearance'),
       h('div.dtheme', segmented(THEMES.map(([v, label, ic]) => ({ value: v, label, icon: ic })), getThemePref(), (v) => setThemePref(v))),
       h('div.dsec', 'Preferences'),
@@ -86,7 +86,7 @@ export function createChrome(ctx) {
     const info = channelInfo();
     if (!info.canSwitch) return [];
     const sw = switchEl(info.current === 'nightly', async (on) => { if (!(await ctx.switchChannel(on ? 'nightly' : 'stable'))) { sw.querySelector('input').checked = !on; } });
-    return [h('div.drow', icon('dark_mode'), h('span', 'Early access'), h('span.spacer'), sw),
+    return [h('div.drow', icon('new_releases'), h('span', 'Early access'), h('span.spacer'), sw),
       h('div.dnote', 'Rooms are separate between the two versions.')];
   }
 

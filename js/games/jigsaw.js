@@ -7,7 +7,7 @@ import { avatarEl } from '../avatar.js';
 const IW = 960, IH = 640; // master picture size
 const WW = 1600, WH = 1100; // table size
 const OX = (WW - IW) / 2, OY = (WH - IH) / 2;
-const PCOL = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#f9a825', '#6d4c41', '#d81b60', '#546e7a'];
+const PCOL = ['#EA4335', '#4285F4', '#34A853', '#E8710A', '#A142F4', '#12B5CB', '#F9AB00', '#7C4DFF', '#E52592', '#039BE5'];
 const GRIDS = { 24: [6, 4], 48: [8, 6], 96: [12, 8] };
 
 function artwork(seed) {
@@ -63,9 +63,9 @@ function edgeTo(ctx, x0, y0, x1, y1, s) {
 const CSS = `
 .jg { flex:1; display:flex; flex-direction:column; min-height:0; padding:6px; gap:6px; }
 .jg-bar { display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; font:700 13px var(--font); }
-.jg-wrap { flex:1; min-height:0; position:relative; border-radius:var(--r); overflow:hidden; box-shadow:var(--e2); background:#3b5b4a; touch-action:none; }
+.jg-wrap { flex:1; min-height:0; position:relative; border-radius:var(--r); overflow:hidden; box-shadow:var(--z2); background:#1E8E5A; touch-action:none; }
 .jg-wrap canvas { width:100%; height:100%; display:block; touch-action:none; }
-.jg-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; } .jg-zoom button { width:40px; height:40px; border-radius:var(--r); border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
+.jg-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; } .jg-zoom button { width:40px; height:40px; border-radius:50%; border:0; background:var(--surface); box-shadow:var(--z2); display:grid; place-items:center; cursor:pointer; color:var(--on); }
 .jg-pick { text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; max-width:420px; margin:auto; }
 .jg-pick .pv { width:100%; border-radius:var(--r); box-shadow:var(--e2); }
 `;
@@ -144,10 +144,10 @@ export function start(api) {
     if (!cw || S.phase === 'pick') return;
     const dpr = canvas.width / cw;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#3b5b4a'; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#1E8E5A'; ctx.fillRect(0, 0, cw, ch);
     ctx.setTransform(dpr * V.s, 0, 0, dpr * V.s, dpr * V.x, dpr * V.y);
     // table + ghost outline of the finished picture
-    ctx.fillStyle = '#486c58'; ctx.fillRect(0, 0, WW, WH);
+    ctx.fillStyle = '#26A269'; ctx.fillRect(0, 0, WW, WH);
     ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 3 / V.s; ctx.setLineDash([14 / V.s, 10 / V.s]); ctx.strokeRect(OX, OY, IW, IH); ctx.setLineDash([]);
     if (master && prevAlpha > 0) { ctx.globalAlpha = prevAlpha; ctx.drawImage(master, OX, OY, IW, IH); ctx.globalAlpha = 1; }
     else if (master) { ctx.globalAlpha = 0.07; ctx.drawImage(master, OX, OY, IW, IH); ctx.globalAlpha = 1; }
@@ -251,15 +251,15 @@ export function start(api) {
   function render() {
     if (S.phase === 'pick') {
       if (api.isHost) {
-        root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', 'Jigsaw Together'), 'Choose a picture'),
+        root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', 'Jigsaw Together'), 'Choose a picture'),
           master ? h('img.pv', { src: previewURL }) : h('div.kt-hint', 'Pick a picture for the puzzle:'),
           h('div.kt-row', { style: 'justify-content:center' }, h('button.btn.tonal', { onclick: () => surprise() }, icon('shuffle'), 'Surprise me'), h('button.btn.tonal', { onclick: () => fileIn.click() }, icon('add_a_photo'), 'Use my photo')),
           master ? h('button.btn.primary.big', { onclick: () => api.toHost('begin', {}) }, icon('play_arrow'), `Start ${count}-piece puzzle`) : ''));
-      } else root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', 'Jigsaw Together'), 'The host is choosing a picture…'), master ? h('div.kt-hint', 'Picture ready!') : ''));
+      } else root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', 'Jigsaw Together'), 'The host is choosing a picture…'), master ? h('div.kt-hint', 'Picture ready!') : ''));
       return;
     }
     if (S.phase === 'done' && S.done) {
-      root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', 'Puzzle complete!'), `🧩 Done in ${S.done.time}`), h('img.pv', { src: previewURL || '' }), h('div.kt-hint', 'Great teamwork!')));
+      root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', 'Puzzle complete!'), `🧩 Done in ${S.done.time}`), h('img.pv', { src: previewURL || '' }), h('div.kt-hint', 'Great teamwork!')));
       return;
     }
     root.replaceChildren(bar, wrap);

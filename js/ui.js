@@ -21,14 +21,14 @@ export function iconBtn(name, title, onclick, cls = '') {
   return h('button.iconbtn' + (cls ? '.' + cls.split(' ').join('.') : ''), { title, 'aria-label': title, onclick }, icon(name));
 }
 
-/** The Game Night logo mark: four Google-coloured tiles with dice pips. */
+/** The Game Night logo mark: four round Google-coloured dice faces (one to four pips). */
 export function logoMark() {
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 48 48');
   svg.setAttribute('class', 'mark');
-  const tiles = [[2, 2, '#4285f4'], [26, 2, '#ea4335'], [2, 26, '#fbbc04'], [26, 26, '#34a853']];
+  const dots = [[12, 12, '#4285F4'], [36, 12, '#EA4335'], [12, 36, '#FBBC05'], [36, 36, '#34A853']];
   const pips = [[12, 12], [32, 8], [40, 16], [8, 32], [12, 36], [16, 40], [32, 32], [40, 32], [32, 40], [40, 40]];
-  svg.innerHTML = tiles.map(([x, y, c]) => `<rect x="${x}" y="${y}" width="20" height="20" rx="7" fill="${c}"/>`).join('') +
+  svg.innerHTML = dots.map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="11" fill="${c}"/>`).join('') +
     pips.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.3" fill="#fff"/>`).join('');
   return svg;
 }

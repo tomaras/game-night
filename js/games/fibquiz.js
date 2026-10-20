@@ -25,7 +25,7 @@ const FACTS = [
 
 const CSS = `
 .fq-q { font:700 clamp(20px, 5vw, 28px)/1.3 var(--font); }
-.fq-q u { text-decoration:none; background:rgba(255,255,255,.35); border-radius:8px; padding:0 14px; }
+.fq-q u { text-decoration:none; border-bottom:3px solid currentColor; padding:0 14px; }
 .fq-opt { position:relative; }
 .fq-who { display:flex; gap:4px; flex-wrap:wrap; margin-top:8px; align-items:center; }
 .fq-who .tag { font:700 12px var(--font); color:var(--on2); margin-right:4px; }
@@ -58,12 +58,12 @@ export function start(api) {
   function render() {
     const parts = [h('div.kt-card', { style: 'text-align:center;padding:10px' }, h('b', `Question ${S.round}/${rounds}`))];
     if (S.phase === 'lie') {
-      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#8e4de8' }, h('small', 'Make up a believable fake answer'), h('div.fq-q', ...blank(S.q))));
+      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#A142F4' }, h('small', 'Make up a believable fake answer'), h('div.fq-q', ...blank(S.q))));
       if (S.err) parts.push(h('div.warnbox', icon('warning'), S.err));
       if (S.mineSent) parts.push(h('div.kt-hint', 'Fib submitted!'), waiting(api, ids.filter((i) => !S.done.has(i))));
       else parts.push(answerBox({ placeholder: 'Your fake answer…', max: 40, button: 'Submit fib', onSubmit: (t) => { S.mineSent = true; api.toHost('lie', { t }); render(); } }).el);
     } else if (S.phase === 'pick') {
-      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#1a73e8' }, h('small', 'Which one is TRUE?'), h('div.fq-q', ...blank(S.q))));
+      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#4285F4' }, h('small', 'Which one is TRUE?'), h('div.fq-q', ...blank(S.q))));
       parts.push(...S.opts.map((o) => h('button.kt-choice.fq-opt' + (S.picked === o.i ? '.sel' : ''), { disabled: o.mine || S.picked !== null, onclick: () => { S.picked = o.i; api.toHost('pick', { i: o.i }); api.sfx('click'); render(); } }, o.text, o.mine ? h('small', 'Your own fib') : null)));
       parts.push(waiting(api, ids.filter((i) => !S.done.has(i)), 'Waiting for'));
     } else if (S.phase === 'reveal' && S.res) {

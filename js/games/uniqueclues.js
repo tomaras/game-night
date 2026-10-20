@@ -11,14 +11,14 @@ const stem = (s) => norm(s).replace(/(ies|es|s|ing|ed)$/, '');
 
 const CSS = `
 .uc-clues { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-.uc-clue { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px 18px; font:800 clamp(18px, 5vw, 26px) var(--font); display:flex; flex-direction:column; align-items:center; gap:4px; animation:ktpop .3s both; }
+.uc-clue { background:var(--surface); box-shadow:var(--z1); border-radius:var(--r); padding:12px 18px; font:800 clamp(18px, 5vw, 26px) var(--font); display:flex; flex-direction:column; align-items:center; gap:4px; animation:ktpop .3s both; }
 .uc-clue small { font:600 11px var(--font); color:var(--on3); }
 .uc-clue.dead { background:var(--red-c); color:var(--red-d); text-decoration:line-through; box-shadow:none; opacity:.8; }
 .uc-clue.dead small { text-decoration:none; }
 .uc-clue button { margin-top:4px; border:0; background:var(--s2); border-radius:999px; padding:4px 10px; font:700 11px var(--font); color:var(--on2); cursor:pointer; }
-.uc-clue button.on { background:var(--red-c); color:var(--red-d); }
+.uc-clue button.on { background:var(--m-red); color:#fff; }
 .uc-score { display:flex; justify-content:center; gap:4px; flex-wrap:wrap; }
-.uc-score i { width:18px; height:26px; border-radius:5px; background:var(--s3); display:block; }
+.uc-score i { width:18px; height:26px; border-radius:2px; background:var(--s3); display:block; }
 .uc-score i.ok { background:var(--green); } .uc-score i.bad { background:var(--red); } .uc-score i.skip { background:var(--yellow); }
 `;
 
@@ -57,7 +57,7 @@ export function start(api) {
       }
     } else if (S.phase === 'review') {
       parts.push(clock.el());
-      parts.push(promptCard(isG ? '???' : S.word, { label: isG ? 'Guesser — look away for a moment' : 'Check the clues', color: '#8e4de8' }));
+      parts.push(promptCard(isG ? '???' : S.word, { label: isG ? 'Guesser — look away for a moment' : 'Check the clues', color: '#A142F4' }));
       if (!isG) {
         parts.push(h('div.uc-clues', S.clues.map((c, i) => h('div.uc-clue' + (c.dead ? '.dead' : ''), c.text, h('small', c.dead ? c.why : 'by ' + nameOf(c.by)), !c.dead && c.by !== me ? h('button' + (S.myFlags.has(i) ? '.on' : ''), { onclick: () => { api.toHost('flag', { i }); S.myFlags.has(i) ? S.myFlags.delete(i) : S.myFlags.add(i); render(); } }, S.myFlags.has(i) ? 'Flagged' : 'Flag as illegal') : null))));
         parts.push(h('div.kt-hint', 'Flag illegal clues'));
@@ -72,7 +72,7 @@ export function start(api) {
       } else parts.push(promptCard(S.word, { label: 'The word (shh!)', color: '#34a853' }), h('div.kt-hint', `${nameOf(S.guesser)} is guessing…`));
     } else if (S.phase === 'result' && S.res) {
       const r = S.res;
-      parts.push(promptCard(r.word, { label: r.ok ? 'Correct! 🎉' : r.pass ? 'Passed' : `${nameOf(S.guesser)} guessed “${r.guess}”`, color: r.ok ? '#34a853' : r.pass ? '#f57c00' : '#ea4335' }));
+      parts.push(promptCard(r.word, { label: r.ok ? 'Correct! 🎉' : r.pass ? 'Passed' : `${nameOf(S.guesser)} guessed “${r.guess}”`, color: r.ok ? '#34a853' : r.pass ? '#FA7B17' : '#ea4335' }));
       parts.push(h('div.uc-clues', S.clues.map((c) => h('div.uc-clue' + (c.dead ? '.dead' : ''), c.text, h('small', c.by ? nameOf(c.by) : '')))));
     }
     root.replaceChildren(...parts);

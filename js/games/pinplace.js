@@ -37,7 +37,7 @@ const KIND = { landmark: ['🏛️', 'A famous landmark'], city: ['🏙️', 'A 
 const MAP_W = 1800, LAT_TOP = 84, LAT_SPAN = 142, MAP_H = (MAP_W * LAT_SPAN) / 360;
 const proj = (lat, lon) => [((lon + 180) / 360) * MAP_W, ((LAT_TOP - lat) / LAT_SPAN) * MAP_H];
 const unproj = (x, y) => [LAT_TOP - (y / MAP_H) * LAT_SPAN, (x / MAP_W) * 360 - 180];
-const PCOL = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#f9a825', '#6d4c41', '#d81b60', '#546e7a'];
+const PCOL = ['#EA4335', '#4285F4', '#34A853', '#E8710A', '#A142F4', '#12B5CB', '#F9AB00', '#7C4DFF', '#E52592', '#039BE5'];
 const km = (a, b) => { const R = 6371, rad = Math.PI / 180, dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad; const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
 const points = (d) => Math.round(5000 * Math.exp(-d / 1500));
 
@@ -69,10 +69,10 @@ async function loadLand() {
 
 const CSS = `
 .pp { gap:8px; max-width:900px; }
-.pp-mapwrap { position:relative; flex:1 1 280px; min-height:260px; border-radius:var(--r); overflow:hidden; box-shadow:var(--e2); background:#cfe9ff; touch-action:none; }
+.pp-mapwrap { position:relative; flex:1 1 280px; min-height:260px; border-radius:var(--r); overflow:hidden; box-shadow:var(--e2); background:#BFE0FF; touch-action:none; }
 .pp-mapwrap canvas { width:100%; height:100%; display:block; cursor:crosshair; }
 .pp-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; }
-.pp-zoom button { width:40px; height:40px; border-radius:var(--r); border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
+.pp-zoom button { width:40px; height:40px; border-radius:50%; border:0; background:var(--surface); box-shadow:var(--z2); display:grid; place-items:center; cursor:pointer; color:var(--on); }
 .pp-clue { text-align:center; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 14px; display:flex; flex-direction:column; gap:2px; }
 .pp-name { font:800 clamp(22px,6vw,30px)/1.15 var(--font); } .pp-sub { font:600 13px var(--font); color:var(--on2); }
 .pp-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
@@ -137,17 +137,17 @@ export function start(api) {
     const dpr = canvas.width / cw;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
-    ctx.fillStyle = '#cfe9ff'; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#BFE0FF'; ctx.fillRect(0, 0, cw, ch);
     // graticule
     ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
     for (let lon = -180; lon <= 180; lon += 30) { const [x] = proj(0, lon); ctx.beginPath(); ctx.moveTo(x * V.s + V.x, V.y); ctx.lineTo(x * V.s + V.x, V.y + MAP_H * V.s); ctx.stroke(); }
     for (let lat = -60; lat <= 80; lat += 20) { const [, y] = proj(lat, 0); ctx.beginPath(); ctx.moveTo(V.x, y * V.s + V.y); ctx.lineTo(V.x + MAP_W * V.s, y * V.s + V.y); ctx.stroke(); }
     if (land) {
       ctx.save(); ctx.setTransform(dpr * V.s, 0, 0, dpr * V.s, dpr * V.x, dpr * V.y);
-      ctx.fillStyle = '#f3efe0'; ctx.fill(land.land);
-      ctx.lineWidth = 0.9 / V.s; ctx.strokeStyle = '#b5b9a8'; ctx.lineJoin = 'round'; ctx.stroke(land.borders);
+      ctx.fillStyle = '#FFF6D6'; ctx.fill(land.land);
+      ctx.lineWidth = 0.9 / V.s; ctx.strokeStyle = '#C8CCD0'; ctx.lineJoin = 'round'; ctx.stroke(land.borders);
       ctx.restore();
-    } else { ctx.fillStyle = '#5f6b7a'; ctx.font = '600 14px Outfit, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Loading map…', cw / 2, ch / 2); }
+    } else { ctx.fillStyle = '#5F6368'; ctx.font = '600 14px Outfit, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Loading map…', cw / 2, ch / 2); }
     const r = S.res;
     if (S.phase === 'reveal' && r) {
       const [tx, ty] = proj(r.place[1], r.place[2]);
@@ -163,7 +163,7 @@ export function start(api) {
       const sp = Math.max(0, Math.min(1, (t - 0.9) / 0.6)), ss = sp >= 1 ? 1 : easeBack(sp);
       if (sp > 0 && sp < 1.0) { ctx.strokeStyle = 'rgba(253,216,53,' + (1 - sp) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(sx, sy, 10 + 60 * sp, 0, 7); ctx.stroke(); }
       ctx.save(); ctx.translate(sx, sy); ctx.scale(ss, ss); ctx.rotate((1 - sp) * 1.4);
-      ctx.fillStyle = '#fdd835'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; star(ctx, 0, 0, 15, 7, 5); ctx.fill(); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = '#FBBC05'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; star(ctx, 0, 0, 15, 7, 5); ctx.fill(); ctx.stroke(); ctx.restore();
       if (t < 2.2) requestAnimationFrame(draw);
     } else if (S.pin) {
       const dt = (performance.now() - pinT0) / 1000;

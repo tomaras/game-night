@@ -10,8 +10,8 @@ const EVIL = { 5: 2, 6: 2, 7: 3, 8: 3, 9: 3, 10: 4 };
 const ROLE = { merlin: ['Merlin', '🧙', 'You know who the Shadows are. Guide the heroes — quietly!'], hero: ['Loyal Hero', '🛡️', 'Help three quests succeed.'], assassin: ['Assassin', '🗡️', 'You’re a Shadow. If the heroes win, name Merlin to steal the victory.'], shadow: ['Shadow', '🌑', 'Sabotage quests — without getting caught.'] };
 
 const CSS = `
-.sq-role { border-radius:var(--r); padding:14px 16px; display:flex; gap:14px; align-items:center; cursor:pointer; color:#fff; background:#1E88E5; box-shadow:var(--e2); user-select:none; }
-.sq-role.evil { background:#4527A0; }
+.sq-role { border-radius:var(--r); padding:14px 16px; display:flex; gap:14px; align-items:center; cursor:pointer; color:#fff; background:#4285F4; box-shadow:var(--z2); user-select:none; }
+.sq-role.evil { background:#A142F4; }
 .sq-role .em { font-size:40px; } .sq-role b { font:800 20px var(--font); display:block; } .sq-role small { opacity:.9; line-height:1.3; display:block; }
 .sq-track { display:flex; gap:8px; justify-content:center; }
 .sq-q { width:54px; height:54px; border-radius:50%; display:grid; place-items:center; background:var(--s2); font:800 20px var(--font); color:var(--on2); position:relative; }
@@ -19,11 +19,11 @@ const CSS = `
 .sq-q small { position:absolute; bottom:-16px; font:600 10px var(--font); color:var(--on3); }
 .sq-pl { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; }
 .sq-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px; display:flex; flex-direction:column; align-items:center; gap:4px; position:relative; font:600 14px var(--font); color:var(--on); cursor:default; }
-.sq-p.sel { border-color:var(--blue); background:var(--blue-c); } .sq-p.leader::after { content:'👑'; position:absolute; top:-6px; right:-2px; font-size:20px; }
+.sq-p.sel { border-color:var(--primary); box-shadow:var(--z3); } .sq-p.leader::after { content:'👑'; position:absolute; top:-6px; right:-2px; font-size:20px; }
 .sq-p.click { cursor:pointer; }
-.sq-strip { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; } .sq-s { position:relative; display:flex; align-items:center; gap:6px; background:var(--surface); box-shadow:var(--e1); border-radius:999px; padding:3px 12px 3px 4px; font:600 13px var(--font); border:2px solid transparent; } .sq-s.sel { border-color:var(--blue); background:var(--blue-c); } .sq-s.leader::after { content:'👑'; position:absolute; top:-9px; right:-2px; font-size:16px; }
+.sq-strip { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; } .sq-s { position:relative; display:flex; align-items:center; gap:6px; background:var(--surface); box-shadow:var(--e1); border-radius:999px; padding:3px 12px 3px 4px; font:600 13px var(--font); border:2px solid transparent; } .sq-s.sel { border-color:var(--primary); background:var(--primary); color:#fff; } .sq-s.leader::after { content:'👑'; position:absolute; top:-9px; right:-2px; font-size:16px; }
 .sq-vote { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-.sq-tag { font:700 11px var(--font); border-radius:8px; padding:2px 8px; } .sq-tag.y { background:var(--green-c); color:var(--green-d); } .sq-tag.n { background:var(--red-c); color:var(--red-d); }
+.sq-tag { font:700 11px var(--font); border-radius:var(--r-pill); padding:2px 10px; } .sq-tag.y { background:var(--green-c); color:var(--green-d); } .sq-tag.n { background:var(--red-c); color:var(--red-d); }
 `;
 
 export function start(api) {
@@ -56,12 +56,12 @@ export function start(api) {
     if (S.phase === 'team') {
       parts.push(clock.el());
       if (S.leader === me) {
-        parts.push(h('div.kt-prompt', { style: '--pc:#1a73e8' }, h('small', 'You are the leader'), `Choose ${need} players for this quest`));
+        parts.push(h('div.kt-prompt', { style: '--pc:#4285F4' }, h('small', 'You are the leader'), `Choose ${need} players for this quest`));
         parts.push(h('div.sq-pl', ids.map((id) => h('button.sq-p.click' + (S.sel.has(id) ? '.sel' : ''), { onclick: () => { if (S.sel.has(id)) S.sel.delete(id); else if (S.sel.size < need) S.sel.add(id); render(); } }, avatarEl(api.player(id), 'lg', { still: true }), nameOf(id) + (id === me ? ' (you)' : '')))));
         parts.push(h('button.btn.primary.big.block', { disabled: S.sel.size !== need, onclick: () => api.toHost('team', { ids: [...S.sel] }) }, icon('check'), `Propose team (${S.sel.size}/${need})`));
-      } else parts.push(h('div.kt-prompt', { style: '--pc:#1a73e8' }, h('small', `Quest ${S.qi + 1}`), `${nameOf(S.leader)} is choosing ${need} players…`), strip());
+      } else parts.push(h('div.kt-prompt', { style: '--pc:#4285F4' }, h('small', `Quest ${S.qi + 1}`), `${nameOf(S.leader)} is choosing ${need} players…`), strip());
     } else if (S.phase === 'vote') {
-      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#8e4de8' }, h('small', `${nameOf(S.leader)} proposes`), S.team.map(nameOf).join(', ')), strip());
+      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#A142F4' }, h('small', `${nameOf(S.leader)} proposes`), S.team.map(nameOf).join(', ')), strip());
       if (S.voted) parts.push(h('div.kt-hint', 'Vote cast'), waiting(api, ids.filter((i) => !S.done.has(i)), 'Waiting for'));
       else parts.push(h('div.row', { style: 'justify-content:center' }, h('button.btn.good.big', { onclick: () => { S.voted = true; api.toHost('vote', { y: true }); render(); } }, icon('thumb_up'), 'Approve'), h('button.btn.bad.big', { onclick: () => { S.voted = true; api.toHost('vote', { y: false }); render(); } }, icon('thumb_down'), 'Reject')));
     } else if (S.phase === 'votes' && S.votes) {
@@ -70,14 +70,14 @@ export function start(api) {
     } else if (S.phase === 'quest') {
       parts.push(clock.el(), strip());
       if (S.team.includes(me)) {
-        parts.push(h('div.kt-prompt', { style: '--pc:#f57c00' }, h('small', 'You are on the quest'), 'Secretly choose the outcome'));
+        parts.push(h('div.kt-prompt', { style: '--pc:#FA7B17' }, h('small', 'You are on the quest'), 'Secretly choose the outcome'));
         if (S.mine !== null) parts.push(h('div.kt-hint', 'Card played'), waiting(api, S.team.filter((i) => !S.done.has(i)), 'Waiting for'));
         else parts.push(h('div.row', { style: 'justify-content:center' }, h('button.btn.good.big', { onclick: () => { S.mine = true; api.toHost('card', { s: true }); render(); } }, icon('check'), 'Success'), h('button.btn.bad.big', { disabled: !evil, onclick: () => { S.mine = false; api.toHost('card', { s: false }); render(); } }, icon('close'), 'Fail')), !evil ? h('div.kt-hint', 'Heroes must always choose Success.') : null);
-      } else parts.push(h('div.kt-prompt', { style: '--pc:#f57c00' }, h('small', 'On the quest'), S.team.map(nameOf).join(', ')), h('div.kt-hint', 'Waiting for their secret cards…'));
+      } else parts.push(h('div.kt-prompt', { style: '--pc:#FA7B17' }, h('small', 'On the quest'), S.team.map(nameOf).join(', ')), h('div.kt-hint', 'Waiting for their secret cards…'));
     } else if (S.phase === 'qres' && S.res) {
       parts.push(h('div.kt-prompt', { style: { '--pc': S.res.ok ? '#34a853' : '#ea4335' } }, h('small', `Quest ${S.res.q}`), S.res.ok ? 'SUCCESS' : 'FAILED'), h('div.kt-hint', `${S.res.fails} fail card${S.res.fails === 1 ? '' : 's'}${twoFails ? ' (this quest needs 2 to fail)' : ''}`));
     } else if (S.phase === 'assassin') {
-      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#5e35b1' }, h('small', 'Heroes won three quests!'), S.role === 'assassin' ? 'Assassin: who is Merlin?' : 'The Assassin gets one guess at Merlin…'));
+      parts.push(clock.el(), h('div.kt-prompt', { style: '--pc:#7C4DFF' }, h('small', 'Heroes won three quests!'), S.role === 'assassin' ? 'Assassin: who is Merlin?' : 'The Assassin gets one guess at Merlin…'));
       if (S.role === 'assassin') parts.push(h('div.sq-pl', ids.filter((i) => i !== me && !S.knows.includes(i)).map((id) => h('button.sq-p.click', { onclick: () => api.toHost('assassinate', { id }) }, avatarEl(api.player(id), 'lg', { still: true }), nameOf(id)))));
     }
     root.replaceChildren(...parts);

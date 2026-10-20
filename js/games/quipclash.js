@@ -19,10 +19,10 @@ const PROMPTS = [
 
 const CSS = `
 .qc-duel { display:grid; gap:12px; }
-.qc-ans { display:block; width:100%; text-align:left; border:3px solid transparent; background:var(--surface); box-shadow:var(--e2); border-radius:var(--r); padding:20px 20px; font:700 clamp(18px, 4.6vw, 24px)/1.3 var(--font); cursor:pointer; transition:.15s; color:var(--on); }
+.qc-ans { display:block; width:100%; text-align:left; border:3px solid transparent; background:var(--surface); box-shadow:var(--z2); border-radius:var(--r); padding:20px 20px; font:700 clamp(18px, 4.6vw, 24px)/1.3 var(--font); cursor:pointer; transition:.15s; color:var(--on); }
 .qc-ans:hover:not(:disabled) { border-color:var(--blue); }
-.qc-ans.sel { border-color:var(--blue); background:var(--blue-c); }
-.qc-ans.win { border-color:var(--yellow); background:var(--yellow-c); }
+.qc-ans.sel { border-color:var(--primary); box-shadow:var(--z3); }
+.qc-ans.win { border-color:var(--m-yellow); box-shadow:var(--z3); }
 .qc-ans:disabled { cursor:default; }
 .qc-meta { display:flex; align-items:center; gap:8px; margin-top:10px; font:600 14px var(--font); color:var(--on2); }
 .qc-meta b { margin-left:auto; font:800 18px var(--font); color:var(--blue); }
@@ -57,7 +57,7 @@ export function start(api) {
       parts.push(h('div.kt-card', { style: 'text-align:center;padding:10px' }, h('b', `Round ${S.round}/${rounds}`), ' · answer your prompts'), clock.el());
       if (!S.tasks.length) parts.push(h('div.kt-center', h('div.spinner')));
       S.tasks.forEach((t, i) => {
-        parts.push(promptCard(t.prompt, { label: `Prompt ${i + 1} of ${S.tasks.length}`, color: i ? '#8e4de8' : '#e5399b' }));
+        parts.push(promptCard(t.prompt, { label: `Prompt ${i + 1} of ${S.tasks.length}`, color: i ? '#A142F4' : '#E52592' }));
         if (S.ans[t.pid] !== undefined) parts.push(h('div.kt-card', { style: 'text-align:center;font-weight:700' }, icon('check_circle'), ' “', S.ans[t.pid], '”'));
         else parts.push(answerBox({ placeholder: 'Your funniest answer…', max: 70, onSubmit: (txt) => { S.ans[t.pid] = txt; api.toHost('ans', { pid: t.pid, t: txt }); api.sfx('good'); render(); } }).el);
       });
@@ -65,7 +65,7 @@ export function start(api) {
     } else if (S.phase === 'duel' && S.duel) {
       const d = S.duel;
       const mine = d.authors.includes(api.me);
-      parts.push(clock.el(), promptCard(d.prompt, { label: 'Which answer is funnier?', color: '#1a73e8' }));
+      parts.push(clock.el(), promptCard(d.prompt, { label: 'Which answer is funnier?', color: '#4285F4' }));
       parts.push(h('div.qc-duel', d.answers.map((a, i) => [i ? h('div.qc-vs', 'VS') : null, h('button.qc-ans' + (S.voted === i ? '.sel' : ''), { disabled: mine || S.voted !== false, onclick: () => { S.voted = i; api.toHost('vote', { i }); api.sfx('click'); render(); } }, a)]).flat()));
       parts.push(h('div.kt-hint', mine ? 'Your duel: waiting for votes' : S.voted !== false ? 'Vote locked in!' : 'Tap the funnier answer.'));
     } else if (S.phase === 'reveal' && S.res) {

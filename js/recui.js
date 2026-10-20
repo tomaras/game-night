@@ -42,7 +42,7 @@ function download(blob, name) {
 
 async function playClip(clip, toast) {
   const isVideo = clip.mime.startsWith('video/');
-  const el = h(isVideo ? 'video' : 'audio', { controls: true, autoplay: true, playsinline: true, style: 'width:100%;max-height:60dvh;border-radius:16px;background:#000' });
+  const el = h(isVideo ? 'video' : 'audio', { controls: true, autoplay: true, playsinline: true, style: 'width:100%;max-height:60dvh;border-radius:2px;background:#000' });
   const note = h('div.muted', { style: 'font-size:12.5px' });
   const body = h('div.col', { style: 'gap:12px' }, h('h2', clip.name || 'Clip'), el, note);
   const urls = [];

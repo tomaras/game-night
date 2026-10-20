@@ -35,13 +35,13 @@ const CSS = `
 .tr-lane { display:flex; align-items:center; gap:10px; background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:6px 12px; }
 .tr-lane.me { box-shadow:0 0 0 2px var(--blue), var(--e1); }
 .tr-lane .nm { width:96px; font-weight:800; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tr-track { flex:1; height:30px; position:relative; background:linear-gradient(90deg, transparent 0, transparent calc(100% - 3px), #fff calc(100% - 3px)), repeating-linear-gradient(90deg, rgba(0,0,0,.08) 0 2px, transparent 2px 40px), var(--bg2); border-radius:8px; }
+.tr-track { flex:1; height:30px; position:relative; background:var(--s2); border-right:3px solid var(--on); border-radius:0; }
 .tr-car { position:absolute; top:-2px; transform:translateX(-50%); transition:left .2s linear; }
 .tr-lane .st { width:92px; text-align:right; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; }
 .tr-text { background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:18px 20px; font-size:clamp(17px, 2.4vw, 24px); line-height:1.65; font-family:ui-monospace, Menlo, Consolas, monospace; user-select:none; }
-.tr-text .ok { color:var(--green); } .tr-text .bad { color:#fff; background:var(--red); border-radius:3px; } .tr-text .cur { border-bottom:3px solid var(--blue); color:var(--on); background:var(--blue-c); } .tr-text .rest { color:var(--on3); }
+.tr-text .ok { color:var(--green); } .tr-text .bad { color:#fff; background:var(--m-red); border-radius:2px; } .tr-text .cur { border-bottom:3px solid var(--blue); color:var(--on); background:var(--s3); } .tr-text .rest { color:var(--on3); }
 .tr-input { font-size:20px; padding:14px 16px; font-family:ui-monospace, Menlo, Consolas, monospace; }
-.tr-input.err { border-color:#d94452; box-shadow:0 0 0 3px rgba(217,68,82,.3); }
+.tr-input.err { box-shadow:inset 0 0 0 2px var(--m-red); }
 .tr-info { text-align:center; font-weight:800; font-size:24px; min-height:32px; color:var(--blue); }
 .tr-board { display:flex; flex-direction:column; gap:6px; }
 .tr-board .r { display:flex; align-items:center; gap:10px; background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:6px 12px; font-weight:800; }

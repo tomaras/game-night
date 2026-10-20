@@ -9,12 +9,12 @@ const CSS = `
 .pt { gap:12px; }
 .pt-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
 .pt-p { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; border:3px solid transparent; }
-.pt-p.turn { border-color:var(--yellow); } .pt-p.out { opacity:.4; } .pt-p.chal { border-color:var(--red); }
+.pt-p.turn { border-color:var(--m-yellow); box-shadow:var(--z3); } .pt-p.out { opacity:.4; } .pt-p.chal { border-color:var(--red); }
 .pt-p .nm { font:700 14px var(--font); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pt-p .meta { display:flex; gap:6px; font:700 12px var(--font); color:var(--on2); align-items:center; }
 .pt-stack { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; min-height:38px; }
-.pt-disc { width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #8d6e63, #4e342e); box-shadow:0 2px 4px rgba(0,0,0,.3); display:grid; place-items:center; color:#fff; font-size:18px; }
-.pt-disc.f { background:radial-gradient(circle at 35% 30%, #ff8fab, #e5399b); } .pt-disc.s { background:radial-gradient(circle at 35% 30%, #455a64, #111); }
+.pt-disc { width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #BDC1C6, #5F6368); box-shadow:0 2px 4px rgba(0,0,0,.3); display:grid; place-items:center; color:#fff; font-size:18px; }
+.pt-disc.f { background:radial-gradient(circle at 35% 30%, #FF80AB, #E52592); } .pt-disc.s { background:radial-gradient(circle at 35% 30%, #5F6368, #202124); }
 .pt-disc.mine { outline:2px dashed var(--blue); outline-offset:2px; }
 .pt-disc.flip { cursor:pointer; outline:3px solid var(--blue); animation:pulse 1s infinite; }
 .pt-act { background:var(--surface); box-shadow:var(--e2); border-radius:var(--r); padding:14px; display:flex; flex-direction:column; gap:10px; align-items:center; }
@@ -45,7 +45,7 @@ export function start(api) {
     const parts = [], flips = [];
     if (S.phase !== 'flip' && S.phase !== 'result' && S.phase !== 'lose') shownRev.clear();
     const msg = { place: 'Everyone secretly places one disc face-down', turns: myTurn ? 'Your turn: add a disc — or start the bidding' : `${nameOf(S.turn)} is deciding…`, bidding: S.bid ? `${nameOf(S.bid.id)} bids ${S.bid.n}. ${myTurn ? 'Raise or pass' : `${nameOf(S.turn)} is thinking…`}` : '', flip: S.chal === me ? `Flip ${S.bid.n - S.flipped.length} more disc${S.bid.n - S.flipped.length === 1 ? '' : 's'} — avoid thorns!` : `${nameOf(S.chal)} is flipping…`, lose: S.chal === me ? 'You hit your own thorn — pick a disc to lose' : `${nameOf(S.chal)} is choosing what to lose…`, result: S.msg }[S.phase] || '';
-    parts.push(h('div.kt-prompt', { style: '--pc:#e5399b' }, h('small', S.phase === 'flip' || S.phase === 'result' ? 'Challenge' : 'Petals & Thorns'), msg));
+    parts.push(h('div.kt-prompt', { style: '--pc:#E52592' }, h('small', S.phase === 'flip' || S.phase === 'result' ? 'Challenge' : 'Petals & Thorns'), msg));
     parts.push(h('div.pt-grid', S.order.map((id) => {
       const p = S.players[id];
       const own = id === me;
