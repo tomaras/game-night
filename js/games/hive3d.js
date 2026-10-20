@@ -1,16 +1,17 @@
-// Hive in 3D: a stump-top table with carved cells, bevelled ivory and onyx pieces with insects etched into them,
-// legal-move wells, flowing path arrows and smooth piece motion. Rules live in ../engines/hive-rules.js; this file only draws.
+// Hive in 3D: a stump-top table with hex cells carved into the wood, low bevelled ivory and onyx pieces with insects
+// etched into them, clean legal-move outlines, flowing path arrows and smooth piece motion.
+// Rules live in ../engines/hive-rules.js; this file only draws.
 import { THREE, createTable3D, loadTexture, ease, KEY_DIR } from '../table3d.js';
 import { GLYPHS, INK, TEAM } from './hive-art.js';
 
 const A = (f) => `assets/hive3d/${f}`;
-const R = 0.5, GAP = 0.012, SQ3 = Math.sqrt(3);
-const TH = 0.26, BEV = 0.035, TOP = TH + BEV, LV = TOP + 0.012;
-const HAVE_ART = new Set(['Q', 'A', 'S', 'G', 'B']); // insects with painted artwork; the rest fall back to the vector glyphs
-const DEST_COLORS = ['#FBBC05', '#4285F4', '#EA4335', '#34A853', '#A142F4', '#12B5CB', '#FF6D00', '#F538A0'];
-const SHAPES = ['circle', 'diamond', 'triangle', 'square', 'star', 'hex', 'plus', 'ring'];
+const R = 0.5, SQ3 = Math.sqrt(3);
+const TH = 0.15, BEV = 0.03, TOP = TH + BEV, LV = TH + 2 * BEV + 0.002; // a stone spans -BEV .. TH+BEV around its origin
+const HAVE_ART = new Set(['Q', 'A', 'S', 'G', 'B', 'M', 'L', 'P']); // insects with painted artwork; the rest fall back to the vector glyphs
 
 const cellXZ = (q, r) => ({ x: R * 1.5 * q, z: R * SQ3 * (r + q / 2) });
+const levelY = (l) => l * LV + BEV;                       // origin height of a stone sitting at stack level l
+const topY = (count) => (count > 0 ? count * LV : 0);     // top surface of a cell holding `count` stones
 const hash = (n) => { n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
 
 function hexShape(rad, rr = 0.06) {
@@ -27,16 +28,9 @@ function hexShape(rad, rr = 0.06) {
   s.closePath();
   return s;
 }
-const ringGeometry = (outer, inner, depth = 0.008) => {
-  const sh = hexShape(outer, 0.06);
-  sh.holes.push(new THREE.Path(hexShape(inner, 0.045).getPoints(10)));
-  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false });
-  g.rotateX(-Math.PI / 2);
-  return g;
-};
 
 /** Canvas fallback for insects that have no painted art yet: the vector glyph, drawn once. */
-function glyphEmblem(type, THREEref) {
+function glyphEmblem(type) {
   const S = 640, ink = INK.w[type], face = TEAM.w.face;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -40 80 80" width="${S}" height="${S}"><style>
     .gk{fill:${ink}} .gk.wing{opacity:.5} .gs{fill:none;stroke:${ink};stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
@@ -50,9 +44,8 @@ function glyphEmblem(type, THREEref) {
       const hx = h.getContext('2d');
       hx.fillStyle = '#ececec'; hx.fillRect(0, 0, S, S);
       hx.filter = 'blur(2.5px) brightness(0)'; hx.globalAlpha = .62; hx.drawImage(im, 0, 0, S, S);
-      const ct = new THREEref.CanvasTexture(c); ct.colorSpace = THREEref.SRGBColorSpace;
-      const ht = new THREEref.CanvasTexture(h);
-      res({ color: ct, height: ht });
+      const ct = new THREE.CanvasTexture(c); ct.colorSpace = THREE.SRGBColorSpace;
+      res({ color: ct, height: new THREE.CanvasTexture(h) });
     };
     im.onerror = rej;
     im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -62,7 +55,7 @@ function glyphEmblem(type, THREEref) {
 function dropShadowTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-  gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(.6, 'rgba(0,0,0,.22)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(.6, 'rgba(0,0,0,.24)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
 }
@@ -73,22 +66,35 @@ function radialAlpha(inner = .55) {
   g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
   return new THREE.CanvasTexture(c);
 }
-function shapeSprite(shape, color) {
-  const c = document.createElement('canvas'); c.width = c.height = 96;
-  const g = c.getContext('2d'); g.translate(48, 48);
-  g.fillStyle = color; g.strokeStyle = '#fff'; g.lineWidth = 7; g.lineJoin = 'round';
-  const poly = (n, r, rot = -Math.PI / 2) => { g.beginPath(); for (let i = 0; i < n; i++) { const a = rot + i * 2 * Math.PI / n; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); };
-  if (shape === 'circle') { g.beginPath(); g.arc(0, 0, 26, 0, 7); }
-  else if (shape === 'diamond') poly(4, 32);
-  else if (shape === 'triangle') poly(3, 34);
-  else if (shape === 'square') poly(4, 34, Math.PI / 4);
-  else if (shape === 'hex') poly(6, 30, 0);
-  else if (shape === 'star') { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 14 : 33; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); }
-  else if (shape === 'plus') { g.beginPath(); g.rect(-9, -28, 18, 56); g.rect(-28, -9, 56, 18); }
-  else { g.beginPath(); g.arc(0, 0, 26, 0, 7); g.moveTo(14, 0); g.arc(0, 0, 14, 0, 7, true); }
-  g.stroke(); g.fill('evenodd');
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+
+/** A small shape (circle, diamond, …) drawn in the centre of a legal-move well, so colour is never the only cue. */
+function drawShape(g, shape, color, cx, cy, r) {
+  g.save(); g.translate(cx, cy); g.fillStyle = color; g.strokeStyle = '#fff'; g.lineWidth = Math.max(3, r * .22); g.lineJoin = 'round';
+  const poly = (n, rad, rot = -Math.PI / 2) => { g.beginPath(); for (let i = 0; i < n; i++) { const a = rot + i * 2 * Math.PI / n; g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad); } g.closePath(); };
+  if (shape === 'diamond') poly(4, r * 1.25); else if (shape === 'triangle') poly(3, r * 1.3);
+  else if (shape === 'square') poly(4, r * 1.3, Math.PI / 4); else if (shape === 'hex') poly(6, r * 1.15, 0);
+  else if (shape === 'star') { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .5 : r * 1.25; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); }
+  else if (shape === 'plus') { g.beginPath(); const t = r * .38, L = r * 1.1; g.rect(-t, -L, t * 2, L * 2); g.rect(-L, -t, L * 2, t * 2); }
+  else { g.beginPath(); g.arc(0, 0, r, 0, 7); }
+  g.stroke(); g.fill('evenodd'); g.restore();
+}
+/** One flat-top hex drawn as a clean glowing outline: the legal-move well, or (kind 'ring') the slim selection outline. */
+const wellCache = new Map();
+function wellTexture(color, shape, kind) {
+  const key = `${color}|${shape}|${kind}`; if (wellCache.has(key)) return wellCache.get(key);
+  const W = 512, H = Math.round(W * SQ3 / 2), c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), cx = W / 2, cy = H / 2, rad = W / 2 - 14;
+  const path = (r) => { g.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); };
+  if (kind === 'ring') {
+    g.lineJoin = 'round'; g.lineWidth = 12; g.strokeStyle = color; g.shadowColor = color; g.shadowBlur = 18; path(rad - 12); g.stroke();
+  } else {
+    g.fillStyle = color; g.globalAlpha = .16; path(rad); g.fill(); g.globalAlpha = 1;
+    g.lineJoin = 'round'; g.shadowColor = color; g.shadowBlur = 34; g.strokeStyle = color; g.lineWidth = 22; path(rad - 10); g.stroke(); g.stroke();
+    g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 4; path(rad - 21); g.stroke();
+    drawShape(g, shape, color, cx, cy, 30);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.userData.keep = true;
+  wellCache.set(key, t); return t;
 }
 
 export async function createHive3D(host, handlers = {}) {
@@ -101,7 +107,7 @@ export async function createHive3D(host, handlers = {}) {
     onFrame: (t, dt) => animate(t, dt),
   });
   const { scene, rig } = stage;
-  rig.min = portrait ? 7.5 : 7; rig.max = 28;
+  rig.min = portrait ? 9.5 : 8.5; rig.max = 30;
 
   // ---------------- textures (shared)
   const tex = async (f, o) => loadTexture(A(f), o);
@@ -112,52 +118,61 @@ export async function createHive3D(host, handlers = {}) {
   await Promise.all(['Q', 'A', 'S', 'G', 'B', 'M', 'L', 'P'].map(async (t) => {
     emblems[t] = HAVE_ART.has(t)
       ? { color: await tex(`insect-${t}.webp`), height: await tex(`insect-${t}-h.webp`, { srgb: false }) }
-      : await glyphEmblem(t, THREE);
+      : await glyphEmblem(t);
     emblems[t].color.anisotropy = emblems[t].height.anisotropy = 8;
   }));
 
-  // ---------------- the world: floor, stump top, carved cells, dressing
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(40, 22.5),
-    new THREE.MeshStandardMaterial({ map: floorT, roughness: 1, alphaMap: radialAlpha(.5), transparent: true, color: 0xb9b19a }));
+  // ---------------- the table: floor, and a stump top whose hex cells are carved into the wood
+  const scenery = []; // materials that dim when a stone is in the spotlight
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorT, roughness: 1, alphaMap: radialAlpha(.5), transparent: true, color: 0xb9b19a });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 22.5), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.position.y = -0.02; floor.receiveShadow = true;
   scene.add(floor);
-  scene.fog = new THREE.FogExp2(0x1c2216, 0.012);
+  scene.fog = new THREE.FogExp2(0x14180f, 0.012);
 
-  const stumpW = 15.5, stumpH = stumpW * 941 / 1672;
-  const stump = new THREE.Mesh(
-    new THREE.PlaneGeometry(stumpW, stumpH),
-    new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.62), transparent: true, color: 0xd2bfa8 }));
+  const stumpW = 15.5, stumpH = stumpW * 1024 / 1536;
+  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.62), transparent: true, color: 0xcdb9a2 });
+  // The cell lattice is analytic (no texture), so the grooves stay razor sharp at any zoom and always line up with the pieces.
+  stumpMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vGp;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = vec2(position.x, -position.y);');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec2 vGp;
+        float hexEdge(vec2 p) {                       // distance inside the nearest flat-top cell to its edge
+          const float R = 0.5;
+          vec2 q = vec2(0.6666667 * p.x, -0.3333333 * p.x + 0.57735027 * p.y) / R;
+          float x = q.x, z = q.y, y = -x - z;
+          float rx = floor(x + 0.5), ry = floor(y + 0.5), rz = floor(z + 0.5);
+          float dx = abs(rx - x), dy = abs(ry - y), dz = abs(rz - z);
+          if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+          vec2 c = vec2(R * 1.5 * rx, R * 1.7320508 * (rz + rx * 0.5));
+          vec2 d = abs(p - c);
+          return R * 0.8660254 - max(d.y, 0.8660254 * d.x + 0.5 * d.y);
+        }
+        float groveH;`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        float e = hexEdge(vGp);
+        float gw = max(0.0125, fwidth(e) * 1.6);
+        float groove = 1.0 - smoothstep(0.0, gw, e);
+        float pocket = smoothstep(0.0, 0.085, e);
+        float groveFade = 1.0 - smoothstep(0.30, 0.46, length((vMapUv - 0.5) * vec2(1.0, 0.92)));
+        groveH = (-1.7 * groove - 0.42 * (1.0 - pocket)) * groveFade;
+        diffuseColor.rgb *= 1.0 - (0.5 * groove + 0.12 * (1.0 - pocket)) * groveFade;`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        normal = perturbNormalArb(-vViewPosition, normal, vec2(dFdx(groveH), dFdy(groveH)) * 0.85, faceDirection);`);
+  };
+  stumpMat.customProgramCacheKey = () => 'hive-stump';
+  const stump = new THREE.Mesh(new THREE.PlaneGeometry(stumpW, stumpH), stumpMat);
   stump.rotation.x = -Math.PI / 2; stump.position.y = 0; stump.receiveShadow = true;
   scene.add(stump);
+  scenery.push({ m: floorMat, c: floorMat.color.clone() }, { m: stumpMat, c: stumpMat.color.clone() });
 
   const world = new THREE.Group(); // everything that moves with the hive (shifted so the hive stays on the stump)
   scene.add(world);
   const origin = { x: 0, z: 0 };
   const setOrigin = (x, z) => { origin.x = x; origin.z = z; world.position.set(-x, 0, -z); };
-
-  // carved cells (instanced hex outlines)
-  const cellGeo = ringGeometry(R - GAP, R - GAP - 0.017, 0.006);
-  const cellMat = new THREE.MeshStandardMaterial({ color: 0x2a190d, roughness: 0.8, transparent: true, opacity: 0.4 });
-  const CELL_RAD = 8;
-  const cellOffsets = [];
-  for (let q = -CELL_RAD; q <= CELL_RAD; q++) for (let r = -CELL_RAD; r <= CELL_RAD; r++) if (Math.abs(q + r) <= CELL_RAD) cellOffsets.push([q, r]);
-  const cells = new THREE.InstancedMesh(cellGeo, cellMat, cellOffsets.length);
-  cells.receiveShadow = true;
-  scene.add(cells);
-  let gridCentre = { q: 0, r: 0 };
-  const m4 = new THREE.Matrix4(), v3 = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1), qn = new THREE.Quaternion();
-  function layoutCells() {
-    let n = 0;
-    for (const [dq, dr] of cellOffsets) {
-      const { x, z } = cellXZ(gridCentre.q + dq, gridCentre.r + dr);
-      const px = x - origin.x, pz = z - origin.z;
-      const inside = Math.abs(px) < stumpW / 2 - 1.2 && Math.abs(pz) < stumpH / 2 - 0.75;
-      m4.compose(v3.set(px, inside ? 0.002 : -5, pz), qn, sc);
-      cells.setMatrixAt(n++, m4);
-    }
-    cells.instanceMatrix.needsUpdate = true;
-  }
 
   // dressing: cut-outs standing at the camera's tilt so they read like the pictures they came from
   const props = new THREE.Group(); scene.add(props);
@@ -166,28 +181,28 @@ export async function createHive3D(host, handlers = {}) {
     const t = await tex(file);
     const aspect = t.image.height / t.image.width;
     const geo = new THREE.PlaneGeometry(w, w * aspect); geo.translate(0, w * aspect / 2, 0);
-    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.08, roughness: 0.9, side: THREE.DoubleSide, color: 0xf2ece0 }));
-    const tl = (portrait ? 58 : 53) * Math.PI / 180;
-    m.rotation.x = -tl; m.rotation.y = 0; m.rotation.order = 'YXZ'; m.rotation.z = rot;
+    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.08, roughness: 0.9, side: THREE.DoubleSide, color: 0xe6dfd2 });
+    const m = new THREE.Mesh(geo, mat);
+    m.rotation.order = 'YXZ'; m.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; m.rotation.z = rot;
     if (flip) m.scale.x = -1;
-    m.position.set(x, 0, z); m.castShadow = false; m.receiveShadow = false;
+    m.position.set(x, 0, z);
     props.add(m);
-    // soft contact shadow falling away from the key light
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.1, w * 0.55), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.8 }));
-    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.13, 0.004, z - w * 0.02 + 0.05); props.add(sh);
+    scenery.push({ m: mat, c: mat.color.clone() });
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.15, w * 0.55), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.85 }));
+    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.2, 0.004, z - w * 0.02 + 0.05); props.add(sh); // falls away from the low light on the left
   }
   const dressing = Promise.all([
-    dress('bag.webp', -4.9, 2.3, 2.7), dress('fol-fern1.webp', -6.1, -0.2, 2.6), dress('fol-fern2.webp', 5.6, 3.0, 2.2, { flip: true }),
+    dress('fol-fern1.webp', -6.1, -0.2, 2.6), dress('fol-fern2.webp', 5.6, 3.0, 2.2, { flip: true }),
     dress('fol-moss.webp', -3.9, -2.9, 1.5), dress('prop-stone1.webp', 5.2, -2.2, 1.35), dress('prop-stone2.webp', 4.2, -3.1, 0.8),
     dress('prop-mushrooms.webp', -5.5, -2.9, 1.1), dress('prop-pinecone.webp', 4.4, 2.2, 0.8), dress('prop-acorns.webp', 3.4, 3.3, 0.7),
     dress('fol-leaves.webp', 6.0, 0.3, 1.5), dress('fol-ivy.webp', -2.2, -3.6, 1.3), dress('prop-twig.webp', 2.6, -3.7, 1.1, { rot: -0.4 }),
     dress('fol-clover.webp', -4.7, 3.4, 0.95),
   ]).catch((e) => console.warn('[hive3d] dressing', e));
 
-  // ---------------- tiles
-  const tileGeo = new THREE.ExtrudeGeometry(hexShape(R - GAP * 2, 0.07), { depth: TH, bevelEnabled: true, bevelThickness: BEV, bevelSize: 0.03, bevelSegments: 4, curveSegments: 6 });
+  // ---------------- stones
+  const tileGeo = new THREE.ExtrudeGeometry(hexShape(R - 0.0015 - 0.03, 0.06), { depth: TH, bevelEnabled: true, bevelThickness: BEV, bevelSize: 0.03, bevelSegments: 4, curveSegments: 6 }); // outer wall at R: stones touch
   tileGeo.rotateX(-Math.PI / 2);
-  { // cap UVs: a square, centred on the tile, as tall as the hex is
+  { // cap UVs: a square, centred on the stone, as tall as the hex is
     const uv = tileGeo.attributes.uv, pos = tileGeo.attributes.position, n = tileGeo.attributes.normal, bh = SQ3 * R;
     for (let i = 0; i < uv.count; i++) if (n.getY(i) > 0.9) uv.setXY(i, pos.getX(i) / bh + 0.5, 0.5 - pos.getZ(i) / bh);
   }
@@ -197,7 +212,7 @@ export async function createHive3D(host, handlers = {}) {
     const k = type + col; if (MATS.has(k)) return MATS.get(k);
     const e = emblems[type];
     const m = new THREE.MeshPhysicalMaterial({
-      bumpMap: e.height, bumpScale: col === 'w' ? 26 : 20, color: 0xffffff,
+      bumpMap: e.height, bumpScale: col === 'w' ? 34 : 28, color: 0xffffff,
       roughness: col === 'w' ? 0.5 : 0.26, clearcoat: col === 'w' ? 0.28 : 0.85, clearcoatRoughness: col === 'w' ? 0.4 : 0.1,
       sheen: col === 'w' ? 0.25 : 0, sheenColor: new THREE.Color(0xffe9bf), sheenRoughness: 0.6,
     });
@@ -210,12 +225,13 @@ export async function createHive3D(host, handlers = {}) {
         .replace('#include <map_fragment>', `
           vec2 bUv = (vBumpMapUv - 0.5) * uBody.z; float bc = cos(uBody.w), bs = sin(uBody.w);
           bUv = vec2(bc * bUv.x - bs * bUv.y, bs * bUv.x + bc * bUv.y) + uBody.xy;
-          diffuseColor.rgb = texture2D(uBodyTex, bUv).rgb * uTint;
+          diffuseColor.rgb = texture2D(uBodyTex, bUv).rgb * uTint * diffuse;
           vec4 emb = texture2D(uEmb, vBumpMapUv);
           float carve = 1.0 - texture2D(bumpMap, vBumpMapUv).x;
           diffuseColor.rgb *= 1.0 - 0.62 * smoothstep(0.02, 0.32, carve) * (1.0 - emb.a);
           diffuseColor.rgb *= 1.0 - 0.22 * smoothstep(0.3, 0.7, carve) * emb.a;
-          diffuseColor.rgb = mix(diffuseColor.rgb, emb.rgb * 0.96, emb.a);
+          float stoneL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+          diffuseColor.rgb = mix(diffuseColor.rgb, emb.rgb * (0.78 + 0.55 * stoneL) * diffuse, emb.a * 0.93);
           float edge = 1.0 - abs(2.0 * emb.a - 1.0);
           diffuseColor.rgb *= 1.0 - 0.6 * edge * edge;`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
@@ -224,23 +240,24 @@ export async function createHive3D(host, handlers = {}) {
     m.customProgramCacheKey = () => 'hive-cap';
     MATS.set(k, m); return m;
   }
-  const sideMats = {
+  const sideBase = {
     w: new THREE.MeshPhysicalMaterial({ color: 0xd6c8a3, roughness: 0.55, clearcoat: 0.2, clearcoatRoughness: 0.3 }),
     b: new THREE.MeshPhysicalMaterial({ color: 0x14161d, roughness: 0.32, clearcoat: 0.8, clearcoatRoughness: 0.12 }),
   };
-  /** One material instance per piece (a clone of the shared look with its own stone offset), so no two stones are alike. */
+  /** One material set per piece (the shared look with its own stone offset), so no two stones are alike and each can dim alone. */
   function pieceMaterials(piece, type, col) {
     const base = capMaterial(type, col);
     const cap = base.clone();
-    cap.onBeforeCompile = base.onBeforeCompile; cap.customProgramCacheKey = base.customProgramCacheKey;
     const u = { ...base.userData.u, uBody: { value: new THREE.Vector4(hash(piece * 7 + 1) * 0.66, hash(piece * 7 + 2) * 0.66, 0.34, hash(piece * 7 + 3) * 6.28) } };
     cap.userData.u = u;
     cap.onBeforeCompile = (sh) => { base.onBeforeCompile(sh); sh.uniforms.uBody = u.uBody; };
-    return [cap, sideMats[col]];
+    cap.customProgramCacheKey = base.customProgramCacheKey;
+    const side = sideBase[col].clone(); side.userData.base = side.color.getHex();
+    return [cap, side];
   }
-  const ringGeoTile = ringGeometry(R - GAP * 2 - 0.02, R - GAP * 2 - 0.085, 0.01);
+  const outlineGeo = new THREE.PlaneGeometry(1, SQ3 / 2); outlineGeo.rotateX(-Math.PI / 2);
 
-  const tiles = new Map(); // piece code -> { mesh, ring, q, r, level, rot }
+  const tiles = new Map(); // piece code -> { mesh, ring, q, r, level }
   let settings = { rotation: 'natural' };
   const yawFor = (piece, ply) => {
     if (settings.rotation === 'off') return 0;
@@ -248,88 +265,72 @@ export async function createHive3D(host, handlers = {}) {
     const jitter = settings.rotation === 'natural' ? (hash(piece * 17 + ply * 31 + 5) - 0.5) * 0.05 : 0;
     return k + jitter;
   };
-  const tileXZ = (q, r) => cellXZ(q, r);
 
   function makeTile(t) {
     const mesh = new THREE.Mesh(tileGeo, pieceMaterials(t.piece, t.type, t.color === 0 ? 'w' : 'b'));
     mesh.castShadow = true; mesh.receiveShadow = true;
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffc107, transparent: true, opacity: 0 });
-    const ring = new THREE.Mesh(ringGeoTile, ringMat);
-    ring.position.y = TOP + 0.002; ring.visible = false;
+    const ringMat = new THREE.MeshBasicMaterial({ map: wellTexture('#FFFFFF', 'circle', 'ring'), transparent: true, opacity: 0, depthWrite: false });
+    const ring = new THREE.Mesh(outlineGeo, ringMat);
+    ring.scale.set(0.98, 1, 0.98); ring.position.y = TOP + 0.003; ring.visible = false; ring.renderOrder = 5;
     mesh.add(ring);
     mesh.userData.piece = t.piece;
     world.add(mesh);
-    return { mesh, ring, ringMat, q: t.q, r: t.r, level: t.level, yaw: 0 };
+    return { mesh, ring, ringMat, q: t.q, r: t.r, level: t.level };
   }
 
-  // ---------------- targets, arrows, ghost
+  // ---------------- legal-move wells, arrows, ghost
   const targetGroup = new THREE.Group(); world.add(targetGroup);
   const arrowGroup = new THREE.Group(); world.add(arrowGroup);
-  const wellGeo = ringGeometry(R - GAP * 2 + 0.005, R - GAP * 2 - 0.07, 0.012);
-  const hitGeo = new THREE.ShapeGeometry(hexShape(R - GAP, 0.05)); hitGeo.rotateX(-Math.PI / 2);
-  const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 192;
-  { const g = glowCanvas.getContext('2d'), gr = g.createRadialGradient(96, 96, 6, 96, 96, 96); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.45, 'rgba(255,255,255,.28)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 192, 192); }
-  const glowTex = new THREE.CanvasTexture(glowCanvas);
-  const glowGeo = new THREE.PlaneGeometry(1.45, 1.45); glowGeo.rotateX(-Math.PI / 2);
-  const spriteTex = new Map();
-  const sprite = (shape, color) => { const k = shape + color; if (!spriteTex.has(k)) spriteTex.set(k, shapeSprite(shape, color)); return spriteTex.get(k); };
-  let targetObjs = [];
-  let hoverId = null;
-  const dashTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 4; const g = c.getContext('2d'); g.clearRect(0, 0, 64, 4); g.fillStyle = '#fff'; g.beginPath(); g.roundRect?.(2, 0, 38, 4, 2); g.fill(); const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; return t; })();
-  let flowMats = [];
-
+  const hitGeo = new THREE.ShapeGeometry(hexShape(R - 0.005, 0.05)); hitGeo.rotateX(-Math.PI / 2);
+  const wellGeo = new THREE.PlaneGeometry(1.0, SQ3 / 2); wellGeo.rotateX(-Math.PI / 2);
+  let targetObjs = [], hoverId = null, flowMats = [];
   const ghostHolder = new THREE.Group(); world.add(ghostHolder);
-
-  function clearGroup(g) { for (const o of [...g.children]) { g.remove(o); o.traverse((c) => { if (c.isSprite) c.material.dispose(); }); } }
-
-  const topY = (heightCount) => (heightCount > 0 ? (heightCount - 1) * LV + TOP : 0); // heightCount = pieces in the cell
+  const clearGroup = (g) => { for (const o of [...g.children]) { g.remove(o); o.traverse((c) => { if (c.material && !c.material.map?.userData?.keep) c.material.dispose?.(); if (c.geometry && c.userData.own) c.geometry.dispose(); }); } };
+  const pulseTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 4; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 40, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.55, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 40, 4); const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; return t; })();
 
   function buildTargets(model) {
     clearGroup(targetGroup); targetObjs = [];
     for (const t of model.targets || []) {
       const g = new THREE.Group();
-      const p = tileXZ(t.q, t.r), y = topY(t.height || 0);
-      g.position.set(p.x, y + 0.004, p.z);
-      const col = new THREE.Color(t.kind === 'place' ? '#34A853' : (t.color || '#FBBC05'));
-      const ringM = new THREE.Mesh(wellGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 }));
-      const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ map: glowTex, color: col, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: t.pending ? 0.95 : 0.55 }));
-      glow.position.y = 0.01;
-      const fill = new THREE.Mesh(new THREE.ShapeGeometry(hexShape(R - GAP * 2 - 0.07, 0.04)), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: t.pending ? 0.35 : 0.14, depthWrite: false }));
-      fill.rotation.x = -Math.PI / 2; fill.position.y = 0.006;
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sprite(t.kind === 'place' ? 'plus' : (t.shape || 'circle'), '#' + col.getHexString()), depthTest: false, transparent: true }));
-      sp.scale.set(0.3, 0.3, 1); sp.position.y = 0.34; sp.renderOrder = 20;
+      const p = cellXZ(t.q, t.r);
+      g.position.set(p.x, topY(t.height || 0) + 0.004, p.z);
+      const colour = t.kind === 'place' ? '#34A853' : (t.color || '#FBBC05');
+      const wellTex = wellTexture(colour, t.kind === 'place' ? 'plus' : (t.shape || 'circle'), 'well');
+      const well = new THREE.Mesh(wellGeo, new THREE.MeshBasicMaterial({ map: wellTex, transparent: true, depthWrite: false, opacity: 0.95 }));
+      well.renderOrder = 8; well.scale.setScalar(t.pending ? 1.04 : 1);
       const hit = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.02; hit.userData.target = t.id;
-      g.add(glow, fill, ringM, sp, hit);
-      g.userData = { pulse: Math.random() * 6, glow, ringM, sp, id: t.id, pending: !!t.pending };
+      g.add(well, hit);
+      g.userData = { pulse: Math.random() * 6, well, id: t.id, pending: !!t.pending };
       targetGroup.add(g); targetObjs.push({ g, hit, id: t.id });
     }
   }
 
   function buildArrows(model) {
     clearGroup(arrowGroup); flowMats = [];
-    const seen = new Set();
+    const up = new THREE.Vector3(0, 1, 0);
     for (const a of model.arrows || []) {
       const col = new THREE.Color(a.color || '#FBBC05');
-      const pts = a.cells.map(([q, r, h]) => { const p = tileXZ(q, r); return new THREE.Vector3(p.x, topY(h || 0) + 0.07, p.z); });
+      const pts = a.cells.map(([q, r, h]) => { const p = cellXZ(q, r); return new THREE.Vector3(p.x, topY(h || 0) + 0.07, p.z); });
       for (let i = 0; i < pts.length - 1; i++) {
         const A0 = pts[i], B0 = pts[i + 1];
-        const key = `${a.cells[i]}>${a.cells[i + 1]}|${a.shared ? 's' : a.id}`;
-        if (a.shared && seen.has(key)) continue; seen.add(key);
-        const dist = A0.distanceTo(B0), jump = dist > SQ3 * R * 1.5 || Math.abs(A0.y - B0.y) > 0.12;
-        const mid = A0.clone().lerp(B0, 0.5); mid.y += jump ? Math.min(1.1, 0.42 + dist * 0.3) : 0.045;
+        const dist = A0.distanceTo(B0), rise = Math.abs(A0.y - B0.y);
+        const jump = dist > SQ3 * R * 1.5, climb = !jump && rise > 0.08;
+        const peak = jump ? Math.min(1.7, 0.5 + dist * 0.45) : climb ? 0.42 : 0.025; // jumps take a high arch
+        const mid = A0.clone().lerp(B0, 0.5); mid.y = Math.max(A0.y, B0.y) + peak * 2;  // quadratic control point: the apex is half this height
         const curve = new THREE.QuadraticBezierCurve3(A0, mid, B0);
-        const last = i === pts.length - 2;
-        const tubeGeo = new THREE.TubeGeometry(curve, 14, a.width || 0.032, 8, false);
-        const dash = dashTex.clone(); dash.needsUpdate = true; dash.repeat.set(Math.max(1, dist * 3.2), 1);
-        const mat = new THREE.MeshBasicMaterial({ color: col, alphaMap: dash, transparent: true, depthWrite: false, depthTest: false, opacity: a.opacity ?? 0.95 });
-        mat.userData.dash = dash;
-        flowMats.push(mat);
-        const tube = new THREE.Mesh(tubeGeo, mat); tube.renderOrder = 15; arrowGroup.add(tube);
+        const w = a.width || 0.034, op = a.opacity ?? 0.95, seg = Math.max(12, Math.round(dist * 18));
+        const mk = (radius, mat, order) => { const m = new THREE.Mesh(new THREE.TubeGeometry(curve, seg, radius, 10, false), mat); m.renderOrder = order; m.userData.own = true; arrowGroup.add(m); };
+        const flat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, depthTest: false });
+        mk(w * 1.75, flat(0xffffff, op * 0.92), 14);   // pale outline
+        mk(w, flat(col, op), 15);                      // coloured body
+        const pulse = pulseTex.clone(); pulse.needsUpdate = true; pulse.repeat.set(Math.max(1, dist * 2.2), 1);
+        const pm = new THREE.MeshBasicMaterial({ color: 0xffffff, alphaMap: pulse, transparent: true, opacity: op * 0.9, depthWrite: false, depthTest: false });
+        pm.userData.pulse = pulse; flowMats.push(pm);
+        mk(w * 1.12, pm, 16);                          // light pulses travelling along it
         if (a.head === true) {
-          const head = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.24, 14), new THREE.MeshBasicMaterial({ color: col, depthWrite: false, depthTest: false, opacity: a.opacity ?? 1, transparent: true }));
           const tan = curve.getTangent(1).normalize();
-          head.position.copy(B0).addScaledVector(tan, -0.05); head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan); head.renderOrder = 16;
-          arrowGroup.add(head);
+          const cone = (r, h, c, order, back) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 18), flat(c, op)); m.userData.own = true; m.position.copy(B0).addScaledVector(tan, -back); m.quaternion.setFromUnitVectors(up, tan); m.renderOrder = order; arrowGroup.add(m); };
+          cone(w * 4.9, w * 8.4, 0xffffff, 17, w * 3.0); cone(w * 3.7, w * 7.4, col, 18, w * 2.6);
         }
       }
     }
@@ -339,37 +340,59 @@ export async function createHive3D(host, handlers = {}) {
     clearGroup(ghostHolder);
     const g = model.ghost;
     if (!g) return;
-    const mats = pieceMaterials(900 + g.type.charCodeAt(0), g.type, g.color === 0 ? 'w' : 'b').map((m) => { const c = m.clone(); c.onBeforeCompile = m.onBeforeCompile; c.customProgramCacheKey = () => 'ghost-' + (m.customProgramCacheKey?.() || ''); c.transparent = true; c.opacity = 0.88; return c; });
+    const mats = pieceMaterials(900 + g.type.charCodeAt(0), g.type, g.color === 0 ? 'w' : 'b');
+    mats.forEach((m) => { m.transparent = true; m.opacity = 0.88; });
     const mesh = new THREE.Mesh(tileGeo, mats);
-    const p = tileXZ(g.q, g.r);
-    mesh.position.set(p.x, (g.height || 0) * LV + 0.1, p.z);
+    const p = cellXZ(g.q, g.r);
+    mesh.position.set(p.x, levelY(g.height || 0) + 0.1, p.z);
     mesh.rotation.y = yawFor(900 + g.type.charCodeAt(0), 0);
-    mesh.castShadow = true;
-    mesh.userData.bob = true;
+    mesh.castShadow = true; mesh.userData.bob = true;
     ghostHolder.add(mesh);
+  }
+
+  // ---------------- spotlight: dim the table and every other stone while one stone's moves are shown
+  let dimK = 0, dimTween = null, focusSet = new Set();
+  function spotObjects() { return [...[...tiles.values()].filter((e) => focusSet.has(e.mesh.userData.piece)).map((e) => e.mesh), targetGroup, arrowGroup, ghostHolder]; }
+  function applyDim(k) {
+    dimK = k;
+    const f = 1 - 0.2 * k;
+    for (const s of scenery) s.m.color.copy(s.c).multiplyScalar(f);
+    for (const e of tiles.values()) {
+      const v = focusSet.has(e.mesh.userData.piece) ? 1 : 1 - 0.18 * k;
+      e.mesh.material[0].color.setScalar(v);
+      e.mesh.material[1].color.set(e.mesh.material[1].userData.base).multiplyScalar(v);
+    }
+    stage.setSpotlight({ k });
+  }
+  function setFocus(set) {
+    focusSet = set;
+    const want = set.size ? 1 : 0, from = dimK;
+    dimTween?.cancel();
+    stage.setSpotlight({ front: spotObjects(), occluders: [...tiles.values()].map((e) => e.mesh), k: dimK });
+    if (from === want) return applyDim(want);
+    dimTween = stage.tween({ dur: 260, ease: ease.out, update: (k) => applyDim(from + (want - from) * k), done: () => applyDim(want) });
   }
 
   // ---------------- update(model)
   let lastModel = { tiles: [], targets: [], arrows: [] };
-  let centred = false;
-  function levelY(l) { return l * LV; }
+  let centred = false, fitted = false;
 
   function bounds(model) {
     const ts = model.tiles.length ? model.tiles : [{ q: 0, r: 0 }];
     let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
-    for (const t of ts) { const p = tileXZ(t.q, t.r); minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
-    return { minX: minX - 0.95, maxX: maxX + 0.95, minZ: minZ - 0.95, maxZ: maxZ + 0.7 };
+    for (const t of ts) { const p = cellXZ(t.q, t.r); minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
+    return { minX: minX - 1.0, maxX: maxX + 1.0, minZ: minZ - 1.0, maxZ: maxZ + 0.8 };
   }
 
-  function animateMove(entry, path, t) {
-    const pts = path.map(([q, r, lvl]) => { const p = tileXZ(q, r); return new THREE.Vector3(p.x, levelY(lvl), p.z); });
+  function animateMove(entry, path) {
+    const pts = path.map(([q, r, lvl]) => { const p = cellXZ(q, r); return new THREE.Vector3(p.x, levelY(lvl), p.z); });
     if (pts.length < 2) return;
     const seg = []; let total = 0;
     for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); seg.push(d); total += d; }
     const dur = Math.min(1100, 320 + total * 190);
     const yaw0 = entry.mesh.rotation.y, yaw1 = entry.yawTarget;
-    let dy = ((yaw1 - yaw0 + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-    const jumpLift = (i) => (seg[i] > SQ3 * R * 1.5 ? Math.min(0.9, 0.3 + seg[i] * 0.26) : Math.abs(pts[i + 1].y - pts[i].y) > 0.05 ? 0.4 : 0.14);
+    const dy = ((yaw1 - yaw0 + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    const jumpLift = (i) => (seg[i] > SQ3 * R * 1.5 ? Math.min(1.2, 0.4 + seg[i] * 0.34) : Math.abs(pts[i + 1].y - pts[i].y) > 0.05 ? 0.38 : 0.12);
     entry.animating = true;
     stage.tween({
       dur, ease: ease.inOut,
@@ -382,47 +405,38 @@ export async function createHive3D(host, handlers = {}) {
         entry.mesh.rotation.y = yaw0 + dy * k;
         entry.mesh.rotation.z = Math.sin(k * Math.PI) * 0.05;
       },
-      done: () => {
-        entry.animating = false;
-        const e = pts[pts.length - 1];
-        entry.mesh.position.copy(e); entry.mesh.rotation.set(0, yaw1, 0);
-        settle(entry.mesh);
-      },
+      done: () => { entry.animating = false; entry.mesh.position.copy(pts[pts.length - 1]); entry.mesh.rotation.set(0, yaw1, 0); settle(entry.mesh); },
     });
   }
-  function settle(mesh) {
-    stage.tween({ dur: 170, ease: ease.out, update: (k) => { mesh.scale.y = 1 - Math.sin(k * Math.PI) * 0.03; } , done: () => { mesh.scale.y = 1; } });
-  }
+  const settle = (mesh) => stage.tween({ dur: 170, ease: ease.out, update: (k) => { mesh.scale.y = 1 - Math.sin(k * Math.PI) * 0.03; }, done: () => { mesh.scale.y = 1; } });
   function animateDrop(entry, p, yaw) {
     const m = entry.mesh; entry.animating = true;
-    m.position.set(p.x, p.y + 1.35, p.z); m.rotation.y = yaw + 0.5;
+    m.position.set(p.x, p.y + 1.3, p.z); m.rotation.y = yaw + 0.5;
     stage.tween({
       dur: 520, ease: ease.out,
-      update: (k) => { m.position.y = p.y + 1.35 * (1 - k) + Math.sin(k * Math.PI) * 0.06; m.rotation.y = yaw + 0.5 * (1 - k); m.scale.setScalar(1 + 0.08 * (1 - k)); },
+      update: (k) => { m.position.y = p.y + 1.3 * (1 - k) + Math.sin(k * Math.PI) * 0.06; m.rotation.y = yaw + 0.5 * (1 - k); m.scale.setScalar(1 + 0.08 * (1 - k)); },
       done: () => { entry.animating = false; m.position.copy(p); m.rotation.set(0, yaw, 0); m.scale.setScalar(1); settle(m); },
     });
   }
 
   function update(model) {
     settings = { ...settings, ...(model.settings || {}) };
-    const prevOrigin = { x: origin.x, z: origin.z };
-    // keep the hive on the stump: re-centre the table when its centre of mass drifts
+    // keep the hive on the stump: re-centre on a whole cell when its centre of mass drifts (the carved lattice then still lines up)
     if (model.tiles.length) {
-      let sx = 0, sz = 0; for (const t of model.tiles) { const p = tileXZ(t.q, t.r); sx += p.x; sz += p.z; }
-      sx /= model.tiles.length; sz /= model.tiles.length;
-      if (!centred || Math.hypot(sx - origin.x, sz - origin.z) > 2.6) {
-        const to = { x: sx, z: sz };
+      let sq = 0, sr = 0; for (const t of model.tiles) { sq += t.q; sr += t.r; }
+      sq /= model.tiles.length; sr /= model.tiles.length;
+      const x = sq, z = sr, y = -x - z;
+      let rx = Math.round(x), rz = Math.round(z), ry = Math.round(y);
+      const dx = Math.abs(rx - x), dz = Math.abs(rz - z), dy = Math.abs(ry - y);
+      if (dx > dz && dx > dy) rx = -ry - rz; else if (dz > dy) rz = -rx - ry;
+      const to = cellXZ(rx, rz);
+      if (!centred || Math.hypot(to.x - origin.x, to.z - origin.z) > 2.2) {
         if (!centred || model.instant) setOrigin(to.x, to.z);
-        else {
-          const from = { x: origin.x, z: origin.z };
-          stage.tween({ dur: 700, ease: ease.inOut, update: (k) => { setOrigin(from.x + (to.x - from.x) * k, from.z + (to.z - from.z) * k); layoutCells(); } });
-        }
+        else { const from = { x: origin.x, z: origin.z }; stage.tween({ dur: 700, ease: ease.inOut, update: (k) => setOrigin(from.x + (to.x - from.x) * k, from.z + (to.z - from.z) * k), done: () => setOrigin(to.x, to.z) }); }
         centred = true;
       }
     }
-    gridCentre = { q: 0, r: 0 };
-    layoutCells();
-    stage.aimLight(0, 0, 8);
+    stage.aimLight(0, 0, 9);
 
     const want = new Set(model.tiles.map((t) => t.piece));
     for (const [id, e] of tiles) if (!want.has(id)) { world.remove(e.mesh); tiles.delete(id); }
@@ -430,49 +444,43 @@ export async function createHive3D(host, handlers = {}) {
     for (const t of model.tiles) {
       let e = tiles.get(t.piece);
       const fresh = !e;
-      const p = tileXZ(t.q, t.r);
+      const p = cellXZ(t.q, t.r);
       const dest = new THREE.Vector3(p.x, levelY(t.level), p.z);
       const yaw = yawFor(t.piece, t.ply ?? 0);
       if (!e) { e = makeTile(t); tiles.set(t.piece, e); }
       e.yawTarget = yaw;
-      const moved = !fresh && (e.q !== t.q || e.r !== t.r || e.level !== t.level);
       e.q = t.q; e.r = t.r; e.level = t.level;
-      e.mesh.userData.q = t.q; e.mesh.userData.r = t.r;
       if (anim && anim.piece === t.piece && !model.instant) {
-        if (fresh) animateDrop(e, dest, yaw);
-        else animateMove(e, anim.path, t);
-      } else if (!e.animating) {
-        e.mesh.position.copy(dest); e.mesh.rotation.set(0, yaw, 0);
-      }
-      e.mesh.castShadow = true;
+        if (fresh) animateDrop(e, dest, yaw); else animateMove(e, anim.path);
+      } else if (!e.animating) { e.mesh.position.copy(dest); e.mesh.rotation.set(0, yaw, 0); }
     }
-    // state rings: movable (amber), selected (white), last moved (gold)
+    // state outlines: movable (amber), selected (white), last moved (soft gold)
     for (const t of model.tiles) {
       const e = tiles.get(t.piece); if (!e) continue;
       const sel = model.selected === t.piece, can = model.selectable?.has(t.piece), last = model.last === t.piece && !model.selected;
       e.ring.visible = !!(sel || can || last);
       e.ringMat.color.set(sel ? 0xffffff : can ? 0xffc107 : 0xffd978);
-      e.ringMat.opacity = sel ? 0.95 : can ? 0.8 : 0.5;
+      e.ringMat.opacity = sel ? 1 : can ? 0.85 : 0.55;
       e.can = !!can;
     }
     buildTargets(model); buildArrows(model); buildGhost(model);
+    setFocus(new Set(model.focus || []));
     lastModel = model;
     if (!model.keepView) {
       const b = bounds(model);
       const local = { minX: b.minX - origin.x, maxX: b.maxX - origin.x, minZ: b.minZ - origin.z, maxZ: b.maxZ - origin.z };
-      if (model.refit || !fitted || offscreen(model)) { stage.fit(local, { animate: fitted && !model.instant, margin: 1.22 }); fitted = true; }
+      if (model.refit || !fitted || offscreen(model)) { stage.fit(local, { animate: fitted && !model.instant, margin: 1.62 }); fitted = true; }
     }
     stage.invalidate();
   }
-  let fitted = false;
   const proj = new THREE.Vector3();
-  /** True when any piece sits outside the comfortable middle of the view (or the view is far tighter than the hive needs). */
+  /** True when any piece sits outside the comfortable middle of the view. */
   function offscreen(model) {
     stage.camera.updateMatrixWorld(); stage.camera.updateProjectionMatrix();
     for (const t of model.tiles) {
-      const p = tileXZ(t.q, t.r);
-      proj.set(p.x - origin.x, t.level * LV, p.z - origin.z).project(stage.camera);
-      if (Math.abs(proj.x) > 0.78 || proj.y > 0.74 || proj.y < -0.8) return true;
+      const p = cellXZ(t.q, t.r);
+      proj.set(p.x - origin.x, levelY(t.level), p.z - origin.z).project(stage.camera);
+      if (Math.abs(proj.x) > 0.74 || proj.y > 0.7 || proj.y < -0.76) return true;
     }
     return false;
   }
@@ -482,16 +490,15 @@ export async function createHive3D(host, handlers = {}) {
     let live = false;
     const s = t / 1000;
     for (const o of targetObjs) {
-      const u = o.g.userData; u.pulse += dt / 1000 * (u.id === hoverId ? 5 : 2.6);
+      const u = o.g.userData; u.pulse += dt / 1000 * (u.id === hoverId ? 5 : 2.4);
       const k = 0.5 + 0.5 * Math.sin(u.pulse);
-      u.glow.material.opacity = (u.pending ? 0.9 : 0.4) + k * 0.28 + (u.id === hoverId ? 0.25 : 0);
-      u.ringM.material.opacity = 0.78 + k * 0.22;
-      u.sp.position.y = 0.34 + Math.sin(u.pulse * 1.3) * 0.025;
+      u.well.material.opacity = (u.pending ? 0.92 : 0.78) + k * 0.2 + (u.id === hoverId ? 0.1 : 0);
+      u.well.scale.setScalar((u.pending ? 1.04 : 1) + (u.id === hoverId ? 0.025 : 0) + k * 0.012);
       live = true;
     }
-    for (const m of flowMats) { m.userData.dash.offset.x = -s * 0.9; live = true; }
-    for (const g of ghostHolder.children) if (g.userData.bob) { g.position.y = (lastModel.ghost?.height || 0) * LV + 0.1 + Math.sin(s * 3.2) * 0.04; live = true; }
-    for (const e of tiles.values()) if (e.ring.visible && e.can) { e.ringMat.opacity = 0.55 + 0.25 * Math.sin(s * 3.1 + e.q); live = true; }
+    for (const m of flowMats) { m.userData.pulse.offset.x = -s * 0.8; live = true; }
+    for (const g of ghostHolder.children) if (g.userData.bob) { g.position.y = levelY(lastModel.ghost?.height || 0) + 0.1 + Math.sin(s * 3.2) * 0.04; live = true; }
+    for (const e of tiles.values()) if (e.ring.visible && e.can) { e.ringMat.opacity = 0.6 + 0.3 * Math.sin(s * 3.1 + e.q); live = true; }
     return live;
   }
 
@@ -502,7 +509,7 @@ export async function createHive3D(host, handlers = {}) {
     if (!hit) {
       const p = stage.groundPoint(x, y);
       if (p && handlers.onCell) {
-        const gx = (p.x + origin.x) / (R * 1.5), q = gx, r = (p.z + origin.z) / (R * SQ3) - q / 2;
+        const q = (p.x + origin.x) / (R * 1.5), r = (p.z + origin.z) / (R * SQ3) - q / 2;
         let rq = Math.round(q), rr = Math.round(r), rs = Math.round(-q - r);
         const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs + q + r);
         if (dq > dr && dq > ds) rq = -rr - rs; else if (dr > ds) rr = -rq - rs;
@@ -511,9 +518,7 @@ export async function createHive3D(host, handlers = {}) {
       return handlers.onEmpty?.();
     }
     if (hit.object.userData.target != null) return handlers.onTarget?.(hit.object.userData.target);
-    // a tile only reports itself if it is the top piece of its stack
-    const piece = hit.object.userData.piece;
-    const e = tiles.get(piece);
+    const piece = hit.object.userData.piece, e = tiles.get(piece);
     const topLevel = [...tiles.values()].filter((o) => o.q === e.q && o.r === e.r).reduce((m, o) => Math.max(m, o.level), 0);
     if (e.level < topLevel) { const top = [...tiles.entries()].find(([, o]) => o.q === e.q && o.r === e.r && o.level === topLevel); return handlers.onPiece?.(top[0]); }
     handlers.onPiece?.(piece);
@@ -525,7 +530,7 @@ export async function createHive3D(host, handlers = {}) {
     if (id !== hoverId) { hoverId = id; handlers.onHover?.(id); stage.canvas.style.cursor = id != null ? 'pointer' : ''; stage.invalidate(); }
   }
 
-  // ---------------- thumbnails for the reserve trays, lit by the same light
+  // ---------------- thumbnails for the trays, lit by the same light
   const thumbCache = new Map();
   let tr = null;
   function thumb(type, colour, size = 120) {
@@ -534,24 +539,23 @@ export async function createHive3D(host, handlers = {}) {
       const c = document.createElement('canvas'); c.width = c.height = size * 2;
       tr = new THREE.WebGLRenderer({ canvas: c, antialias: true, alpha: true, preserveDrawingBuffer: true });
       tr.setPixelRatio(1); tr.setSize(size * 2, size * 2, false);
-      tr.toneMapping = THREE.ACESFilmicToneMapping; tr.toneMappingExposure = 1.25; tr.setClearColor(0x000000, 0);
+      tr.toneMapping = THREE.ACESFilmicToneMapping; tr.toneMappingExposure = 1.2; tr.setClearColor(0x000000, 0);
     }
     const col = colour === 0 ? 'w' : 'b';
     const sc = new THREE.Scene();
     sc.environment = scene.environment; sc.environmentIntensity = 0.7;
-    const l = new THREE.DirectionalLight(0xffeccf, 3.6); l.position.copy(KEY_DIR).multiplyScalar(8); sc.add(l);
-    sc.add(new THREE.HemisphereLight(0xcfe3ff, 0x3a2a18, 0.55));
+    const l = new THREE.DirectionalLight(0xffe6c8, 3.2); l.position.copy(KEY_DIR).multiplyScalar(8); sc.add(l);
+    sc.add(new THREE.HemisphereLight(0xcfe3ff, 0x3a2a18, 0.6));
     const cap = capMaterial(type, col).clone(); cap.onBeforeCompile = capMaterial(type, col).onBeforeCompile; cap.customProgramCacheKey = () => 'hive-cap';
-    const mesh = new THREE.Mesh(tileGeo, [cap, sideMats[col]]); sc.add(mesh);
+    const mesh = new THREE.Mesh(tileGeo, [cap, sideBase[col]]); sc.add(mesh);
     const cam = new THREE.PerspectiveCamera(13.5, 1, 0.1, 50);
-    cam.position.set(0, 5.6, 3.1); cam.lookAt(0, 0.12, 0.08);
+    cam.position.set(0, 5.6, 3.1); cam.lookAt(0, 0.1, 0.08);
     tr.render(sc, cam);
     const url = tr.domElement.toDataURL('image/png');
     cap.dispose();
     thumbCache.set(k, url); return url;
   }
 
-  layoutCells();
   await dressing;
   ready = true;
   stage.invalidate();
@@ -559,11 +563,11 @@ export async function createHive3D(host, handlers = {}) {
   return {
     stage, update, thumb,
     setHandlers(h) { Object.assign(handlers, h); },
-    refit() { stage.fit({ ...(() => { const b = bounds(lastModel); return { minX: b.minX - origin.x, maxX: b.maxX - origin.x, minZ: b.minZ - origin.z, maxZ: b.maxZ - origin.z }; })() }); },
+    refit() { const b = bounds(lastModel); stage.fit({ minX: b.minX - origin.x, maxX: b.maxX - origin.x, minZ: b.minZ - origin.z, maxZ: b.maxZ - origin.z }, { margin: 1.62 }); },
     get tilesOnBoard() { return tiles.size; },
     /** Client coordinates of a cell's top surface (tests and onboarding hints use this). */
     screenOf(q, r, count = 0) {
-      const p = tileXZ(q, r), v = new THREE.Vector3(p.x - origin.x, count ? (count - 1) * LV + TOP : 0, p.z - origin.z);
+      const p = cellXZ(q, r), v = new THREE.Vector3(p.x - origin.x, topY(count), p.z - origin.z);
       stage.camera.updateMatrixWorld(); v.project(stage.camera);
       const b = stage.canvas.getBoundingClientRect();
       return { x: b.left + (v.x + 1) / 2 * b.width, y: b.top + (1 - v.y) / 2 * b.height };

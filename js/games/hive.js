@@ -44,7 +44,7 @@ const xyOf = (cell) => ({ x: STEP * SQ3 * (qOf(cell) + rOf(cell) / 2), y: STEP *
 const cellKey = (cell) => `${qOf(cell)},${rOf(cell)}`;
 
 const CSS = `
-.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:190px minmax(340px,1fr) 220px; grid-template-rows:minmax(0,1fr) auto; grid-template-areas:"rail arena info" "rail command info"; overflow:hidden; background:#100d09; color:#f7efe3; --hv-board:#442816; --hv-board2:#1f130c; }
+.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:190px minmax(340px,1fr) 220px; grid-template-rows:minmax(0,1fr) auto auto; grid-template-areas:"rail arena info" "rail tray info" "rail command info"; overflow:hidden; background:#100d09; color:#f7efe3; --hv-board:#442816; --hv-board2:#1f130c; }
 .hv * { box-sizing:border-box; }
 .hv-defs { pointer-events:none; }
 ${GLYPH_CSS}
@@ -70,6 +70,19 @@ ${GLYPH_CSS}
 .hv-arena.d3 { background:#1c2216; }
 .hv-arena.d3 .hv-board,.hv-arena.d3 .hv-zoom { display:none; }
 .hv-arena.d3::before { box-shadow:inset 0 0 90px rgba(10,8,3,.5); }
+.hv-tray { grid-area:tray; display:flex; justify-content:center; padding:6px 10px 4px; background:#120f0b; min-width:0; }
+.hv-trayrow { position:relative; width:min(100%, calc(var(--n) * 104px)); aspect-ratio:var(--ratio); background-size:100% 100%; background-repeat:no-repeat; filter:drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
+.hv-trayrow .hv-rpiece { position:absolute; top:46%; width:var(--tw); height:auto; aspect-ratio:1; transform:translate(-50%,-50%); filter:drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
+.hv-trayrow .hv-rpiece svg { width:100%; height:auto; }
+.hv-trayrow .hv-rpiece:hover:not(:disabled),.hv-trayrow .hv-rpiece.sel { transform:translate(-50%,-62%); }
+.hv-trayrow .hv-rpiece.empty { display:block; visibility:hidden; }
+.hv-trayrow .hv-count { right:2%; bottom:-6%; }
+.hv-bag { position:relative; width:100%; max-width:150px; margin:auto auto 0; aspect-ratio:3/2; pointer-events:none; }
+.hv-bag img.bag { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 5px 5px rgba(0,0,0,.55)); }
+.hv-bag .peek { position:absolute; width:34%; height:auto; aspect-ratio:1; filter:drop-shadow(0 3px 3px rgba(0,0,0,.5)); }
+.hv-bag .peek.a { right:8%; top:2%; transform:rotate(14deg); }
+.hv-bag .peek.b { right:27%; top:-9%; transform:rotate(-12deg); }
+.hv-bag b { position:absolute; left:4%; bottom:4%; min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:var(--m-blue); color:#fff; font:800 11px/22px var(--font); text-align:center; border:2px solid #120f0b; }
 .hv-timg { width:100%; height:auto; aspect-ratio:1; display:block; pointer-events:none; filter:drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
 .hv-seg { display:flex; gap:0; margin:6px 0 14px; border:1px solid var(--line2); }
 .hv-seg button { flex:1; border:0; border-right:1px solid var(--line2); background:var(--surface); color:var(--on); padding:10px 6px; font:700 13px var(--font); cursor:pointer; }
@@ -141,7 +154,10 @@ ${GLYPH_CSS}
 .hv-empty { padding:20px; text-align:center; color:var(--on2); }
 :root[data-theme="dark"] .hv { --hv-board:#2d1b10; --hv-board2:#100a06; }
 @media (max-width:900px) {
-  .hv { grid-template-columns:1fr; grid-template-rows:auto minmax(240px,1fr) auto auto; grid-template-areas:"top" "arena" "bottom" "command"; }
+  .hv { grid-template-columns:1fr; grid-template-rows:auto minmax(220px,1fr) auto auto auto; grid-template-areas:"top" "arena" "bottom" "tray" "command"; }
+  .hv-bag { max-width:72px; margin:0 0 0 auto; }
+  .hv-player.bottom { grid-template-columns:minmax(110px,auto) 1fr 76px; }
+  .hv-player.bottom .hv-bag { margin-top:-6px; }
   .hv-rail { display:contents; }
   .hv-player { min-height:64px; display:grid; grid-template-columns:minmax(110px,auto) 1fr auto; gap:7px; align-items:center; padding:6px 8px; border-inline:0; overflow:visible; }
   .hv-player.top { grid-area:top; }
@@ -152,6 +168,7 @@ ${GLYPH_CSS}
 }
 @media (max-width:480px) {
   .hv-player { grid-template-columns:112px 1fr 28px; padding-inline:7px; min-height:62px; }
+  .hv-player.bottom { grid-template-columns:112px 1fr 72px; }
   .hv-who { gap:5px; font-size:11px; }
   .hv-who .avatar { transform:scale(.88); margin:-2px; }
   .hv-rpiece { width:43px; height:47px; }
@@ -199,13 +216,14 @@ export function start(api) {
   const zoomLabel = h('div.hv-zoom', '100%');
   arena.append(board, floatTools, zoomLabel);
   const bottomBar = h('div.hv-player.bottom');
+  const trayEl = h('div.hv-tray');
   rail.append(topBar, bottomBar);
   const inspector = h('aside.hv-inspector', { 'aria-label': 'Piece rules and move history' });
   const statusEl = h('div.hv-status');
   const actions = h('div.hv-actions');
   const confirmMove = h('button.hv-confirm', { disabled: true, onclick: () => commitPending() }, 'Confirm move');
   const command = h('div.hv-command', statusEl, actions, confirmMove);
-  root.append(rail, arena, inspector, command);
+  root.append(rail, arena, trayEl, inspector, command);
   api.root.append(h('style', CSS), root);
 
   // ---- 3D table (falls back to the flat SVG board if WebGL or the art cannot load)
@@ -289,7 +307,8 @@ export function start(api) {
     return { type: typeOfPiece(piece), color: colorOfPiece(piece), q: qOf(move.to), r: rOf(move.to), height: pos.H[move.to] };
   }
 
-  function buildArrows(moves, sel) {
+  /** Arrow segments for a set of moves: one tree, shared stretches drawn once, the final step of each route carries the head. */
+  function buildArrows(moves) {
     const out = [];
     if (prefs.hints < 2) return out;
     const edges = new Map();
@@ -304,10 +323,18 @@ export function start(api) {
       }
     });
     for (const e of edges.values()) {
-      const colour = prefs.hints >= 3 && !sel ? DEST_COLORS[e.dests[0] % 8] : (e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8]);
-      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: sel ? 0.032 : 0.026, opacity: sel ? 0.95 : 0.78 });
+      const colour = e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8];
+      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: 0.034, opacity: 0.96 });
     }
     return out;
+  }
+
+  /** The stone whose moves are on show: the selected one, or (hints "All pieces") the one currently in the spotlight. */
+  const focusPiece = () => (selected?.kind === 'board' ? pos.top(selected.cell) : prefs.hints >= 3 && spotPiece != null && !selected && !pendingMove ? spotPiece : null);
+  function focusMoves() {
+    if (selected) return chosenMoves();
+    const fp = focusPiece();
+    return fp == null ? [] : legal().filter((m) => m.k === K_MOVE && pos.top(m.from) === fp);
   }
 
   function pushModel(anim = null, instant = false) {
@@ -316,36 +343,42 @@ export function start(api) {
     const tiles = [];
     for (const cell of pos.occ) pos.stack(cell).forEach((piece, level) => tiles.push({ piece, q: qOf(cell), r: rOf(cell), level, type: typeOfPiece(piece), color: colorOfPiece(piece), ply: plies.get(piece) || 0 }));
     const moves = legal();
-    const sel = selected?.kind === 'board' ? pos.top(selected.cell) : null;
-    const chosen = chosenMoves();
-    targetMoves = hints3d() ? chosen : [];
+    const fp = focusPiece();
+    const chosen = focusMoves();
+    targetMoves = prefs.hints >= 1 ? chosen : [];
     const pendingKey = pendingMove ? JSON.stringify(pos.toJSON(pendingMove)) : null;
     const hintKey = hintMove ? JSON.stringify(hintMove) : null;
     const targets = targetMoves.map((m, i) => {
       const key = JSON.stringify(pos.toJSON(m));
       return { id: i, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: m.k === K_PLACE ? 'place' : 'move', pending: key === pendingKey, hint: key === hintKey,
-        color: prefs.hints >= 3 && m.k === K_MOVE ? DEST_COLORS[i % 8] : '#FBBC05', shape: prefs.hints >= 3 ? SHAPE_NAMES[i % 8] : 'circle' };
+        color: m.k === K_MOVE ? DEST_COLORS[i % 8] : '#34A853', shape: SHAPE_NAMES[i % 8] };
     });
-    let arrows = hints3d() ? buildArrows(chosen, true) : [];
-    if (hints3d() && prefs.hints >= 3 && !selected && canAct()) {
-      // everything that can move, all at once: thin lines in one colour per piece
-      arrows = [];
-      const byPiece = new Map();
-      for (const m of moves) if (m.k === K_MOVE) { const p = pos.top(m.from); (byPiece.get(p) || byPiece.set(p, []).get(p)).push(m); }
-      let n = 0;
-      for (const list of byPiece.values()) { const col = DEST_COLORS[n++ % 8]; for (const a of buildArrows(list, false)) arrows.push({ ...a, color: col }); }
-    }
+    const arrows = prefs.hints >= 2 && fp != null ? buildArrows(chosen) : [];
     const ghostMove = pendingMove || (hoverTarget != null ? targetMoves[hoverTarget] : null);
     const last = [...(S.moves || [])].reverse().find((m) => m.to);
     const lastCell = last?.to ? cellOf(last.to[0], last.to[1]) : -1;
     view3d.update({
       tiles, targets, arrows, ghost: ghostFor(ghostMove), moveAnim: anim, instant,
-      selectable: hints3d() || prefs.hints === 0 ? new Set(prefs.hints > 0 && canAct() ? moves.filter((m) => m.k === K_MOVE).map((m) => pos.top(m.from)) : []) : new Set(),
-      selected: sel, last: lastCell >= 0 ? pos.top(lastCell) : null,
+      selectable: new Set(prefs.hints > 0 && canAct() ? moves.filter((m) => m.k === K_MOVE).map((m) => pos.top(m.from)) : []),
+      selected: selected?.kind === 'board' ? pos.top(selected.cell) : null, focus: fp != null ? [fp] : [],
+      last: lastCell >= 0 ? pos.top(lastCell) : null,
       settings: { rotation: prefs.rotation }, keepView: false,
     });
   }
-  const hints3d = () => prefs.hints >= 1;
+
+  // ---- "All pieces" hints: step through the movable stones one at a time, dimming the rest
+  let spotPiece = null, spotTimer = null, spotList = [], spotI = 0, spotVersion = -1;
+  function stopSpot() { if (spotTimer) { clearInterval(spotTimer); spotTimer = null; } if (spotPiece != null) { spotPiece = null; return true; } return false; }
+  function syncSpot() {
+    const want = view3d && prefs.hints >= 3 && canAct() && !selected && !pendingMove && !hintMove && !S.result && !hintBusy;
+    if (!want) { if (stopSpot()) pushModel(); return; }
+    const list = [...new Set(legal().filter((m) => m.k === K_MOVE).map((m) => pos.top(m.from)))];
+    if (!list.length) { if (stopSpot()) pushModel(); return; }
+    if (spotTimer && spotVersion === S.version) return;
+    stopSpot(); spotList = list; spotI = 0; spotVersion = S.version; spotPiece = list[0];
+    pushModel();
+    spotTimer = setInterval(() => { if (document.hidden) return; spotI = (spotI + 1) % spotList.length; spotPiece = spotList[spotI]; pushModel(); }, 1500);
+  }
 
   function tapCell(cell) {
     if (!canAct()) return;
@@ -402,6 +435,47 @@ export function start(api) {
     return btn;
   }
 
+  // ---- the reserve tray (one well per insect, built from the artwork's end caps and middle) and the bag of pieces still to come
+  const trayPieces = ['tray-l', 'tray-m', 'tray-r'].map((n) => { const im = new Image(); im.src = `assets/hive3d/${n}.webp`; return im; });
+  const trayLoaded = Promise.all(trayPieces.map((im) => im.decode().catch(() => null)));
+  const TRAY = { L: 384, M: 280, R: 376, H: 347, CENTRE: 244 }; // artwork geometry (px): left cap, one well, right cap, height, first well centre
+  const trayUrls = new Map();
+  async function trayImage(n) {
+    if (trayUrls.has(n)) return trayUrls.get(n);
+    await trayLoaded;
+    const [l, m, r] = trayPieces;
+    if (!l.naturalWidth) return null;
+    const W = TRAY.L + TRAY.M * (n - 2) + TRAY.R, c = document.createElement('canvas'); c.width = W; c.height = TRAY.H;
+    const g = c.getContext('2d');
+    const piece = (im, x, w) => { // feather the left edge so the joins vanish
+      const t = document.createElement('canvas'); t.width = w; t.height = TRAY.H; const tg = t.getContext('2d');
+      tg.drawImage(im, 0, 0);
+      if (x > 0) { tg.globalCompositeOperation = 'destination-in'; const gr = tg.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(16 / w, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,1)'); tg.fillStyle = gr; tg.fillRect(0, 0, w, TRAY.H); }
+      g.drawImage(t, x, 0);
+    };
+    piece(l, 0, TRAY.L);
+    for (let i = 0; i < n - 2; i++) piece(m, TRAY.L + TRAY.M * i, TRAY.M);
+    piece(r, TRAY.L + TRAY.M * (n - 2), TRAY.R);
+    const url = c.toDataURL('image/webp', 0.92);
+    trayUrls.set(n, url); return url;
+  }
+  function renderTray(color) {
+    const types = pos.types, n = Math.max(2, types.length);
+    const W = TRAY.L + TRAY.M * (n - 2) + TRAY.R;
+    const row = h('div.hv-trayrow', { style: `--n:${n};--ratio:${W}/${TRAY.H};--tw:${(TRAY.M * 0.84 / W * 100).toFixed(2)}%`, 'aria-label': 'Your reserve' });
+    types.forEach((t, i) => { const b = reserveButton(color, t, true); b.style.left = `${((TRAY.CENTRE + TRAY.M * i) / W * 100).toFixed(2)}%`; row.append(b); });
+    trayEl.replaceChildren(row);
+    trayImage(n).then((url) => { if (url && row.isConnected) row.style.backgroundImage = `url(${url})`; });
+  }
+  function bagEl(color) {
+    const left = pos.types.filter((t) => pos.handCount(color, t) > 0);
+    const total = pos.types.reduce((a, t) => a + pos.handCount(color, t), 0);
+    const bag = h('div.hv-bag', { 'aria-label': `${total} pieces still in the bag` }, h('img.bag', { src: 'assets/hive3d/bag.webp', alt: '' }));
+    if (view3d) left.slice(-2).forEach((t, i) => bag.append(h('img.peek.' + (i ? 'a' : 'b'), { src: view3d.thumb(t, color), alt: '' })));
+    bag.append(h('b', String(total)));
+    return bag;
+  }
+
   function playerBar(color, bottom) {
     const id = idOf(color);
     const player = api.player(id);
@@ -411,7 +485,7 @@ export function start(api) {
     const pips = h('div.hv-danger', { title: `${danger} of 6 sides closed`, 'aria-label': `${danger} of 6 sides closed` }, Array.from({ length: 6 }, (_, i) => h('i' + (i < danger ? '.on' : ''))));
     const el = bottom ? bottomBar : topBar;
     el.classList.toggle('turn', pos.turn === color && !S.result);
-    el.replaceChildren(who, reserve, pips);
+    el.replaceChildren(who, bottom ? pips : reserve, bottom ? bagEl(color) : pips);
   }
 
   function chosenMoves() {
@@ -603,12 +677,14 @@ export function start(api) {
     const bottomColor = otb ? 0 : viewColor;
     playerBar(1 - bottomColor, false);
     playerBar(bottomColor, true);
+    renderTray(bottomColor);
     const current = idOf(pos.turn);
     statusEl.replaceChildren(
       h('b', statusText()),
       h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `${pos.ply + 1}. ${pos.turn === 0 ? 'White' : 'Black'} to act`),
     );
     if (view3d) { pushModel(pendingAnim); pendingAnim = null; } else drawBoard();
+    syncSpot();
     renderActions();
     renderInspector();
     if (freshBoard) { freshBoard = false; requestAnimationFrame(fitBoard); }
@@ -618,7 +694,7 @@ export function start(api) {
     const seg = (key, opts2) => h('div.hv-seg', opts2.map(([v, label]) => h('button' + (prefs[key] === v ? '.on' : ''), { onclick: (e) => { prefs[key] = v; savePrefs(); [...e.currentTarget.parentNode.children].forEach((b) => b.classList.toggle('on', b === e.currentTarget)); render(); } }, label)));
     openSheet(h('div.hv-sheet.hv-set',
       h('h3', 'Display and hints'),
-      h('b', 'Move hints'), h('small', 'Off shows nothing; destinations shows where a piece can go; paths adds an arrow route to every destination; all pieces draws every movable piece at once.'),
+      h('b', 'Move hints'), h('small', 'Off shows nothing; destinations shows where a piece can go; paths adds an arrow route to every destination; all pieces steps through every movable stone, one at a time.'),
       seg('hints', [[0, 'Off'], [1, 'Destinations'], [2, 'Paths'], [3, 'All pieces']]),
       h('b', 'Piece rotation'), h('small', 'How each stone lies after it is placed or moved. Natural adds a tiny hand-set tilt.'),
       seg('rotation', [['off', 'Upright'], ['neat', 'Neat'], ['natural', 'Natural']]),
@@ -869,8 +945,8 @@ export function start(api) {
   api.on('state', applyState);
   api.onPlayersChanged(render);
   Object.defineProperty(arena, '__hv', { value: { get view() { return view3d; }, get targets() { return targetMoves; }, get pos() { return pos; }, prefs, load(list, turn = 0) { pos = Position.setup(opts, list, turn); S = { ...S, moves: [], result: null }; selected = null; pendingMove = null; render(); } }, enumerable: false });
-  api.cleanup(() => { resize.disconnect(); stopHiveWorker(); view3d?.dispose(); });
+  api.cleanup(() => { resize.disconnect(); stopHiveWorker(); stopSpot(); view3d?.dispose(); });
   render();
 
-  return { destroy() { resize.disconnect(); stopHiveWorker(); view3d?.dispose(); } };
+  return { destroy() { resize.disconnect(); stopHiveWorker(); stopSpot(); view3d?.dispose(); } };
 }
