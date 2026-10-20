@@ -20,45 +20,60 @@ const SHORT_RULE = {
   M: 'Copies adjacent insects; climbs like a Beetle.', L: 'Travels over two pieces, then down.',
   P: 'Slides one space or relocates an adjacent insect.',
 };
+const RULE_DETAILS = {
+  Q: ['Moves exactly one space.', 'Must stay in contact with the hive.', 'Must be placed by your fourth turn.'],
+  S: ['Slides exactly three spaces.', 'Cannot backtrack during the move.', 'Must obey freedom to move.'],
+  B: ['Moves one space.', 'May climb onto the hive.', 'A covered piece cannot move.'],
+  G: ['Jumps in a straight line.', 'Must cross at least one piece.', 'Lands in the first empty space.'],
+  A: ['Slides any number of spaces.', 'Travels only around the hive edge.', 'Must obey freedom to move.'],
+  M: ['Copies an adjacent insect.', 'Copies a Beetle while on top.', 'Cannot copy a Mosquito.'],
+  L: ['Moves exactly three spaces.', 'First two steps are over the hive.', 'Final step lands on the ground.'],
+  P: ['Slides one space.', 'May relocate a neighbouring piece.', 'Cannot move a just-moved piece.'],
+};
 const PIECE_SETS = {
   base: { mosquito: false, ladybug: false, pillbug: false },
   complete: { mosquito: true, ladybug: true, pillbug: true },
   mobility: { mosquito: true, ladybug: true, pillbug: false },
 };
 const SQ3 = Math.sqrt(3);
-const STEP = 43;
+// Logical cell radius and rendered tile radius are intentionally identical.
+// Adjacent pieces therefore touch, as physical Hive pieces do.
+const STEP = 37;
 const xyOf = (cell) => ({ x: STEP * SQ3 * (qOf(cell) + rOf(cell) / 2), y: STEP * 1.5 * rOf(cell) });
 const cellKey = (cell) => `${qOf(cell)},${rOf(cell)}`;
 
 const CSS = `
-.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-rows:auto minmax(240px,1fr) auto auto; overflow:hidden; background:#15100b; --hv-board:#442816; --hv-board2:#1f130c; }
+.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:190px minmax(340px,1fr) 220px; grid-template-rows:minmax(0,1fr) auto; grid-template-areas:"rail arena info" "rail command info"; overflow:hidden; background:#100d09; color:#f7efe3; --hv-board:#442816; --hv-board2:#1f130c; }
 .hv * { box-sizing:border-box; }
 .hv-defs { pointer-events:none; }
 ${GLYPH_CSS}
-.hv-player { min-width:0; min-height:66px; display:grid; grid-template-columns:minmax(104px,auto) 1fr auto; gap:8px; align-items:center; padding:6px 10px; background:#171512;color:#f7efe3;border-bottom:2px solid #b47b2d; box-shadow:var(--z1); z-index:4; }
-.hv-player.bottom { border-top:1px solid var(--line); border-bottom:0; }
+.hv-rail { grid-area:rail; min-width:0; display:grid; grid-template-rows:1fr 1fr; gap:1px; padding:8px; background:#0e0c09; border-right:1px solid #6d4a22; }
+.hv-player { min-width:0; min-height:0; display:flex; flex-direction:column; gap:8px; align-items:stretch; padding:10px 8px; background:#171512;color:#f7efe3;border:1px solid #5d452c; box-shadow:inset 0 0 0 1px #070605,var(--z1); z-index:4; overflow:hidden; }
+.hv-player.bottom { border-color:#bc812e; }
 .hv-who { min-width:0; display:flex; align-items:center; gap:7px; font:700 13px var(--font); }
 .hv-who .name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hv-who small { display:block; color:#bca98c; font:600 10px var(--font); text-transform:uppercase; letter-spacing:.06em; }
-.hv-player.turn { box-shadow:inset 4px 0 0 var(--m-yellow),var(--z1); }
-.hv-danger { width:34px; display:grid; grid-template-columns:repeat(3,6px); gap:3px; justify-content:end; }
+.hv-player.turn { box-shadow:inset 3px 0 0 var(--m-yellow),inset 0 0 18px rgba(251,188,5,.09),var(--z1); }
+.hv-danger { display:grid; grid-template-columns:repeat(6,7px); gap:4px; justify-content:start; }
 .hv-danger i { width:6px; height:6px; border-radius:50%; background:var(--line2); }
 .hv-danger i.on { background:var(--m-red); }
-.hv-reserve { min-width:0; display:flex; align-items:center; justify-content:flex-start; gap:1px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; padding:2px; }
+.hv-reserve { min-width:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-content:start; justify-items:center; gap:4px 0; overflow:auto; scrollbar-width:none; padding:2px; }
 .hv-reserve::-webkit-scrollbar { display:none; }
-.hv-rpiece { position:relative; flex:none; width:48px; height:51px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 2px 1px rgba(0,0,0,.18)); transition:transform .16s var(--std),filter .16s; }
-.hv-rpiece svg { width:46px; height:50px; display:block; }
+.hv-rpiece { position:relative; width:42px; height:46px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 3px 2px rgba(0,0,0,.34)); transition:transform .16s var(--std),filter .16s; }
+.hv-rpiece svg { width:42px; height:46px; display:block; }
 .hv-rpiece:hover:not(:disabled),.hv-rpiece.sel { transform:translateY(-4px); filter:drop-shadow(0 6px 4px rgba(0,0,0,.23)); }
 .hv-rpiece.sel { outline:3px solid #ffc84a; outline-offset:0; clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%); }
 .hv-rpiece:disabled { cursor:default; opacity:.52; }
 .hv-rpiece.empty { display:none; }
 .hv-count { position:absolute; right:-1px; bottom:0; width:19px; height:19px; border-radius:50%; display:grid; place-items:center; background:var(--m-blue); color:#fff; border:2px solid var(--surface); font:800 10px var(--font); }
-.hv-arena { position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-board-v1.png") center/cover no-repeat; border-block:4px solid var(--hv-board2); touch-action:none; user-select:none; }
+.hv-arena { grid-area:arena; position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-table-v2.png") center/cover no-repeat; border:1px solid #25170e; touch-action:none; user-select:none; }
 .hv-arena::before { content:''; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 70px rgba(15,8,3,.42); }
 .hv-board { position:absolute; inset:0; width:100%; height:100%; overflow:visible; touch-action:none; }
 .hv-world { transform-origin:0 0; }
-.hv-piece { cursor:default; filter:drop-shadow(0 7px 3px rgba(0,0,0,.42)); }
-.hv .t-material { pointer-events:none; }.hv .t-insect { filter:drop-shadow(0 1.4px 1px rgba(0,0,0,.32)); }
+.hv-grid polygon { fill:rgba(68,38,19,.035); stroke:rgba(40,21,11,.46); stroke-width:1.35; vector-effect:non-scaling-stroke; pointer-events:all; }
+.hv-grid .major { fill:rgba(251,188,5,.018); stroke:rgba(80,42,18,.62); }
+.hv-piece { cursor:default; filter:drop-shadow(3px 7px 3px rgba(0,0,0,.48)); }
+.hv .t-material { pointer-events:none; }.hv .t-insect { filter:drop-shadow(1.3px 2px 1px rgba(0,0,0,.5)); }
 .hv-piece.can { cursor:pointer; }
 .hv-piece.can .t-face { stroke:var(--m-yellow); stroke-width:6; }
 .hv-piece.sel .t-face { stroke:#fff; stroke-width:7; }
@@ -70,6 +85,8 @@ ${GLYPH_CSS}
 .hv-target { cursor:pointer; }
 .hv-target polygon { fill:rgba(251,188,5,.28); stroke:#ffd468; stroke-width:4; stroke-dasharray:8 5; filter:drop-shadow(0 0 7px rgba(255,190,40,.95)); animation:hvPulse .9s ease-in-out infinite alternate; pointer-events:all; }
 .hv-target.hint polygon { stroke:var(--m-yellow); stroke-width:7; stroke-dasharray:none; }
+.hv-target.pending polygon { fill:rgba(255,196,49,.42); stroke:#fff0ae; stroke-width:6; stroke-dasharray:none; }
+.hv-preview { opacity:.74; pointer-events:none; filter:drop-shadow(5px 11px 4px rgba(0,0,0,.5)); }
 .hv-path { fill:none; stroke:var(--m-yellow); stroke-width:5; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:8 7; pointer-events:none; }
 @keyframes hvPulse { to { stroke-width:7; opacity:.72; } }
 @keyframes hvArrive { 0% { opacity:.25; transform:translateY(-20px) scale(1.18); } 70% { transform:translateY(2px) scale(.98); } 100% { opacity:1; transform:none; } }
@@ -77,12 +94,28 @@ ${GLYPH_CSS}
 .hv-float { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:7px; z-index:3; }
 .hv-float .iconbtn { background:var(--surface); color:var(--on); box-shadow:var(--z2); }
 .hv-zoom { position:absolute; left:10px; bottom:9px; padding:5px 9px; background:var(--surface); color:var(--on2); box-shadow:var(--z1); border-radius:2px; font:700 10px var(--font); pointer-events:none; }
-.hv-command { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; min-height:54px; padding:7px 10px; background:#171512;color:#f7efe3;border-top:2px solid #b47b2d; z-index:4; }
+.hv-command { grid-area:command; display:grid; grid-template-columns:minmax(150px,1fr) auto auto; gap:8px; align-items:center; min-height:64px; padding:7px 10px; background:#171512;color:#f7efe3;border-top:2px solid #b47b2d; z-index:4; }
 .hv-status { min-width:0; }
 .hv-status b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 14px var(--font); }
 .hv-status span { display:block; color:#bca98c; font:500 12px var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hv-actions { display:flex; gap:3px; align-items:center; }
 .hv-actions .iconbtn { width:40px; height:40px; }
+.hv-confirm { min-width:116px; height:42px; border:1px solid #f4c562; border-radius:2px; background:#e6a72a; color:#211407; font:800 13px var(--font); box-shadow:inset 0 1px 0 #ffe7a7,0 3px 8px #0008; cursor:pointer; }
+.hv-confirm:disabled { opacity:.38; cursor:default; filter:saturate(.25); }
+.hv-inspector { grid-area:info; min-width:0; padding:8px; background:#0e0c09; border-left:1px solid #6d4a22; overflow:auto; }
+.hv-info-card { border:1px solid #6f522f; background:#171512; box-shadow:inset 0 0 0 1px #050403; padding:10px; }
+.hv-info-head { display:grid; grid-template-columns:58px 1fr; gap:8px; align-items:center; padding-bottom:8px; border-bottom:1px solid #443422; }
+.hv-info-head svg { width:56px; height:61px; }
+.hv-info-head small,.hv-history-title { color:#d5a64c; font:700 10px var(--font); text-transform:uppercase; letter-spacing:.08em; }
+.hv-info-head h3 { margin:2px 0 0; font:800 18px Georgia,serif; }
+.hv-rules { margin:9px 0 12px; padding-left:17px; color:#d8cdbd; font:500 12px/1.4 var(--font); }
+.hv-rules li { margin:5px 0; }
+.hv-history-title { padding:9px 0 6px; border-top:1px solid #443422; }
+.hv-history { display:grid; gap:0; }
+.hv-history-row { display:grid; grid-template-columns:24px 1fr; gap:5px; padding:6px 0; border-top:1px solid #2b251e; font:500 11px/1.25 var(--font); color:#c8baa7; }
+.hv-history-row b { color:#8d806f; text-align:right; }
+.hv-result-card { margin-bottom:8px; border:1px solid #f1b83f; padding:10px; background:#21170d; color:#ffe29a; }
+.hv-result-card strong { display:block; font:800 20px Georgia,serif; }
 .hv-thinking { color:var(--m-blue)!important; }
 .hv-sheet { min-width:min(520px,90vw); }
 .hv-sheet h3 { margin:0 0 12px; }
@@ -97,6 +130,16 @@ ${GLYPH_CSS}
 .hv-log-row b { color:var(--on3); text-align:right; }
 .hv-empty { padding:20px; text-align:center; color:var(--on2); }
 :root[data-theme="dark"] .hv { --hv-board:#2d1b10; --hv-board2:#100a06; }
+@media (max-width:900px) {
+  .hv { grid-template-columns:1fr; grid-template-rows:auto minmax(240px,1fr) auto auto; grid-template-areas:"top" "arena" "bottom" "command"; }
+  .hv-rail { display:contents; }
+  .hv-player { min-height:64px; display:grid; grid-template-columns:minmax(110px,auto) 1fr auto; gap:7px; align-items:center; padding:6px 8px; border-inline:0; overflow:visible; }
+  .hv-player.top { grid-area:top; }
+  .hv-player.bottom { grid-area:bottom; }
+  .hv-reserve { display:flex; align-items:center; justify-content:flex-start; gap:1px; overflow-x:auto; }
+  .hv-danger { grid-template-columns:repeat(3,6px); width:30px; }
+  .hv-inspector { display:none; }
+}
 @media (max-width:480px) {
   .hv-player { grid-template-columns:112px 1fr 28px; padding-inline:7px; min-height:62px; }
   .hv-who { gap:5px; font-size:11px; }
@@ -105,7 +148,9 @@ ${GLYPH_CSS}
   .hv-rpiece svg { width:42px; height:46px; }
   .hv-count { width:18px; height:18px; }
   .hv-danger { width:28px; }
-  .hv-command { min-height:50px; padding:5px 7px; }
+  .hv-command { grid-template-columns:1fr auto; min-height:50px; padding:5px 7px; }
+  .hv-actions { display:none; }
+  .hv-confirm { min-width:100px; height:38px; }
   .hv-status b { font-size:13px; }
   .hv-actions .iconbtn { width:38px; height:38px; }
 }
@@ -130,6 +175,7 @@ export function start(api) {
 
   const root = h('div.hv');
   root.insertAdjacentHTML('afterbegin', glyphDefs());
+  const rail = h('div.hv-rail');
   const topBar = h('div.hv-player.top');
   const arena = h('div.hv-arena');
   const board = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -143,15 +189,19 @@ export function start(api) {
   const zoomLabel = h('div.hv-zoom', '100%');
   arena.append(board, floatTools, zoomLabel);
   const bottomBar = h('div.hv-player.bottom');
+  rail.append(topBar, bottomBar);
+  const inspector = h('aside.hv-inspector', { 'aria-label': 'Piece rules and move history' });
   const statusEl = h('div.hv-status');
   const actions = h('div.hv-actions');
-  const command = h('div.hv-command', statusEl, actions);
-  root.append(topBar, arena, bottomBar, command);
+  const confirmMove = h('button.hv-confirm', { disabled: true, onclick: () => commitPending() }, 'Confirm move');
+  const command = h('div.hv-command', statusEl, actions, confirmMove);
+  root.append(rail, arena, inspector, command);
   api.root.append(h('style', CSS), root);
 
   let S = { moves: [], logs: [], result: null, version: 0 };
   let pos = new Position(opts);
   let selected = null;
+  let pendingMove = null;
   let hintMove = null;
   let hintBusy = false;
   let botBusy = false;
@@ -174,13 +224,20 @@ export function start(api) {
   }
 
   function fitBoard() {
+    if (!pos.occ.length) {
+      view.scale = 1.06;
+      view.x = 0;
+      view.y = 0;
+      worldTransform();
+      return;
+    }
     const cells = pos.occ.length ? pos.occ : [cellOf(0, 0)];
     const pts = cells.map(xyOf);
     const minX = Math.min(...pts.map((p) => p.x)) - 62;
     const maxX = Math.max(...pts.map((p) => p.x)) + 62;
     const minY = Math.min(...pts.map((p) => p.y)) - 64;
     const maxY = Math.max(...pts.map((p) => p.y)) + 74;
-    const s = clamp(Math.min((view.w - 36) / (maxX - minX), (view.h - 34) / (maxY - minY)), .48, 1.85);
+    const s = clamp(Math.min((view.w - 36) / (maxX - minX), (view.h - 34) / (maxY - minY)), .48, 1.22);
     view.scale = s;
     view.x = -((minX + maxX) / 2) * s;
     view.y = -((minY + maxY) / 2) * s;
@@ -199,6 +256,7 @@ export function start(api) {
       onclick: () => {
         if (!active) return;
         selected = sel ? null : { kind: 'reserve', type, color };
+        pendingMove = null;
         hintMove = null;
         api.sfx(sel ? 'click' : 'pop', .55);
         render();
@@ -234,6 +292,7 @@ export function start(api) {
     if (!moves.length) return;
     if (selected?.kind === 'board' && selected.cell === cell) selected = null;
     else selected = { kind: 'board', cell };
+    pendingMove = null;
     hintMove = null;
     api.sfx('pop', .5);
     render();
@@ -246,8 +305,42 @@ export function start(api) {
     api.toHost('move', pos.toJSON(move));
   }
 
+  function stageMove(move) {
+    if (!move || !canAct()) return;
+    pendingMove = move;
+    hintMove = null;
+    api.sfx('wood', .46);
+    render();
+  }
+
+  function commitPending() {
+    if (!pendingMove) return;
+    const move = pendingMove;
+    pendingMove = null;
+    submit(move);
+  }
+
+  function drawGrid() {
+    const grid = svg('g', { class: 'hv-grid', 'aria-hidden': 'true' });
+    const radius = 9;
+    for (let q = -radius; q <= radius; q++) {
+      const r1 = Math.max(-radius, -q - radius);
+      const r2 = Math.min(radius, -q + radius);
+      for (let r = r1; r <= r2; r++) {
+        const at = xyOf(cellOf(q, r));
+        grid.append(svg('polygon', {
+          class: Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r)) % 3 === 0 ? 'major' : '',
+          points: Array.from({ length: 6 }, (_, i) => { const a = (i * 60 + 30) * Math.PI / 180; return `${(37 * Math.cos(a)).toFixed(2)},${(37 * Math.sin(a)).toFixed(2)}`; }).join(' '),
+          transform: `translate(${at.x} ${at.y})`,
+        }));
+      }
+    }
+    world.append(grid);
+  }
+
   function drawBoard() {
     world.replaceChildren();
+    drawGrid();
     const moves = legal();
     const selectable = new Set(moves.filter((m) => m.k === K_MOVE).map((m) => m.from));
     const targets = chosenMoves();
@@ -297,11 +390,19 @@ export function start(api) {
     for (const move of targets) {
       const at = xyOf(move.to);
       const isHint = hintMove && JSON.stringify(pos.toJSON(move)) === JSON.stringify(hintMove);
-      const g = svg('g', { class: `hv-target${isHint ? ' hint' : ''}`, transform: `translate(${at.x} ${at.y - pos.H[move.to] * 9})`, role: 'button', tabindex: '0', 'aria-label': `Move to ${cellKey(move.to)}` });
+      const isPending = pendingMove && JSON.stringify(pos.toJSON(move)) === JSON.stringify(pos.toJSON(pendingMove));
+      const g = svg('g', { class: `hv-target${isHint ? ' hint' : ''}${isPending ? ' pending' : ''}`, transform: `translate(${at.x} ${at.y - pos.H[move.to] * 9})`, role: 'button', tabindex: '0', 'aria-label': `Move to ${cellKey(move.to)}` });
       g.innerHTML = `<polygon points="${Array.from({ length: 6 }, (_, i) => { const a = (i * 60 + 30) * Math.PI / 180; return `${(37 * Math.cos(a)).toFixed(2)},${(37 * Math.sin(a)).toFixed(2)}`; }).join(' ')}"/>`;
-      g.addEventListener('click', (e) => { e.stopPropagation(); submit(move); });
-      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); submit(move); } });
+      g.addEventListener('click', (e) => { e.stopPropagation(); stageMove(move); });
+      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stageMove(move); } });
       world.append(g);
+    }
+    if (pendingMove) {
+      const at = xyOf(pendingMove.to);
+      const piece = pendingMove.p;
+      const preview = svg('g', { class: 'hv-preview', transform: `translate(${at.x} ${at.y - pos.H[pendingMove.to] * 9 - 7})` });
+      preview.innerHTML = tileInner(typeOfPiece(piece), colorOfPiece(piece) === 0 ? 'w' : 'b', { thick: 5 });
+      world.append(preview);
     }
     lastAnimatedVersion = S.version;
     worldTransform();
@@ -338,6 +439,29 @@ export function start(api) {
     buttons[1].disabled = !canAct() || hintBusy || pos.legalMoves().every((m) => m.k === K_PASS);
     buttons[4].disabled = !!S.result || (myColor < 0 && !otb);
     actions.replaceChildren(...buttons);
+    confirmMove.disabled = !pendingMove || !canAct();
+    confirmMove.textContent = pendingMove ? 'Confirm move' : 'Select a space';
+  }
+
+  function activeType() {
+    if (selected?.kind === 'reserve') return selected.type;
+    if (selected?.kind === 'board') return typeOfPiece(pos.top(selected.cell));
+    const last = [...S.moves].reverse().find((move) => move.p !== undefined);
+    return last ? typeOfPiece(last.p) : 'Q';
+  }
+
+  function renderInspector() {
+    const type = activeType();
+    const art = h('div');
+    art.innerHTML = tileSVG(type, pos.turn === 0 ? 'w' : 'b', 58);
+    const heading = h('div.hv-info-head', art, h('div', h('small', selected ? 'Selected insect' : 'Movement rules'), h('h3', LABEL[type])));
+    const rules = h('ul.hv-rules', RULE_DETAILS[type].map((line) => h('li', line)));
+    const history = h('div.hv-history', S.logs.length
+      ? S.logs.slice(-7).reverse().map((line, i) => h('div.hv-history-row', h('b', `${S.logs.length - i}.`), h('span', line)))
+      : h('div.hv-empty', 'Moves will appear here.'));
+    const card = h('div.hv-info-card', heading, rules, h('div.hv-history-title', 'Move history'), history);
+    const result = S.result ? h('div.hv-result-card', h('strong', S.result.winner === 2 ? 'Draw' : 'Hive complete'), h('span', S.result.text), h('small', `${pos.ply} turns · ${pos.occ.length} occupied spaces`)) : null;
+    inspector.replaceChildren(...(result ? [result, card] : [card]));
   }
 
   function render() {
@@ -351,6 +475,7 @@ export function start(api) {
     );
     drawBoard();
     renderActions();
+    renderInspector();
     if (freshBoard) { freshBoard = false; requestAnimationFrame(fitBoard); }
   }
 
@@ -398,6 +523,7 @@ export function start(api) {
     }
     pos = rebuilt;
     selected = null;
+    pendingMove = null;
     hintMove = null;
     botBusy = false;
     if (next.sfx === 'result') api.sfx(S.result?.winner === 2 || myColor < 0 ? 'ding' : S.result?.winner === myColor ? 'win' : 'lose', .82);
@@ -465,7 +591,7 @@ export function start(api) {
     view.scale = next;
     worldTransform();
   }, { passive: false });
-  board.addEventListener('click', (e) => { if (e.target === board) { selected = null; hintMove = null; render(); } });
+  board.addEventListener('click', (e) => { if (e.target === board || e.target.closest?.('.hv-grid')) { selected = null; pendingMove = null; hintMove = null; render(); } });
   const resize = new ResizeObserver(() => {
     const rect = arena.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
