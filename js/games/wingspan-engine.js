@@ -842,4 +842,99 @@ export class Game {
     };
   }
 }
+
+// ------------------------------------------------------------------ computer decisions
+// The UI host uses this same chooser for every computer seat. Keeping it beside the
+// validators means bots go through exactly the same legal-move checks as people.
+const birdValue = (b) => b.pts + b.eggs * 0.22 + (b.pw ? 1.1 : 0) + (b.hab.length > 1 ? 0.55 : 0) - b.cost.n.length * 0.18;
+const lowestCard = (P) => P.hand.slice().sort((a, b) => birdValue(BIRDS[a]) - birdValue(BIRDS[b]))[0];
+
+/** Return a legal, level-sensitive answer for the current prompt. Exported for UI bots and headless tests. */
+export function chooseBotAnswer(game, prompt, pid, level = 'normal') {
+  const P = game.P(pid);
+  const random = (xs) => xs[game.rng.int(xs.length)];
+  if (prompt.kind === 'setup') {
+    const ranked = P.hand.slice().sort((a, b) => birdValue(BIRDS[b]) - birdValue(BIRDS[a]));
+    const keepN = level === 'easy' ? 1 + game.rng.int(3) : 2;
+    const keep = ranked.slice(0, keepN);
+    const wants = [];
+    keep.forEach((id) => BIRDS[id].cost.n.forEach((t) => { if (FOODS.includes(t) && !wants.includes(t)) wants.push(t); }));
+    FOODS.forEach((t) => { if (!wants.includes(t)) wants.push(t); });
+    const foods = wants.slice(0, 5 - keep.length).join('');
+    return { keep, foods, bonus: level === 'easy' ? random(P.bonus) : P.bonus[0] };
+  }
+  if (prompt.kind === 'turn') {
+    const plays = game.legalPlays(pid);
+    if (plays.length) {
+      const ranked = plays.map((x) => ({ ...x, v: birdValue(BIRDS[x.card]) + game.bonusAffinity(pid, x.card) + game.rowAffinity(pid, x.hab) })).sort((a, b) => b.v - a.v);
+      const chanceToPlay = level === 'easy' ? 0.48 : level === 'hard' ? 0.82 : 0.68;
+      if (game.rng.next() < chanceToPlay || P.board.flat().length === 0) {
+        const x = level === 'easy' ? random(ranked.slice(0, Math.min(4, ranked.length))) : ranked[0];
+        return { a: 'play', card: x.card, hab: x.hab, food: x.food, eggs: x.eggs };
+      }
+    }
+    const capacity = P.board.flat().reduce((n, e) => n + Math.max(0, BIRDS[e.id].eggs - e.eggs), 0);
+    const actions = [];
+    if (P.board[0].length || foodTotal(P.food) < 3) actions.push({ a: 'food', v: 3.2 + P.board[0].length * 0.7 - foodTotal(P.food) * 0.3 });
+    if (capacity > 0) actions.push({ a: 'eggs', v: 2.4 + P.board[1].length * 0.65 + (game.s.round > 2 ? 1.3 : 0) });
+    actions.push({ a: 'cards', v: 2.2 + P.board[2].length * 0.7 + (P.hand.length < 3 ? 1.6 : 0) });
+    actions.sort((a, b) => b.v - a.v);
+    return level === 'easy' ? random(actions) : actions[0];
+  }
+  if (prompt.kind === 'dice') {
+    const die = level === 'easy' ? random(prompt.opts) : prompt.opts[0];
+    const choices = faceFoods(game.s.feeder[die]).filter((t) => !prompt.filter || prompt.filter.includes(t));
+    const food = choices.slice().sort((a, b) => (P.food[a] || 0) - (P.food[b] || 0))[0];
+    return { die, food };
+  }
+  if (prompt.kind === 'draw') {
+    const choices = game.s.tray.map((id, i) => id == null ? null : { i, v: birdValue(BIRDS[id]) }).filter(Boolean).sort((a, b) => b.v - a.v);
+    if (!choices.length) return 'd';
+    if (level === 'easy' && prompt.deckOk && game.rng.next() < 0.45) return 'd';
+    return choices[0].i;
+  }
+  if (prompt.kind === 'egg') {
+    const c = prompt.cands.slice().sort((a, b) => {
+      const ea = P.board[a[0]][a[1]], eb = P.board[b[0]][b[1]];
+      return (BIRDS[eb.id].eggs - eb.eggs) - (BIRDS[ea.id].eggs - ea.eggs);
+    });
+    return level === 'easy' ? random(c) : c[0];
+  }
+  if (prompt.kind === 'eggfrom') {
+    if (prompt.skip && level !== 'hard' && game.rng.next() < 0.35) return null;
+    const eggs = P.board.flatMap((row, h) => row.flatMap((e, i) => Array(e.eggs).fill([h, i])));
+    return eggs[0] || null;
+  }
+  if (prompt.kind === 'handcard') {
+    if (prompt.skip && prompt.purpose !== 'endDiscard' && (level === 'easy' || game.rng.next() < 0.25)) return null;
+    return lowestCard(P);
+  }
+  if (prompt.kind === 'payfood') {
+    if (prompt.skip && level === 'easy') return null;
+    return FOODS.find((t) => P.food[t] > 0) ?? null;
+  }
+  if (prompt.kind === 'food') return prompt.opts.slice().sort((a, b) => (P.food[a] || 0) - (P.food[b] || 0))[0];
+  if (prompt.kind === 'bonus') return level === 'easy' ? random(prompt.cards) : prompt.cards[0];
+  if (prompt.kind === 'use') return level !== 'easy' || game.rng.next() > 0.45;
+  if (prompt.kind === 'reroll') return true;
+  if (prompt.kind === 'play2') {
+    const plays = game.legalPlays(pid, prompt.hab);
+    if (!plays.length || (level === 'easy' && game.rng.next() < 0.5)) return null;
+    const x = plays.slice().sort((a, b) => birdValue(BIRDS[b.card]) - birdValue(BIRDS[a.card]))[0];
+    return { a: 'play', card: x.card, hab: x.hab, food: x.food, eggs: x.eggs };
+  }
+  if (prompt.kind === 'pickbird') return prompt.cands[0];
+  throw new Error(`No bot answer for ${prompt.kind}`);
+}
+
+Game.prototype.bonusAffinity = function bonusAffinity(pid, card) {
+  const b = BIRDS[card];
+  return this.P(pid).bonus.reduce((n, id) => n + (qualifies(BONUS[id].f, b, null) ? 0.9 : 0), 0);
+};
+
+Game.prototype.rowAffinity = function rowAffinity(pid, hab) {
+  const n = this.P(pid).board[hab].length;
+  return n < 5 ? rowReward(hab, n + 1).n - rowReward(hab, n).n + n * 0.08 : -9;
+};
+
 export { BIRDS, BONUS, GOALS };
