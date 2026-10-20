@@ -4,7 +4,7 @@ import { h, canvasPoint, clamp } from './util.js';
 import { icon } from './ui.js';
 import { sfx } from './audio.js';
 
-export const PAD_COLORS = ['#202124', '#5f6368', '#ffffff', '#bdc1c6', '#ea4335', '#f57c00', '#fbbc04', '#34a853', '#0f9d58', '#12b5cb', '#1a73e8', '#8e4de8', '#e5399b', '#a0522d', '#ffb6a0', '#3a2a12'];
+export const PAD_COLORS = ['#202124', '#5f6368', '#ffffff', '#bdc1c6', '#ea4335', '#f57c00', '#fbbc04', '#34a853', '#0f9d58', '#12b5cb', '#1a73e8', '#8e4de8', '#e5399b', '#7C4DFF', '#ffb6a0', '#8D5524'];
 const SIZES = [4, 10, 20, 38];
 
 const CSS = `
