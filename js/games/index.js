@@ -14,10 +14,24 @@ export const GAMES = [
   },
   // ---- cascadia: owned by the cascadia agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'cascadia', name: 'Cascadia (working title)', emoji: '🦊', color: '#34A853', cat: 'Strategy', tags: [], min: 1, max: 4,
-    tagline: 'Coming soon.',
-    desc: 'Coming soon.',
-    howto: ['Coming soon.'],
+    id: 'cascadia', name: 'Timberline', emoji: '🌲', color: '#34A853', cat: 'Strategy', tags: ['Strategy', 'Tiles', 'Solo'], min: 1, max: 4,
+    tagline: 'Grow a living wilderness.',
+    desc: 'Draft habitats and wildlife, grow connected landscapes, and shape animal patterns across a vivid mountain wilderness.',
+    howto: [
+      'Choose one of four habitat-and-wildlife pairs. Place the hex beside your wilderness, then put the wildlife on any open tile showing that animal.',
+      'Fill a one-habitat keystone to earn a pinecone. Spend one to split a pair or refresh the wildlife row. Three matching wildlife may refresh free; four refresh automatically.',
+      'After 20 turns, score every wildlife goal, your largest connected corridor of each habitat, corridor bonuses, and one point per saved pinecone.',
+    ],
+    help: {
+      goal: 'Build high-scoring wildlife patterns while keeping each habitat connected into a large corridor.',
+      steps: ['Draft a paired hex and wildlife token.', 'Place the hex on a highlighted edge and rotate split habitats if useful.', 'Place the wildlife on a compatible open tile, or return it to the bag.', 'Inspect the field guide at any time to see live scoring.'],
+      tips: ['Pinecones buy flexibility, but each saved pinecone is also worth a point.', 'A corridor only joins where matching habitat edges touch.', 'Wildlife goals change between games, so read all five before committing.'],
+      controls: 'Tap draft pieces and highlighted hexes. Drag the wilderness to pan; use the circular controls to zoom, fit, and rotate.',
+    },
+    options: [
+      { key: 'scoring', label: 'Wildlife goals', default: 'varied', choices: [{ value: 'varied', label: 'Varied A–D' }, { value: 'starter', label: 'Starter goals' }, { value: 'family', label: 'Family groups' }, { value: 'intermediate', label: 'Intermediate groups' }] },
+      { key: 'bonus', label: 'Corridor bonus', default: 'on', choices: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }] },
+    ],
     load: () => import('./cascadia.js'),
   },
   // ---- harmonies: owned by the harmonies agent (edit only this entry, its CAPS line and its module) ----
@@ -748,7 +762,7 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 //   watch:false — every player's screen is private (or built around having a seat), so the audience gets a stand-in screen instead
 const CAPS = {
   hive: {}, // hive agent
-  cascadia: {}, // cascadia agent
+  cascadia: { bots: true, solo: true, min: 1, async: true }, // Timberline by OpenAI Codex
   harmonies: {}, // harmonies agent
   wingspan: {}, // wingspan agent
   coup: {}, // coup agent
