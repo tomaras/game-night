@@ -115,7 +115,8 @@ export function tileInner(type, col, { thick = 5, id = true } = {}) {
   return `<polygon class="t-edge" points="${hexPts(HEX_R)}" transform="translate(0 ${thick})" fill="${t.edge}" stroke="${t.edge}" stroke-width="4" stroke-linejoin="round"/>` +
     `<polygon class="t-face" points="${hexPts(HEX_R)}" fill="${t.face}" stroke="${t.face}" stroke-width="4" stroke-linejoin="round"/>` +
     `<polygon points="${hexPts(HEX_R - 3.5)}" fill="none" stroke="${t.line}" stroke-width="1.4" stroke-linejoin="round"/>` +
-    `<use href="#hv-g-${type}" transform="scale(.8)" style="--ink:${ink};--face:${t.face}"/>`;
+    // Keep the glyph inline: CSS custom properties do not reliably cross a <use> shadow tree in WebKit.
+    `<g transform="scale(.8)" style="--ink:${ink};--face:${t.face}">${GLYPHS[type]}</g>`;
 }
 /** A standalone <svg> string showing one tile (trays, log, guide). */
 export function tileSVG(type, col, size = 44, cls = '') {

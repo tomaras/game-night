@@ -44,7 +44,7 @@ ${GLYPH_CSS}
 .hv-danger { width:34px; display:grid; grid-template-columns:repeat(3,6px); gap:3px; justify-content:end; }
 .hv-danger i { width:6px; height:6px; border-radius:50%; background:var(--line2); }
 .hv-danger i.on { background:var(--m-red); }
-.hv-reserve { min-width:0; display:flex; align-items:center; justify-content:center; gap:1px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; padding:2px; }
+.hv-reserve { min-width:0; display:flex; align-items:center; justify-content:flex-start; gap:1px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; padding:2px; }
 .hv-reserve::-webkit-scrollbar { display:none; }
 .hv-rpiece { position:relative; flex:none; width:48px; height:51px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 2px 1px rgba(0,0,0,.18)); transition:transform .16s var(--std),filter .16s; }
 .hv-rpiece svg { width:46px; height:50px; display:block; }
@@ -67,7 +67,7 @@ ${GLYPH_CSS}
 .hv-stack circle { fill:var(--m-purple); stroke:#fff; stroke-width:2; }
 .hv-stack text { fill:#fff; font:800 11px var(--font); text-anchor:middle; dominant-baseline:middle; }
 .hv-target { cursor:pointer; }
-.hv-target polygon { fill:none; stroke:#fff; stroke-width:4; stroke-dasharray:8 5; filter:drop-shadow(0 2px 1px rgba(0,0,0,.35)); animation:hvPulse .9s ease-in-out infinite alternate; }
+.hv-target polygon { fill:transparent; stroke:#fff; stroke-width:4; stroke-dasharray:8 5; filter:drop-shadow(0 2px 1px rgba(0,0,0,.35)); animation:hvPulse .9s ease-in-out infinite alternate; pointer-events:all; }
 .hv-target.hint polygon { stroke:var(--m-yellow); stroke-width:7; stroke-dasharray:none; }
 .hv-path { fill:none; stroke:var(--m-yellow); stroke-width:5; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:8 7; pointer-events:none; }
 @keyframes hvPulse { to { stroke-width:7; opacity:.72; } }
@@ -96,19 +96,8 @@ ${GLYPH_CSS}
 .hv-log-row b { color:var(--on3); text-align:right; }
 .hv-empty { padding:20px; text-align:center; color:var(--on2); }
 :root[data-theme="dark"] .hv { --hv-board:#075941; --hv-board2:#043f30; }
-@media (min-width:850px) {
-  .hv { grid-template-columns:minmax(0,1fr) 300px; grid-template-rows:auto minmax(0,1fr) auto; }
-  .hv-player.top { grid-column:1; grid-row:1; }
-  .hv-arena { grid-column:1; grid-row:2; }
-  .hv-player.bottom { grid-column:1; grid-row:3; }
-  .hv-command { grid-column:2; grid-row:1/4; align-content:center; grid-template-columns:1fr; border-top:0; border-left:1px solid var(--line); padding:18px; gap:18px; }
-  .hv-status b { font-size:20px; white-space:normal; }
-  .hv-status span { font-size:14px; white-space:normal; margin-top:5px; line-height:1.35; }
-  .hv-actions { flex-wrap:wrap; gap:8px; }
-  .hv-actions .iconbtn { width:48px; height:48px; }
-}
 @media (max-width:480px) {
-  .hv-player { grid-template-columns:92px 1fr 28px; padding-inline:7px; min-height:62px; }
+  .hv-player { grid-template-columns:112px 1fr 28px; padding-inline:7px; min-height:62px; }
   .hv-who { gap:5px; font-size:11px; }
   .hv-who .avatar { transform:scale(.88); margin:-2px; }
   .hv-rpiece { width:43px; height:47px; }
@@ -116,6 +105,7 @@ ${GLYPH_CSS}
   .hv-count { width:18px; height:18px; }
   .hv-danger { width:28px; }
   .hv-command { min-height:50px; padding:5px 7px; }
+  .hv-status b { font-size:13px; }
   .hv-actions .iconbtn { width:38px; height:38px; }
 }
 @media (prefers-reduced-motion:reduce) { .hv-target polygon,.hv-arrive { animation:none; } }
@@ -423,6 +413,8 @@ export function start(api) {
   let gesture = null;
   const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   board.addEventListener('pointerdown', (e) => {
+    // Let interactive SVG groups retain the click. Panning begins on the open play mat.
+    if (e.target.closest?.('.hv-target,.hv-piece')) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     board.setPointerCapture(e.pointerId);
     if (pointers.size === 1) gesture = { mode: 'pan', x: e.clientX, y: e.clientY, px: view.x, py: view.y };
@@ -481,7 +473,7 @@ export function start(api) {
     if (first) fitBoard(); else worldTransform();
   });
   resize.observe(arena);
-  floatTools.append(iconBtn('center_focus_strong', 'Recenter colony', fitBoard));
+  floatTools.append(iconBtn('gps_fixed', 'Recenter colony', fitBoard));
 
   let maybeBot = () => {};
   if (api.isHost) {
