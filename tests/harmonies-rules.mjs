@@ -122,7 +122,12 @@ t('side A scores only the longest river, branches do not add length', () => {
   const stem = nb[0];
   const y = board({ [c]: [BLUE], [nb[0]]: [BLUE], [nb[2]]: [BLUE], [nb[4]]: [BLUE] });
   const r = scoreBoard(y);
-  assert.ok(r.river >= 3 && r.river <= 3 + 1); void stem;
+  assert.equal(r.river, 3); void stem;
+  // Six water tokens around a dry centre form a loop. Its opposite banks are
+  // four tokens apart when both ends are included; the entire loop is not scored.
+  const loop = board(Object.fromEntries(nb.map((i) => [i, [BLUE]])));
+  assert.equal(scoreBoard(loop).river, 4);
+  assert.equal(scoreBoard(loop).water, 8);
 });
 t('side B: 5 per island, always at least one', () => {
   assert.equal(scoreBoard(emptyCells(), 'B').water, 5);
@@ -153,7 +158,7 @@ const buildFor = (card, o = orientations(card)[0]) => {
 t('every card habitat is buildable with legal stacks, and is found in every orientation', () => {
   for (const card of [...ANIMALS, ...SPIRITS]) {
     const os = orientations(card);
-    assert.ok(os.length >= 1 && os.length <= 12, card.name);
+    assert.ok(os.length >= 1 && os.length <= 6, card.name);
     for (const o of os) {
       const b = buildFor(card, o);
       assert.ok(b, card.name + ' fits on the board in some orientation');
@@ -162,6 +167,19 @@ t('every card habitat is buildable with legal stacks, and is found in every orie
       assert.ok(found.some((f) => f.target === b.idx[b.mk]), card.name + ' targets marker');
     }
   }
+});
+t('base habitats rotate but do not mirror', () => {
+  const card = { id: 999, cells: [
+    { k: 'w', q: 0, r: 0, mk: true }, { k: 'f', q: 1, r: 0 },
+    { k: 'm1', q: 1, r: 1 }, { k: 't1', q: 0, r: 1 },
+  ] };
+  const key = (o) => o.map((x) => `${x.t}:${x.dq},${x.dr}`).sort().join('|');
+  const mirrored = [
+    { t: 'water', dq: 0, dr: 0 }, { t: 'field', dq: 0, dr: 1 },
+    { t: 'mountain', dq: 1, dr: 1 }, { t: 'tree', dq: 1, dr: 0 },
+  ];
+  assert.equal(orientations(card).length, 6);
+  assert.ok(!orientations(card).some((o) => key(o) === key(mirrored)));
 });
 t('card data is sane', () => {
   assert.equal(ANIMALS.length, 32); assert.equal(SPIRITS.length, 10);

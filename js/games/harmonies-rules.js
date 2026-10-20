@@ -66,21 +66,18 @@ export function kindOf(s) {
 // ---------------------------------------------------------------- patterns
 const TCODE = { w: ['water', 1], f: ['field', 1], b: ['building', 2] };
 const specOf = (k) => (TCODE[k] ? { t: TCODE[k][0], h: TCODE[k][1] } : { t: k[0] === 'm' ? 'mountain' : 'tree', h: +k[1] });
-const rot = ([q, r]) => [-r, q + r], refl = ([q, r]) => [r, q];
+const rot = ([q, r]) => [-r, q + r];
 const compiled = new Map();
-/** All distinct orientations (6 rotations, mirrored too) of a card's habitat; each is {cells:[{q,r,t,h,mk}]} anchored on its first cell. */
+/** All distinct base-game orientations (up to 6 rotations, never mirrored) of a card's habitat. */
 export function orientations(card) {
   if (compiled.has(card.id)) return compiled.get(card.id);
   const out = [], seen = new Set();
-  for (const mirror of [false, true]) {
-    let cur = card.cells.map((c) => [c.q, c.r]);
-    if (mirror) cur = cur.map(refl);
-    for (let k = 0; k < 6; k++) {
-      const cells = cur.map(([q, r], j) => ({ dq: q - cur[0][0], dr: r - cur[0][1], ...specOf(card.cells[j].k), mk: card.cells[j].mk }));
-      const key = cells.map((c) => `${c.t}${c.h}:${c.dq},${c.dr}${c.mk ? '*' : ''}`).sort().join('|');
-      if (!seen.has(key)) { seen.add(key); out.push(cells); }
-      cur = cur.map(rot);
-    }
+  let cur = card.cells.map((c) => [c.q, c.r]);
+  for (let k = 0; k < 6; k++) {
+    const cells = cur.map(([q, r], j) => ({ dq: q - cur[0][0], dr: r - cur[0][1], ...specOf(card.cells[j].k), mk: card.cells[j].mk }));
+    const key = cells.map((c) => `${c.t}${c.h}:${c.dq},${c.dr}${c.mk ? '*' : ''}`).sort().join('|');
+    if (!seen.has(key)) { seen.add(key); out.push(cells); }
+    cur = cur.map(rot);
   }
   compiled.set(card.id, out);
   return out;
@@ -167,16 +164,22 @@ function components(cells, pred) {
 }
 export function longestRiver(cells, comp) {
   const inC = new Set(comp);
-  let best = 0, steps = 0;
-  const seen = new Set();
-  const dfs = (u, len) => {
-    if (len > best) best = len;
-    if (steps++ > 250000 || best === comp.length) return;
-    seen.add(u);
-    for (const v of CELLS[u].nb) if (inC.has(v) && !seen.has(v)) dfs(v, len + 1);
-    seen.delete(u);
-  };
-  for (const s of comp) { dfs(s, 1); if (best === comp.length) break; }
+  if (!comp.length) return 0;
+  // A river is measured along the shortest route between its ends. For a branch,
+  // choose the pair of ends with the longest such route. A loop has no ends, so
+  // compare every pair; this makes an even loop score only to its opposite bank.
+  const ends = comp.filter((u) => CELLS[u].nb.filter((v) => inC.has(v)).length <= 1);
+  const starts = ends.length >= 2 ? ends : comp;
+  const targets = new Set(starts);
+  let best = 1;
+  for (const s of starts) {
+    const dist = new Map([[s, 1]]), queue = [s];
+    for (let qi = 0; qi < queue.length; qi++) {
+      const u = queue[qi];
+      for (const v of CELLS[u].nb) if (inC.has(v) && !dist.has(v)) { dist.set(v, dist.get(u) + 1); queue.push(v); }
+    }
+    for (const [u, d] of dist) if (u !== s && targets.has(u)) best = Math.max(best, d);
+  }
   return best;
 }
 export const riverPts = (len) => (len <= 6 ? RIVER_PTS[len] : RIVER_PTS[6] + 4 * (len - 6));
