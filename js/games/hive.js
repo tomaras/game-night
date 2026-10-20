@@ -250,7 +250,7 @@ export function start(api) {
     const moves = legal();
     const selectable = new Set(moves.filter((m) => m.k === K_MOVE).map((m) => m.from));
     const targets = chosenMoves();
-    const last = S.moves[S.moves.length - 1];
+    const last = [...S.moves].reverse().find((m) => m.to);
     const lastTo = last?.to ? cellOf(last.to[0], last.to[1]) : -1;
 
     if (hintMove?.k === 'move' && hintMove.from && hintMove.to) {
@@ -399,7 +399,8 @@ export function start(api) {
     selected = null;
     hintMove = null;
     botBusy = false;
-    if (next.sfx) api.sfx(next.sfx, .72);
+    if (next.sfx === 'result') api.sfx(S.result?.winner === 2 || myColor < 0 ? 'ding' : S.result?.winner === myColor ? 'win' : 'lose', .82);
+    else if (next.sfx) api.sfx(next.sfx, .72);
     if (S.version > before && pos.occ.length && (pos.occ.length < 3 || pos.ply % 7 === 0)) requestAnimationFrame(() => {
       const cells = pos.occ.map(xyOf);
       const far = cells.some((p) => Math.abs(p.x * view.scale + view.x) > view.w * .45 || Math.abs(p.y * view.scale + view.y) > view.h * .45);
@@ -500,14 +501,14 @@ export function start(api) {
       const draw = winner === 2 || winner == null;
       H.result = { winner, text: draw ? 'The colonies are locked in a draw' : `${nameOf(idOf(winner))} surrounds the Monarch` };
       H.version++;
-      publish(null, { sfx: draw ? 'ding' : 'win' });
+      publish(null, { sfx: 'result' });
       save();
       if (!ended) {
         ended = true;
         api.timeout(() => api.endGame({
           title: draw ? 'The colonies stand even' : `${nameOf(idOf(winner))} commands the swarm!`,
           subtitle: why || (draw ? `${H.moves.length} turns · simultaneous enclosure` : `Monarch surrounded in ${H.moves.length} turns`),
-          ranking: draw ? ids.map((id) => ({ id, score: 'draw' })) : [winner, 1 - winner].map((c) => ({ id: idOf(c), score: c === winner ? 'victory' : 'defeat', note: `${H.pos.queenNeighbours(c)} sides closed` })),
+          ranking: draw ? ids.map((id) => ({ id, score: 'draw' })) : [winner, 1 - winner].map((c) => ({ id: idOf(c), score: c === winner ? 'victory' : 'defeat', note: `${H.pos.queenNeighbours(c)} around their Monarch` })),
           winners: draw ? ids.slice() : [idOf(winner)],
         }), 1450);
       }
@@ -530,6 +531,16 @@ export function start(api) {
       H.pos.play(move);
       H.moves.push(clean);
       H.version++;
+      // Passing is bookkeeping, not a decision. Resolve it immediately so a blocked player can never stall a match.
+      while (H.pos.winner < 0) {
+        const forced = H.pos.legalMoves();
+        if (forced.length !== 1 || forced[0].k !== K_PASS) break;
+        const blocked = idOf(H.pos.turn);
+        H.logs.push(moveText(forced[0], blocked));
+        H.moves.push(H.pos.toJSON(forced[0]));
+        H.pos.play(forced[0]);
+        H.version++;
+      }
       const sound = move.k === K_PLACE ? 'place' : move.k === K_PASS ? 'turn' : move.via >= 0 || H.pos.H[move.to] > 1 ? 'wood' : 'slide';
       publish(null, { sfx: sound });
       save();
