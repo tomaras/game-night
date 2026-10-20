@@ -38,10 +38,24 @@ export const GAMES = [
   },
   // ---- coup: owned by the coup agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'coup', name: 'Coup (working title)', emoji: '👑', color: '#EA4335', cat: 'Bluffing', tags: [], min: 2, max: 6,
-    tagline: 'Coming soon.',
-    desc: 'Coming soon.',
-    howto: ['Coming soon.'],
+    id: 'coup', name: 'Veiled Court', emoji: '👑', color: '#A142F4', cat: 'Bluffing', tags: ['Cards', 'Deduction'], min: 2, max: 6,
+    tagline: 'Claim power. Call bluffs. Rule the court.',
+    desc: 'Two secret allies stand between you and exile. Claim any courtier’s power, challenge suspicious rivals, and protect your last influence — truth is useful, but timing wins the crown.',
+    howto: [
+      'You begin with two hidden influence cards and two coins. On your turn, choose one action — you may claim any courtier, whether or not you hold that card.',
+      'Income gains 1 coin safely. Foreign aid gains 2 but a Duchess may block it. Character actions are stronger, but anyone may challenge the claim.',
+      'If challenged, a truthful claimant proves the card, draws a replacement, and the challenger reveals influence. A bluffing claimant reveals influence and their action fails.',
+      'Pay 7 coins to overthrow a rival without challenge or block. At 10 coins you must do it. Reveal both of a rival’s cards to remove them; last influence standing wins.',
+    ],
+    options: [
+      { key: 'court', label: 'Fifth courtier', choices: [{ value: 'envoy', label: 'Envoy · classic exchange' }, { value: 'oracle', label: 'Oracle · inspect and swap' }], default: 'envoy' },
+      { key: 'factions', label: 'Factions', choices: [{ value: 'off', label: 'Off · every seat for itself' }, { value: 'on', label: 'On · teams can change' }], default: 'off' },
+    ],
+    help: {
+      goal: 'Keep at least one influence hidden after every rival has revealed theirs.',
+      controls: [['Action card', 'declare an action'], ['Player card', 'choose a target'], ['Allow / Challenge / Block', 'answer a claim'], ['Your influence', 'choose which card to reveal']],
+      tips: ['Every courtier action is a claim, not proof. A convincing bluff is legal.', 'Count revealed cards before challenging — there are three copies of each courtier.', 'An assassination may cost its target two influence if they challenge or block with another bluff.'],
+    },
     load: () => import('./coup.js'),
   },
   {
@@ -751,7 +765,7 @@ const CAPS = {
   cascadia: {}, // cascadia agent
   harmonies: {}, // harmonies agent
   wingspan: {}, // wingspan agent
-  coup: {}, // coup agent
+  coup: { bots: true, watch: false }, // coup agent
   connect4: { bots: true, async: true },
   chess: { bots: true, async: true, otb: true },
   colorrush: { watch: false, bots: true },
