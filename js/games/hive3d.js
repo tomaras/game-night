@@ -131,9 +131,9 @@ export async function createHive3D(host, handlers = {}) {
   scene.add(floor);
   scene.fog = new THREE.FogExp2(0x14180f, 0.012);
 
-  const SK = portrait ? 0.9 : 1;                         // phones are narrow: a smaller table keeps its edge and the props in view
-  const stumpW = 12.4 * SK, stumpH = stumpW * 1024 / 1536;
-  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.9), transparent: true, color: 0xdccab4 });
+  const SK = 1;
+  const stumpW = 15.5, stumpH = stumpW * 1024 / 1536;
+  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.62), transparent: true, color: 0xdccab4 });
   // The cell lattice is analytic (no texture), so the grooves stay razor sharp at any zoom and always line up with the pieces.
   stumpMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
@@ -159,7 +159,7 @@ export async function createHive3D(host, handlers = {}) {
         float gw = max(0.017, fwidth(e) * 1.7);
         float groove = 1.0 - smoothstep(0.0, gw, e);
         float pocket = smoothstep(0.0, 0.085, e);
-        float groveFade = 1.0 - smoothstep(0.36, 0.5, length((vMapUv - 0.5) * vec2(1.0, 0.95)));
+        float groveFade = 1.0 - smoothstep(0.30, 0.46, length((vMapUv - 0.5) * vec2(1.0, 0.92)));
         groveH = (-2.1 * groove - 0.5 * (1.0 - pocket)) * groveFade;
         diffuseColor.rgb *= 1.0 - (0.6 * groove + 0.15 * (1.0 - pocket)) * groveFade;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
@@ -167,7 +167,7 @@ export async function createHive3D(host, handlers = {}) {
   };
   stumpMat.customProgramCacheKey = () => 'hive-stump';
   const stump = new THREE.Mesh(new THREE.PlaneGeometry(stumpW, stumpH), stumpMat);
-  stump.rotation.x = -Math.PI / 2; stump.position.set(0, 0, SQ3 * R * 1.5); stump.receiveShadow = true; // a whole cell down (a lattice step), so the reserve tray sits on the wood
+  stump.rotation.x = -Math.PI / 2; stump.position.set(0, 0, SQ3 * R * 1.5 * 0); stump.receiveShadow = true; // a whole cell down (a lattice step), so the reserve tray sits on the wood
   scene.add(stump);
   scenery.push({ m: floorMat, c: floorMat.color.clone() }, { m: stumpMat, c: stumpMat.color.clone() });
 
@@ -179,25 +179,26 @@ export async function createHive3D(host, handlers = {}) {
   // dressing: cut-outs standing at the camera's tilt so they read like the pictures they came from
   const props = new THREE.Group(); scene.add(props);
   const shadowTex = dropShadowTexture();
-  async function dress(file, x, z, w, { rot = 0, flip = false, tint = 0xb4ab98, tilt = 0 } = {}) {
+  async function dress(file, x, z, w, { rot = 0, flip = false } = {}) {
     const t = await tex(file);
     const aspect = t.image.height / t.image.width;
-    const geo = new THREE.PlaneGeometry(w, w * aspect); geo.translate(0, w * aspect * 0.42, 0);
-    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.22, roughness: 1, side: THREE.DoubleSide, color: tint });
+    const geo = new THREE.PlaneGeometry(w, w * aspect); geo.translate(0, w * aspect / 2, 0);
+    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.08, roughness: 0.9, side: THREE.DoubleSide, color: 0xe6dfd2 });
     const m = new THREE.Mesh(geo, mat);
-    m.rotation.order = 'YXZ'; m.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180 + tilt; m.rotation.z = rot; m.rotation.y = flip ? Math.PI : 0;
-    m.position.set(x, 0.02, z);
-    m.castShadow = true;                                   // the same low light throws a long, soft shadow from each plant
+    m.rotation.order = 'YXZ'; m.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; m.rotation.z = rot;
+    if (flip) m.scale.x = -1;
+    m.position.set(x, 0, z);
     props.add(m);
     scenery.push({ m: mat, c: mat.color.clone() });
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.0, w * 0.5), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.95 }));
-    sh.rotation.x = -Math.PI / 2; sh.position.set(x, 0.006, z + 0.02); props.add(sh); // dark contact patch where it meets the ground
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.15, w * 0.55), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.85 }));
+    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.2, 0.004, z - w * 0.02 + 0.05); props.add(sh); // falls away from the low light on the left
   }
   const dressing = Promise.all([
-    dress('fol-fern1.webp', -4.6 * SK, 0.5 * SK, 2.1), dress('fol-fern2.webp', 4.7 * SK, 1.9 * SK, 1.8, { flip: true }),
-    dress('prop-stone1.webp', 4.4 * SK, -2.5 * SK, 1.05, { tint: 0xa8a090 }), dress('prop-mushrooms.webp', -4.2 * SK, -2.8 * SK, 0.85),
-    dress('fol-moss.webp', -3.0 * SK, -3.4 * SK, 1.15, { tint: 0x9c9680 }), dress('prop-acorns.webp', 2.8 * SK, -3.5 * SK, 0.55),
-    dress('fol-fern2.webp', -4.7 * SK, 3.0 * SK, 1.5),
+    dress('fol-fern1.webp', -5.3, 0.1, 2.5), dress('fol-fern2.webp', 5.0, 2.5, 2.1, { flip: true }),
+    dress('fol-moss.webp', -3.4, -3.0, 1.35), dress('prop-stone1.webp', 4.8, -2.3, 1.3), dress('prop-stone2.webp', 4.0, -3.2, 0.8),
+    dress('prop-mushrooms.webp', -4.8, -2.8, 1.05), dress('prop-pinecone.webp', 4.2, 1.1, 0.78), dress('prop-acorns.webp', 3.0, -3.8, 0.68),
+    dress('fol-leaves.webp', 5.3, 0.3, 1.4), dress('fol-ivy.webp', -2.2, -3.8, 1.25), dress('prop-twig.webp', 1.8, -3.9, 1.05, { rot: -0.4 }),
+    dress('fol-clover.webp', -4.5, -1.2, 0.9), dress('fol-fern2.webp', -5.4, 3.2, 1.8), dress('fol-leaves.webp', 0.3, -4.3, 1.15),
   ]).catch((e) => console.warn('[hive3d] dressing', e));
 
   // ---------------- stones
@@ -354,12 +355,15 @@ export async function createHive3D(host, handlers = {}) {
   }
 
   // ---------------- the reserve tray and the bag, physical objects standing on the table at the bottom of the view
-  const [trL, trM, trR, bagTex] = await Promise.all([tex('tray-l.webp'), tex('tray-m.webp'), tex('tray-r.webp'), tex('bag.webp')]);
+  const [trL, trM, trR, tr5, tr8, bagTex] = await Promise.all([tex('tray-l.webp'), tex('tray-m.webp'), tex('tray-r.webp'), tex('tray.webp'), tex('tray8.webp'), tex('bag.webp')]);
   const TRAY = { L: 384, M: 280, R: 376, H: 347, C: 244 }; // artwork geometry in px: caps, one well, height, first well centre
   const hud = new THREE.Group(); scene.add(hud);
   const trayTexCache = new Map();
+  // Artwork geometry (px) per slot count: a dedicated 5-slot and 8-slot tray, stitched from the 5-slot art for 6 and 7.
+  const trayGeo = (n) => (n >= 8 ? { W: 1879, H: 300, C: 160, M: 222.4 } : n === 5 ? { W: 1600, H: 347, C: 244, M: 280 } : { W: TRAY.L + TRAY.M * (n - 2) + TRAY.R, H: TRAY.H, C: TRAY.C, M: TRAY.M });
   function trayTexture(n) {
     if (trayTexCache.has(n)) return trayTexCache.get(n);
+    if (n >= 8 || n === 5) { const t = n >= 8 ? tr8 : tr5; trayTexCache.set(n, t); return t; }
     const W = TRAY.L + TRAY.M * (n - 2) + TRAY.R, c = document.createElement('canvas'); c.width = W; c.height = TRAY.H;
     const g = c.getContext('2d');
     const piece = (im, x, w) => { // feather the left edge so the joins vanish
@@ -409,16 +413,16 @@ export async function createHive3D(host, handlers = {}) {
     hud.visible = items.length > 0;
     if (!items.length) return;
     stage.camera.updateMatrixWorld();
-    const n = Math.max(2, items.length);
-    const px = TRAY.L + TRAY.M * (n - 2) + TRAY.R;
-    if (!groundAt(-0.94, -0.8, hA) || !groundAt(0.94, -0.8, hB)) return;
-    const span = Math.abs(hB.x - hA.x), pitch = Math.min(0.92, span / (px / TRAY.M)), pw = pitch / TRAY.M;
-    const wW = px * pw, hW = TRAY.H * pw, cx = (hA.x + hB.x) / 2, cz = hA.z;
+    const n = Math.max(2, Math.min(8, items.length)), G = trayGeo(n);
+    const px = G.W;
+    if (!groundAt(-0.94, -0.84, hA) || !groundAt(0.94, -0.84, hB)) return;
+    const span = Math.abs(hB.x - hA.x), pitch = Math.min(0.92, span / (px / G.M)), pw = pitch / G.M;
+    const wW = px * pw, hW = G.H * pw, cx = (hA.x + hB.x) / 2, cz = hA.z;
     if (trayN !== n) { trayMat.map = trayTexture(n); trayMat.needsUpdate = true; trayN = n; }
     trayMesh.position.set(cx, 0.03, cz); trayMesh.scale.set(wW, hW, 1);
     const sc = pitch * 0.84, x0 = cx - wW / 2, zRow = cz - hH(hW);
     items.forEach((it, i) => {
-      const wx = x0 + (TRAY.C + TRAY.M * i) * pw;
+      const wx = x0 + (G.C + G.M * i) * pw;
       trayWell.set(it.type, Object.assign(new THREE.Vector3(wx, 0.03, zRow), { s: sc }));
       const show = Math.min(it.count, 3);
       for (let k = 0; k < 3; k++) {
@@ -436,21 +440,22 @@ export async function createHive3D(host, handlers = {}) {
       b.visible = it.count > 0; b.scale.setScalar(pitch * 0.34); b.position.set(wx + pitch * 0.34, 0.03 + (show * LV + 0.1) * sc, zRow + pitch * 0.3);
     });
     for (const [key, m] of trayStones) if (!items.some((it) => key.startsWith(it.type + ':'))) m.visible = false;
-    // the bag, lower left, with the next stones spilled beside it
-    if (groundAt(-0.8, -0.56, hA)) {
-      const bw = Math.min(1.9, span * 0.2);
+    // the bag: big, bottom left, mouth open towards the top right, the next stones sitting in and spilling from its mouth
+    if (groundAt(-0.5, -0.52, hA)) {
+      const bw = Math.min(3.8, span * 0.5);
       bagMesh.scale.set(bw, bw, 1); bagMesh.position.set(hA.x, 0.0, hA.z);
-      bagShadow.scale.set(bw, bw, 1); bagShadow.position.set(hA.x + bw * 0.18, 0.004, hA.z + 0.04);
-      const next = items.filter((it) => it.count > 0).slice(-2);
+      bagShadow.scale.set(bw * 1.15, bw * 0.9, 1); bagShadow.position.set(hA.x + bw * 0.1, 0.004, hA.z + 0.05);
+      const next = items.filter((it) => it.count > 0).slice(-3);
+      const mouth = { x: hA.x + bw * 0.34, z: hA.z - bw * 0.22 };
       next.forEach((it, i) => {
         const m = trayStone(`bag:${it.type}:${reserve.color}`, it.type, reserve.color, 80 + i);
-        m.visible = true; m.userData.reserve = null; m.scale.setScalar(bw * 0.3);
-        m.position.set(hA.x + bw * (0.38 + i * 0.26), 0.03 + BEV * bw * 0.3, hA.z + bw * (0.1 + i * 0.06));
-        m.rotation.y = 0.5 - i * 1.1;
+        m.visible = true; m.userData.reserve = null; m.scale.setScalar(bw * 0.15);
+        m.position.set(mouth.x + bw * (0.14 + i * 0.13), 0.03 + (BEV + (i ? 0 : LV)) * bw * 0.15, mouth.z + bw * (0.04 - i * 0.09));
+        m.rotation.y = 0.5 - i * 0.9; m.rotation.z = i === 0 ? 0.35 : 0; m.rotation.x = i === 0 ? -0.2 : 0;
       });
       for (const [key, m] of trayStones) if (key.startsWith('bag:') && !next.some((it) => key === `bag:${it.type}:${reserve.color}`)) m.visible = false;
       const total = items.reduce((a, it) => a + it.count, 0);
-      const b = badgeSprite('bag', String(total)); b.visible = true; b.scale.setScalar(bw * 0.2); b.position.set(hA.x - bw * 0.38, 0.28 * bw, hA.z + bw * 0.12);
+      const b = badgeSprite('bag', String(total)); b.visible = true; b.scale.setScalar(bw * 0.15); b.position.set(hA.x - bw * 0.3, 0.3 * bw, hA.z + bw * 0.16);
     }
   }
   const hH = (h) => h * 0.04; // the wells sit slightly above the tray's middle
