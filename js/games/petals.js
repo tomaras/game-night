@@ -9,12 +9,12 @@ const CSS = `
 .pt { gap:12px; }
 .pt-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
 .pt-p { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; border:3px solid transparent; }
-.pt-p.turn { border-color:var(--yellow); } .pt-p.out { opacity:.4; } .pt-p.chal { border-color:var(--red); }
+.pt-p.turn { border-color:var(--m-yellow); box-shadow:var(--z3); } .pt-p.out { opacity:.4; } .pt-p.chal { border-color:var(--red); }
 .pt-p .nm { font:700 14px var(--font); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pt-p .meta { display:flex; gap:6px; font:700 12px var(--font); color:var(--on2); align-items:center; }
 .pt-stack { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; min-height:38px; }
 .pt-disc { width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #BDC1C6, #5F6368); box-shadow:0 2px 4px rgba(0,0,0,.3); display:grid; place-items:center; color:#fff; font-size:18px; }
-.pt-disc.f { background:radial-gradient(circle at 35% 30%, #ff8fab, #E52592); } .pt-disc.s { background:radial-gradient(circle at 35% 30%, #5F6368, #202124); }
+.pt-disc.f { background:radial-gradient(circle at 35% 30%, #FF80AB, #E52592); } .pt-disc.s { background:radial-gradient(circle at 35% 30%, #5F6368, #202124); }
 .pt-disc.mine { outline:2px dashed var(--blue); outline-offset:2px; }
 .pt-disc.flip { cursor:pointer; outline:3px solid var(--blue); animation:pulse 1s infinite; }
 .pt-act { background:var(--surface); box-shadow:var(--e2); border-radius:var(--r); padding:14px; display:flex; flex-direction:column; gap:10px; align-items:center; }

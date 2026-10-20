@@ -20,18 +20,18 @@ const DEMOS = [
 const CSS = `
 .rt { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px; min-height:0; overflow-y:auto; }
 .rt-screen { position:relative; width:100%; flex:1; min-height:220px; display:flex; align-items:center; justify-content:center; }
-.rt-screen canvas, .rt-screen video { image-rendering:pixelated; background:#000; border-radius:8px; box-shadow:0 10px 30px rgba(31,41,55,.22); }
+.rt-screen canvas, .rt-screen video { image-rendering:pixelated; background:#000; border-radius:var(--r); box-shadow:var(--z3); }
 .rt-screen.fs { background:#000; }
 .rt-bar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; }
 .rt-info { color:var(--muted); font-size:13px; text-align:center; max-width:640px; }
 .rt-picker { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; width:100%; max-width:760px; }
-.rt-rom { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px; text-align:left; cursor:pointer; color:var(--text); }
-.rt-rom:hover { border-color:var(--accent); background:var(--panel2); }
+.rt-rom { background:var(--panel); border:0; box-shadow:var(--z1); border-radius:var(--r); padding:12px; text-align:left; cursor:pointer; color:var(--text); }
+.rt-rom:hover { box-shadow:var(--z3); }
 .rt-rom b { display:block; font-size:16px; } .rt-rom span { font-size:12.5px; color:var(--muted); }
 .rt-unmute { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); }
 .rt .touch-controls .acts { flex-wrap:wrap; width:156px; justify-content:flex-end; gap:8px; }
 .rt .touch-controls .tbtn.act { width:58px; height:58px; font-size:13px; }
-.rt-drop { outline:3px dashed var(--accent); outline-offset:-8px; }
+.rt-drop { outline:3px dashed var(--primary); outline-offset:-8px; }
 `;
 
 let jsnesLoading = null;

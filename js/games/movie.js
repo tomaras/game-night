@@ -14,7 +14,7 @@ const QUALITY = {
 
 const CSS = `
 .mv { flex:1; display:flex; flex-direction:column; gap:8px; padding:8px; min-height:0; }
-.mv-stage { position:relative; flex:1; min-height:220px; background:#0b0d17; box-shadow:var(--e2); border-radius:var(--r); overflow:hidden; display:grid; place-items:center; }
+.mv-stage { position:relative; flex:1; min-height:220px; background:#202124; box-shadow:var(--z2); border-radius:var(--r); overflow:hidden; display:grid; place-items:center; }
 .mv-stage > video { width:100%; height:100%; object-fit:contain; background:#000; }
 .mv-idle { position:absolute; inset:0; display:grid; place-items:center; padding:14px; overflow-y:auto; background:var(--surface); }
 .mv-card { width:min(520px, 100%); display:flex; flex-direction:column; gap:10px; text-align:center; }
@@ -33,9 +33,9 @@ const CSS = `
 .mv-float { position:absolute; bottom:10px; font-size:34px; pointer-events:none; animation:mvup 2.6s ease-out forwards; text-align:center; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 .mv-float small { display:block; font-size:11px; font-weight:800; color:#fff; }
 @keyframes mvup { from { transform:translateY(0) scale(.6); opacity:1; } 80% { opacity:1; } to { transform:translateY(-260px) scale(1.25); opacity:0; } }
-.mv-preview { position:absolute; right:10px; bottom:10px; width:170px; border:2px solid #38d996; border-radius:var(--r); overflow:hidden; background:#000; z-index:3; }
+.mv-preview { position:absolute; right:10px; bottom:10px; width:170px; border:2px solid #34A853; border-radius:var(--r); overflow:hidden; background:#000; z-index:3; }
 .mv-preview video { width:100%; display:block; }
-.mv-preview span { position:absolute; left:4px; top:3px; font-size:10px; font-weight:900; background:#38d996; color:#04281c; padding:0 6px; border-radius:6px; }
+.mv-preview span { position:absolute; left:4px; top:3px; font-size:10px; font-weight:900; background:#34A853; color:#fff; padding:0 8px; border-radius:var(--r-pill); }
 .mv-unmute { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:3; }
 .mv-live { position:absolute; left:10px; top:10px; background:#EA4335; color:#fff; font-weight:900; font-size:12px; padding:2px 10px; border-radius:999px; z-index:3; display:flex; gap:6px; align-items:center; }
 .mv-live i { width:8px; height:8px; border-radius:50%; background:#fff; animation:pulse 1s infinite; }

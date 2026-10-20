@@ -63,9 +63,9 @@ function edgeTo(ctx, x0, y0, x1, y1, s) {
 const CSS = `
 .jg { flex:1; display:flex; flex-direction:column; min-height:0; padding:6px; gap:6px; }
 .jg-bar { display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; font:700 13px var(--font); }
-.jg-wrap { flex:1; min-height:0; position:relative; border-radius:var(--r); overflow:hidden; box-shadow:var(--e2); background:#3b5b4a; touch-action:none; }
+.jg-wrap { flex:1; min-height:0; position:relative; border-radius:var(--r); overflow:hidden; box-shadow:var(--z2); background:#1E8E5A; touch-action:none; }
 .jg-wrap canvas { width:100%; height:100%; display:block; touch-action:none; }
-.jg-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; } .jg-zoom button { width:40px; height:40px; border-radius:var(--r); border:0; background:#fff; box-shadow:var(--e1); display:grid; place-items:center; cursor:pointer; color:var(--on); }
+.jg-zoom { position:absolute; right:10px; top:10px; display:flex; flex-direction:column; gap:6px; } .jg-zoom button { width:40px; height:40px; border-radius:50%; border:0; background:var(--surface); box-shadow:var(--z2); display:grid; place-items:center; cursor:pointer; color:var(--on); }
 .jg-pick { text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; max-width:420px; margin:auto; }
 .jg-pick .pv { width:100%; border-radius:var(--r); box-shadow:var(--e2); }
 `;
@@ -144,10 +144,10 @@ export function start(api) {
     if (!cw || S.phase === 'pick') return;
     const dpr = canvas.width / cw;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#3b5b4a'; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#1E8E5A'; ctx.fillRect(0, 0, cw, ch);
     ctx.setTransform(dpr * V.s, 0, 0, dpr * V.s, dpr * V.x, dpr * V.y);
     // table + ghost outline of the finished picture
-    ctx.fillStyle = '#486c58'; ctx.fillRect(0, 0, WW, WH);
+    ctx.fillStyle = '#26A269'; ctx.fillRect(0, 0, WW, WH);
     ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 3 / V.s; ctx.setLineDash([14 / V.s, 10 / V.s]); ctx.strokeRect(OX, OY, IW, IH); ctx.setLineDash([]);
     if (master && prevAlpha > 0) { ctx.globalAlpha = prevAlpha; ctx.drawImage(master, OX, OY, IW, IH); ctx.globalAlpha = 1; }
     else if (master) { ctx.globalAlpha = 0.07; ctx.drawImage(master, OX, OY, IW, IH); ctx.globalAlpha = 1; }
