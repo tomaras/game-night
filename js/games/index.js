@@ -6,21 +6,21 @@ export const CATEGORIES = ['Party', 'Drawing', 'Words', 'Bluffing', 'Cards', 'St
 export const GAMES = [
   // ---- hive: owned by the hive agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'hive', name: 'Swarmfront', emoji: '🐝', color: '#FBBC05', cat: 'Strategy', tags: ['Abstract', 'Tactical'], min: 2, max: 2,
-    tagline: 'A living battlefield. One colony survives.',
-    desc: 'Build the battlefield as you play. Deploy a colony of creatures with distinct movement powers, keep every piece connected and close all six sides around the rival Monarch before they surround yours.',
+    id: 'hive', name: 'Hive', emoji: '🐝', color: '#FBBC05', cat: 'Strategy', tags: ['Abstract', 'Tactical'], min: 2, max: 2,
+    tagline: 'A game of surrounding.',
+    desc: 'Build the hive as you play. Place and move insects with distinct powers, keep every tile connected, and surround the opposing Queen Bee before your own queen is trapped.',
     howto: [
-      'Deploy one creature beside your own colony without touching an opposing piece. The first two pieces simply meet; your Monarch must enter by your fourth turn.',
-      'Once your Monarch is down, either deploy a reserve creature or move one already in play. Every move must leave the whole colony connected.',
-      'Ground creatures slide through open gaps. Scouts roam the edge, Weavers move exactly three spaces, Leapers jump occupied lines and Shells climb onto other pieces.',
-      'Close all six sides around the opposing Monarch to win. Either colour can fill the surrounding spaces; surrounding both Monarchs at once is a draw.',
+      'Place one insect beside your own color without touching an opposing piece. The first two pieces simply meet; your Queen Bee must enter by your fourth turn.',
+      'Once your Queen Bee is down, either place a reserve insect or move one already in play. Every move must leave the entire hive connected.',
+      'Soldier Ants roam the edge, Spiders move exactly three spaces, Grasshoppers jump occupied lines, and Beetles climb onto other pieces.',
+      'Fill all six spaces around the opposing Queen Bee to win. Either color can complete the surround; surrounding both queens at once is a draw.',
     ],
     help: {
-      goal: 'Surround the opposing Monarch on all six sides while keeping yours open.',
+      goal: 'Surround the opposing Queen Bee on all six sides while keeping yours open.',
       controls: [['Tap a reserve', 'show legal deployment spaces'], ['Tap a creature', 'show legal moves'], ['Drag', 'pan the colony'], ['Pinch or scroll', 'zoom'], ['Target', 'place or move']],
-      tips: ['Your Monarch must be deployed by your fourth turn.', 'A creature holding two halves of the colony together is pinned.', 'Shells on top control that stack for deployment and movement.'],
+      tips: ['Your Queen Bee must be placed by your fourth turn.', 'An insect holding two halves of the hive together is pinned.', 'A Beetle on top controls that stack for placement and movement.'],
     },
-    options: [{ key: 'pieces', label: 'Creature set', choices: [{ value: 'complete', label: 'Complete · 14 each' }, { value: 'base', label: 'Core · 11 each' }, { value: 'mobility', label: 'Mobility · 13 each' }], default: 'complete' }],
+    options: [{ key: 'pieces', label: 'Insect set', choices: [{ value: 'complete', label: 'Complete · 14 each' }, { value: 'base', label: 'Core · 11 each' }, { value: 'mobility', label: 'Mobility · 13 each' }], default: 'complete' }],
     load: () => import('./hive.js'),
   },
   // ---- cascadia: owned by the cascadia agent (edit only this entry, its CAPS line and its module) ----

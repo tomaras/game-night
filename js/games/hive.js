@@ -1,4 +1,4 @@
-// Swarmfront — a host-authoritative, boardless colony strategy game.
+// Hive — a host-authoritative, boardless insect strategy game, refined by OpenAI Codex.
 // Original presentation and artwork; rules logic lives in ../engines/hive-rules.js.
 import { h, clamp } from '../util.js';
 import { avatarEl } from '../avatar.js';
@@ -11,14 +11,14 @@ import { chooseMoveAsync, stopHiveWorker } from '../engines/hive-ai.js';
 import { glyphDefs, GLYPH_CSS, tileInner, tileSVG } from './hive-art.js';
 
 const LABEL = {
-  Q: 'Monarch', S: 'Weaver', B: 'Shell', G: 'Leaper', A: 'Scout',
-  M: 'Mimic', L: 'Glider', P: 'Porter',
+  Q: 'Queen Bee', S: 'Spider', B: 'Beetle', G: 'Grasshopper', A: 'Soldier Ant',
+  M: 'Mosquito', L: 'Ladybug', P: 'Pillbug',
 };
 const SHORT_RULE = {
   Q: 'Slides one space.', S: 'Slides exactly three spaces.', B: 'Steps one space and may climb.',
   G: 'Jumps over a straight occupied line.', A: 'Slides any distance around the edge.',
-  M: 'Copies adjacent creatures; climbs like a Shell.', L: 'Travels over two pieces, then down.',
-  P: 'Slides one space or carries a neighbour across itself.',
+  M: 'Copies adjacent insects; climbs like a Beetle.', L: 'Travels over two pieces, then down.',
+  P: 'Slides one space or relocates an adjacent insect.',
 };
 const PIECE_SETS = {
   base: { mosquito: false, ladybug: false, pillbug: false },
@@ -31,15 +31,15 @@ const xyOf = (cell) => ({ x: STEP * SQ3 * (qOf(cell) + rOf(cell) / 2), y: STEP *
 const cellKey = (cell) => `${qOf(cell)},${rOf(cell)}`;
 
 const CSS = `
-.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-rows:auto minmax(240px,1fr) auto auto; overflow:hidden; background:var(--bg); --hv-board:#08775c; --hv-board2:#075f4a; }
+.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-rows:auto minmax(240px,1fr) auto auto; overflow:hidden; background:#15100b; --hv-board:#442816; --hv-board2:#1f130c; }
 .hv * { box-sizing:border-box; }
 .hv-defs { pointer-events:none; }
 ${GLYPH_CSS}
-.hv-player { min-width:0; min-height:66px; display:grid; grid-template-columns:minmax(104px,auto) 1fr auto; gap:8px; align-items:center; padding:6px 10px; background:var(--surface); border-bottom:1px solid var(--line); box-shadow:var(--z1); z-index:4; }
+.hv-player { min-width:0; min-height:66px; display:grid; grid-template-columns:minmax(104px,auto) 1fr auto; gap:8px; align-items:center; padding:6px 10px; background:#171512;color:#f7efe3;border-bottom:2px solid #b47b2d; box-shadow:var(--z1); z-index:4; }
 .hv-player.bottom { border-top:1px solid var(--line); border-bottom:0; }
 .hv-who { min-width:0; display:flex; align-items:center; gap:7px; font:700 13px var(--font); }
 .hv-who .name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hv-who small { display:block; color:var(--on3); font:600 10px var(--font); text-transform:uppercase; letter-spacing:.06em; }
+.hv-who small { display:block; color:#bca98c; font:600 10px var(--font); text-transform:uppercase; letter-spacing:.06em; }
 .hv-player.turn { box-shadow:inset 4px 0 0 var(--m-yellow),var(--z1); }
 .hv-danger { width:34px; display:grid; grid-template-columns:repeat(3,6px); gap:3px; justify-content:end; }
 .hv-danger i { width:6px; height:6px; border-radius:50%; background:var(--line2); }
@@ -49,25 +49,26 @@ ${GLYPH_CSS}
 .hv-rpiece { position:relative; flex:none; width:48px; height:51px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 2px 1px rgba(0,0,0,.18)); transition:transform .16s var(--std),filter .16s; }
 .hv-rpiece svg { width:46px; height:50px; display:block; }
 .hv-rpiece:hover:not(:disabled),.hv-rpiece.sel { transform:translateY(-4px); filter:drop-shadow(0 6px 4px rgba(0,0,0,.23)); }
-.hv-rpiece.sel { outline:3px solid var(--m-yellow); outline-offset:0; clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%); }
+.hv-rpiece.sel { outline:3px solid #ffc84a; outline-offset:0; clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%); }
 .hv-rpiece:disabled { cursor:default; opacity:.52; }
 .hv-rpiece.empty { display:none; }
 .hv-count { position:absolute; right:-1px; bottom:0; width:19px; height:19px; border-radius:50%; display:grid; place-items:center; background:var(--m-blue); color:#fff; border:2px solid var(--surface); font:800 10px var(--font); }
-.hv-arena { position:relative; min-height:0; overflow:hidden; background:var(--hv-board); border-block:4px solid var(--hv-board2); touch-action:none; user-select:none; }
-.hv-arena::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.16; background-size:38px 66px; background-image:linear-gradient(30deg,transparent 47%,#fff 48%,#fff 50%,transparent 51%),linear-gradient(150deg,transparent 47%,#fff 48%,#fff 50%,transparent 51%); }
+.hv-arena { position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-board-v1.png") center/cover no-repeat; border-block:4px solid var(--hv-board2); touch-action:none; user-select:none; }
+.hv-arena::before { content:''; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 70px rgba(15,8,3,.42); }
 .hv-board { position:absolute; inset:0; width:100%; height:100%; overflow:visible; touch-action:none; }
 .hv-world { transform-origin:0 0; }
-.hv-piece { cursor:default; filter:drop-shadow(0 4px 2px rgba(0,0,0,.27)); }
+.hv-piece { cursor:default; filter:drop-shadow(0 7px 3px rgba(0,0,0,.42)); }
+.hv .t-material { pointer-events:none; }.hv .t-insect { filter:drop-shadow(0 1.4px 1px rgba(0,0,0,.32)); }
 .hv-piece.can { cursor:pointer; }
 .hv-piece.can .t-face { stroke:var(--m-yellow); stroke-width:6; }
 .hv-piece.sel .t-face { stroke:#fff; stroke-width:7; }
-.hv-piece.last .t-face { stroke:var(--m-blue); stroke-width:5; }
+.hv-piece.last .t-face { stroke:#ffc84a; stroke-width:5; }
 .hv-piece.covered { opacity:.96; }
 .hv-stack { pointer-events:none; }
 .hv-stack circle { fill:var(--m-purple); stroke:#fff; stroke-width:2; }
 .hv-stack text { fill:#fff; font:800 11px var(--font); text-anchor:middle; dominant-baseline:middle; }
 .hv-target { cursor:pointer; }
-.hv-target polygon { fill:transparent; stroke:#fff; stroke-width:4; stroke-dasharray:8 5; filter:drop-shadow(0 2px 1px rgba(0,0,0,.35)); animation:hvPulse .9s ease-in-out infinite alternate; pointer-events:all; }
+.hv-target polygon { fill:rgba(251,188,5,.28); stroke:#ffd468; stroke-width:4; stroke-dasharray:8 5; filter:drop-shadow(0 0 7px rgba(255,190,40,.95)); animation:hvPulse .9s ease-in-out infinite alternate; pointer-events:all; }
 .hv-target.hint polygon { stroke:var(--m-yellow); stroke-width:7; stroke-dasharray:none; }
 .hv-path { fill:none; stroke:var(--m-yellow); stroke-width:5; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:8 7; pointer-events:none; }
 @keyframes hvPulse { to { stroke-width:7; opacity:.72; } }
@@ -76,10 +77,10 @@ ${GLYPH_CSS}
 .hv-float { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:7px; z-index:3; }
 .hv-float .iconbtn { background:var(--surface); color:var(--on); box-shadow:var(--z2); }
 .hv-zoom { position:absolute; left:10px; bottom:9px; padding:5px 9px; background:var(--surface); color:var(--on2); box-shadow:var(--z1); border-radius:2px; font:700 10px var(--font); pointer-events:none; }
-.hv-command { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; min-height:54px; padding:7px 10px; background:var(--surface); border-top:1px solid var(--line); z-index:4; }
+.hv-command { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; min-height:54px; padding:7px 10px; background:#171512;color:#f7efe3;border-top:2px solid #b47b2d; z-index:4; }
 .hv-status { min-width:0; }
 .hv-status b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 14px var(--font); }
-.hv-status span { display:block; color:var(--on2); font:500 12px var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hv-status span { display:block; color:#bca98c; font:500 12px var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hv-actions { display:flex; gap:3px; align-items:center; }
 .hv-actions .iconbtn { width:40px; height:40px; }
 .hv-thinking { color:var(--m-blue)!important; }
@@ -95,7 +96,7 @@ ${GLYPH_CSS}
 .hv-log-row:last-child { border:0; }
 .hv-log-row b { color:var(--on3); text-align:right; }
 .hv-empty { padding:20px; text-align:center; color:var(--on2); }
-:root[data-theme="dark"] .hv { --hv-board:#075941; --hv-board2:#043f30; }
+:root[data-theme="dark"] .hv { --hv-board:#2d1b10; --hv-board2:#100a06; }
 @media (max-width:480px) {
   .hv-player { grid-template-columns:112px 1fr 28px; padding-inline:7px; min-height:62px; }
   .hv-who { gap:5px; font-size:11px; }
@@ -134,7 +135,7 @@ export function start(api) {
   const board = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   board.setAttribute('class', 'hv-board');
   board.setAttribute('role', 'application');
-  board.setAttribute('aria-label', 'Swarmfront colony. Drag to pan and pinch or scroll to zoom.');
+  board.setAttribute('aria-label', 'Hive board. Drag to pan and pinch or scroll to zoom.');
   const world = document.createElementNS(board.namespaceURI, 'g');
   world.setAttribute('class', 'hv-world');
   board.append(world);
@@ -179,7 +180,7 @@ export function start(api) {
     const maxX = Math.max(...pts.map((p) => p.x)) + 62;
     const minY = Math.min(...pts.map((p) => p.y)) - 64;
     const maxY = Math.max(...pts.map((p) => p.y)) + 74;
-    const s = clamp(Math.min((view.w - 36) / (maxX - minX), (view.h - 34) / (maxY - minY)), .48, 1.42);
+    const s = clamp(Math.min((view.w - 36) / (maxX - minX), (view.h - 34) / (maxY - minY)), .48, 1.85);
     view.scale = s;
     view.x = -((minX + maxX) / 2) * s;
     view.y = -((minY + maxY) / 2) * s;
@@ -213,7 +214,7 @@ export function start(api) {
     const player = api.player(id);
     const danger = Math.max(0, pos.queenNeighbours(color));
     const reserve = h('div.hv-reserve', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => reserveButton(color, t, bottom)));
-    const who = h('div.hv-who', avatarEl(player, 'sm', { still: true }), h('div.name', nameOf(id), h('small', color === 0 ? 'Ivory colony' : 'Onyx colony')));
+    const who = h('div.hv-who', avatarEl(player, 'sm', { still: true }), h('div.name', nameOf(id), h('small', color === 0 ? 'White pieces' : 'Black pieces')));
     const pips = h('div.hv-danger', { title: `${danger} of 6 sides closed`, 'aria-label': `${danger} of 6 sides closed` }, Array.from({ length: 6 }, (_, i) => h('i' + (i < danger ? '.on' : ''))));
     const el = bottom ? bottomBar : topBar;
     el.classList.toggle('turn', pos.turn === color && !S.result);
@@ -309,13 +310,13 @@ export function start(api) {
   function statusText() {
     if (S.result) return S.result.text;
     const current = idOf(pos.turn);
-    if (hintBusy) return 'Studying the colony…';
+    if (hintBusy) return 'Studying the hive…';
     if (api.isBot(current) && botBusy) return `${nameOf(current)} is thinking…`;
     if (!canAct()) return `${nameOf(current)} is choosing`;
-    if (pos.mustPlaceQueen()) return 'Place your Monarch now';
+    if (pos.mustPlaceQueen()) return 'Place your Queen Bee now';
     if (selected?.kind === 'reserve') return `Choose a space for ${LABEL[selected.type]}`;
     if (selected?.kind === 'board') return `Choose a destination for ${LABEL[typeOfPiece(pos.top(selected.cell))]}`;
-    return pos.ply < 2 ? 'Deploy any creature' : 'Deploy or move one creature';
+    return pos.ply < 2 ? 'Place any insect' : 'Place or move one insect';
   }
 
   function canUndo() {
@@ -330,7 +331,7 @@ export function start(api) {
       iconBtn('undo', 'Undo last turn', () => api.toHost('undo')),
       iconBtn('lightbulb', 'Hint', requestHint),
       iconBtn('history', 'Move log', showLog),
-      iconBtn('info', 'Creature guide', showGuide),
+      iconBtn('info', 'Insect guide', showGuide),
       iconBtn('flag', 'Resign', resign),
     ];
     buttons[0].disabled = !canUndo();
@@ -346,7 +347,7 @@ export function start(api) {
     const current = idOf(pos.turn);
     statusEl.replaceChildren(
       h('b', statusText()),
-      h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `${pos.ply + 1}. ${pos.turn === 0 ? 'Ivory' : 'Onyx'} to act`),
+      h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `${pos.ply + 1}. ${pos.turn === 0 ? 'White' : 'Black'} to act`),
     );
     drawBoard();
     renderActions();
@@ -354,10 +355,10 @@ export function start(api) {
   }
 
   function showGuide() {
-    const content = h('div.hv-sheet', h('h3', 'Creature guide'), h('div.hv-guide', pos.types.map((type) => {
+    const content = h('div.hv-sheet', h('h3', 'Insect guide'), h('div.hv-guide', pos.types.map((type) => {
       const art = h('div'); art.innerHTML = tileSVG(type, 'w', 48);
       return h('div.hv-guide-row', art, h('b', LABEL[type]), h('span', SHORT_RULE[type]));
-    })), h('p.muted', 'Keep every piece connected. Ground creatures must slide through open gaps. Surround all six sides of the opposing Monarch to win.'));
+    })), h('p.muted', 'Keep every piece connected. Ground insects must slide through open gaps. Surround all six sides of the opposing Queen Bee to win.'));
     openSheet(content, { wide: true });
   }
 
@@ -392,7 +393,7 @@ export function start(api) {
     S = { ...S, ...next };
     const rebuilt = replay(opts, S.moves || []);
     if (rebuilt.badAt !== undefined) {
-      console.error('[swarmfront] rejected state at move', rebuilt.badAt);
+      console.error('[hive] rejected state at move', rebuilt.badAt);
       return;
     }
     pos = rebuilt;
@@ -474,7 +475,7 @@ export function start(api) {
     if (first) fitBoard(); else worldTransform();
   });
   resize.observe(arena);
-  floatTools.append(iconBtn('gps_fixed', 'Recenter colony', fitBoard));
+  floatTools.append(iconBtn('gps_fixed', 'Recenter hive', fitBoard));
 
   let maybeBot = () => {};
   if (api.isHost) {
@@ -499,16 +500,16 @@ export function start(api) {
     const finish = (winner, why) => {
       if (H.result) return;
       const draw = winner === 2 || winner == null;
-      H.result = { winner, text: draw ? 'The colonies are locked in a draw' : `${nameOf(idOf(winner))} surrounds the Monarch` };
+      H.result = { winner, text: draw ? 'Both Queen Bees are surrounded — draw' : `${nameOf(idOf(winner))} surrounds the Queen Bee` };
       H.version++;
       publish(null, { sfx: 'result' });
       save();
       if (!ended) {
         ended = true;
         api.timeout(() => api.endGame({
-          title: draw ? 'The colonies stand even' : `${nameOf(idOf(winner))} commands the swarm!`,
-          subtitle: why || (draw ? `${H.moves.length} turns · simultaneous enclosure` : `Monarch surrounded in ${H.moves.length} turns`),
-          ranking: draw ? ids.map((id) => ({ id, score: 'draw' })) : [winner, 1 - winner].map((c) => ({ id: idOf(c), score: c === winner ? 'victory' : 'defeat', note: `${H.pos.queenNeighbours(c)} around their Monarch` })),
+          title: draw ? 'Hive ends in a draw' : `${nameOf(idOf(winner))} wins Hive!`,
+          subtitle: why || (draw ? `${H.moves.length} turns · both queens surrounded` : `Queen Bee surrounded in ${H.moves.length} turns`),
+          ranking: draw ? ids.map((id) => ({ id, score: 'draw' })) : [winner, 1 - winner].map((c) => ({ id: idOf(c), score: c === winner ? 'victory' : 'defeat', note: `${H.pos.queenNeighbours(c)} spaces around their Queen Bee` })),
           winners: draw ? ids.slice() : [idOf(winner)],
         }), 1450);
       }

@@ -113,10 +113,10 @@ export const TYPE_COLOR = INK.w;
 export function tileInner(type, col, { thick = 5, id = true } = {}) {
   const t = TEAM[col], ink = INK[col][type];
   return `<polygon class="t-edge" points="${hexPts(HEX_R)}" transform="translate(0 ${thick})" fill="${t.edge}" stroke="${t.edge}" stroke-width="4" stroke-linejoin="round"/>` +
-    `<polygon class="t-face" points="${hexPts(HEX_R)}" fill="${t.face}" stroke="${t.face}" stroke-width="4" stroke-linejoin="round"/>` +
-    `<polygon points="${hexPts(HEX_R - 3.5)}" fill="none" stroke="${t.line}" stroke-width="1.4" stroke-linejoin="round"/>` +
+    `<image class="t-material" href="assets/hive/tile-${col === 'w' ? 'ivory' : 'onyx'}-v2.png" x="-40" y="-40" width="80" height="80" preserveAspectRatio="xMidYMid meet"/>` +
+    `<polygon class="t-face" points="${hexPts(HEX_R)}" fill="none" stroke="${t.line}" stroke-width="2.2" stroke-linejoin="round"/>` +
     // Keep the glyph inline: CSS custom properties do not reliably cross a <use> shadow tree in WebKit.
-    `<g transform="scale(.8)" style="--ink:${ink};--face:${t.face}">${GLYPHS[type]}</g>`;
+    `<g class="t-insect" transform="scale(.8)" style="--ink:${ink};--face:${t.face}">${GLYPHS[type]}</g>`;
 }
 /** A standalone <svg> string showing one tile (trays, log, guide). */
 export function tileSVG(type, col, size = 44, cls = '') {
