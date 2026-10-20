@@ -25,9 +25,9 @@ export const GAMES = [
   },
   // ---- cascadia: owned by the cascadia agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'cascadia', name: 'Timberline', emoji: '🌲', color: '#34A853', cat: 'Strategy', tags: ['Strategy', 'Tiles', 'Solo'], min: 1, max: 4,
-    tagline: 'Grow a living wilderness.',
-    desc: 'Draft habitats and wildlife, grow connected landscapes, and shape animal patterns across a vivid mountain wilderness.',
+    id: 'cascadia', name: 'Cascadia', emoji: '🌲', color: '#34A853', cat: 'Strategy', tags: ['Strategy', 'Tiles', 'Solo'], min: 1, max: 4,
+    tagline: 'A calmer wilderness awaits.',
+    desc: 'Create the most harmonious ecosystem in the Pacific Northwest by drafting habitat tiles and wildlife tokens, growing connected corridors, and completing five distinct animal goals.',
     howto: [
       'Choose one of four habitat-and-wildlife pairs. Place the hex beside your wilderness, then put the wildlife on any open tile showing that animal.',
       'Fill a one-habitat keystone to earn a pinecone. Spend one to split a pair or refresh the wildlife row. Three matching wildlife may refresh free; four refresh automatically.',
@@ -773,7 +773,7 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 //   watch:false — every player's screen is private (or built around having a seat), so the audience gets a stand-in screen instead
 const CAPS = {
   hive: { bots: true, async: true, otb: true }, // hive agent
-  cascadia: { bots: true, solo: true, min: 1, async: true }, // Timberline by OpenAI Codex
+  cascadia: { bots: true, solo: true, min: 1, async: true }, // Cascadia implementation refined by OpenAI Codex
   harmonies: {}, // harmonies agent
   wingspan: {}, // wingspan agent
   coup: {}, // coup agent
