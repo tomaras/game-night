@@ -4,6 +4,46 @@
 export const CATEGORIES = ['Party', 'Drawing', 'Words', 'Bluffing', 'Cards', 'Strategy', 'Board', 'Arcade', 'Retro', 'Hangout'];
 
 export const GAMES = [
+  // ---- hive: owned by the hive agent (edit only this entry, its CAPS line and its module) ----
+  {
+    id: 'hive', name: 'Hive (working title)', emoji: '🐝', color: '#FBBC05', cat: 'Board', tags: [], min: 2, max: 2,
+    tagline: 'Coming soon.',
+    desc: 'Coming soon.',
+    howto: ['Coming soon.'],
+    load: () => import('./hive.js'),
+  },
+  // ---- cascadia: owned by the cascadia agent (edit only this entry, its CAPS line and its module) ----
+  {
+    id: 'cascadia', name: 'Cascadia (working title)', emoji: '🦊', color: '#34A853', cat: 'Strategy', tags: [], min: 1, max: 4,
+    tagline: 'Coming soon.',
+    desc: 'Coming soon.',
+    howto: ['Coming soon.'],
+    load: () => import('./cascadia.js'),
+  },
+  // ---- harmonies: owned by the harmonies agent (edit only this entry, its CAPS line and its module) ----
+  {
+    id: 'harmonies', name: 'Harmonies (working title)', emoji: '🏞️', color: '#4285F4', cat: 'Strategy', tags: [], min: 1, max: 4,
+    tagline: 'Coming soon.',
+    desc: 'Coming soon.',
+    howto: ['Coming soon.'],
+    load: () => import('./harmonies.js'),
+  },
+  // ---- wingspan: owned by the wingspan agent (edit only this entry, its CAPS line and its module) ----
+  {
+    id: 'wingspan', name: 'Wingspan (working title)', emoji: '🐦', color: '#12B5CB', cat: 'Strategy', tags: [], min: 1, max: 5,
+    tagline: 'Coming soon.',
+    desc: 'Coming soon.',
+    howto: ['Coming soon.'],
+    load: () => import('./wingspan.js'),
+  },
+  // ---- coup: owned by the coup agent (edit only this entry, its CAPS line and its module) ----
+  {
+    id: 'coup', name: 'Coup (working title)', emoji: '👑', color: '#EA4335', cat: 'Bluffing', tags: [], min: 2, max: 6,
+    tagline: 'Coming soon.',
+    desc: 'Coming soon.',
+    howto: ['Coming soon.'],
+    load: () => import('./coup.js'),
+  },
   {
     id: 'sketch',
     name: 'Sketch & Guess',
@@ -707,6 +747,11 @@ for (const g of GAMES) g.help = { ...(EXTRA_HELP[g.id] || {}), ...(g.help || {})
 //   otb — can be played by two people over the board on one phone (a 'Same device' button in the game sheet)
 //   watch:false — every player's screen is private (or built around having a seat), so the audience gets a stand-in screen instead
 const CAPS = {
+  hive: {}, // hive agent
+  cascadia: {}, // cascadia agent
+  harmonies: {}, // harmonies agent
+  wingspan: {}, // wingspan agent
+  coup: {}, // coup agent
   connect4: { bots: true, async: true },
   chess: { bots: true, async: true, otb: true },
   colorrush: { watch: false, bots: true },
@@ -745,7 +790,7 @@ const CAPS = {
 for (const g of GAMES) if (CAPS[g.id]) Object.assign(g, CAPS[g.id]);
 
 // Home-screen order: the requested line-up first (in order), then the Jackbox-style games, then the originals
-const ORDER = ['telephone', 'wordspies', 'captions', 'rowrumble', 'sketch', 'dialitin', 'petals', 'drawbattle', 'uniqueclues', 'wordbomb', 'spyplace', 'codecrack', 'shadowquest', 'royalletters', 'tunneltraitors', 'islandsettlers', 'trickcrew', 'temple', 'trainheist', 'letterdash', 'redline', 'sushitrain', 'onenightwolf', 'puckfootball', 'tilemosaic', 'pinplace', 'copilots', 'wonderrivals', 'jigsaw', 'colorrush', 'quipclash', 'tshirt', 'triviatrap', 'fibquiz', 'champdraw', 'alienamong', 'movie', 'beans', 'pool', 'poker', 'chess', 'liars', 'imposter', 'bomber', 'tanks', 'snake', 'blocks', 'sumo', 'pong', 'typeracer', 'retro', 'connect4'];
+const ORDER = ['hive', 'cascadia', 'harmonies', 'wingspan', 'coup', 'telephone', 'wordspies', 'captions', 'rowrumble', 'sketch', 'dialitin', 'petals', 'drawbattle', 'uniqueclues', 'wordbomb', 'spyplace', 'codecrack', 'shadowquest', 'royalletters', 'tunneltraitors', 'islandsettlers', 'trickcrew', 'temple', 'trainheist', 'letterdash', 'redline', 'sushitrain', 'onenightwolf', 'puckfootball', 'tilemosaic', 'pinplace', 'copilots', 'wonderrivals', 'jigsaw', 'colorrush', 'quipclash', 'tshirt', 'triviatrap', 'fibquiz', 'champdraw', 'alienamong', 'movie', 'beans', 'pool', 'poker', 'chess', 'liars', 'imposter', 'bomber', 'tanks', 'snake', 'blocks', 'sumo', 'pong', 'typeracer', 'retro', 'connect4'];
 GAMES.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 
 export const GAME_BY_ID = Object.fromEntries(GAMES.map((g) => [g.id, g]));
