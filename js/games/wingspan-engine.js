@@ -1,7 +1,7 @@
 // Wingspan rules engine — pure JS, no DOM (runs in the browser host and in node tests).
 // The whole game is one generator: it yields "beats" (publish + pause, for animation), prompts for a player's
 // decision, and finishes at the end of round 4. The host holds the Game; clients only ever see view(pid).
-import { BIRDS, BONUS, GOALS, GOAL_RANK, FOODS, HAB_KEY } from './wingspan-data.js';
+import { BIRDS, BONUS, GOALS, GOAL_RANK, FOODS, HAB_KEY, powerText, POWER_LABEL } from './wingspan-data.js';
 
 export const EGG_COST = [0, 1, 1, 2, 2];
 const ROW_BASE = [[1, 1, 2, 2, 3, 3], [2, 2, 3, 3, 4, 4], [1, 1, 2, 2, 3, 3]]; // food / eggs / cards by birds in the row
@@ -937,4 +937,4 @@ Game.prototype.rowAffinity = function rowAffinity(pid, hab) {
   return n < 5 ? rowReward(hab, n + 1).n - rowReward(hab, n).n + n * 0.08 : -9;
 };
 
-export { BIRDS, BONUS, GOALS, FOODS };
+export { BIRDS, BONUS, GOALS, FOODS, powerText, POWER_LABEL };
