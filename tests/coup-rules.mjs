@@ -311,7 +311,7 @@ t('leaving: cards revealed, windows and choices unblock', () => {
 
 // ------------------------------------------------------------------ Reformation (teams)
 t('teams: alternate allegiance, no targeting teammates, convert and embezzle', () => {
-  let S = game(4, { p1: ['duchess', 'warden'] }, { teams: true });
+  let S = game(4, { p1: ['duchess', 'warden'], p2: ['shade', 'corsair'] }, { teams: true });
   assert.deepEqual(S.players.map((p) => p.team), [0, 1, 0, 1]);
   const lg = (id, type) => E.legalActions(S, id).find((a) => a.type === type);
   assert.deepEqual(lg('p0', 'assassinate').targets.sort(), ['p1', 'p3']);
