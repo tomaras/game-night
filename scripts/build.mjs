@@ -62,7 +62,7 @@ if (env === 'nightly') {
 }
 
 // 5. service worker: stamp the build id and the precache list
-const skip = (rel) => /^(sw\.js|build\.json|CNAME|\.nojekyll|README\.md)$/.test(rel) || /(^|\/)LICENSE/.test(rel) || /^roms\//.test(rel) || /^vendor\/(words\.txt|countries-110m\.json)$/.test(rel);
+const skip = (rel) => /^(sw\.js|build\.json|CNAME|\.nojekyll|README\.md)$/.test(rel) || /(^|\/)LICENSE/.test(rel) || /^roms\//.test(rel) || /^assets\/(hive|hive3d|cascadia)\//.test(rel) || /^vendor\/(words\.txt|countries-110m\.json)$/.test(rel);
 const pre = walk(out).map((f) => path.relative(out, f).split(path.sep).join('/')).filter((r) => !skip(r)).sort();
 let sw = fs.readFileSync(path.join(out, 'sw.js'), 'utf8');
 sw = sw.replace(/const CACHE_PREFIX = '[^']*'; \/\/ __CACHE_PREFIX__.*/, `const CACHE_PREFIX = '${cachePrefix}';`).replace(/const BUILD = '[^']*'; \/\/ __BUILD__.*/, `const BUILD = '${build}';`).replace(/const PRECACHE = \[\]; \/\/ __PRECACHE__.*/, `const PRECACHE = ${JSON.stringify(pre)};`);

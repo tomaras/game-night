@@ -36,7 +36,7 @@ self.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'GET_BUILD') e.source?.postMessage({ type: 'BUILD', build: BUILD });
 });
 
-const isData = (u) => /\/(vendor\/(words\.txt|countries-110m\.json)|roms\/)/.test(u.pathname);
+const isData = (u) => /\/(vendor\/(words\.txt|countries-110m\.json)|roms\/|assets\/(hive|hive3d|cascadia)\/)/.test(u.pathname); // big art: fetched on first use, then kept
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
