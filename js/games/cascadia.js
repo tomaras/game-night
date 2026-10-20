@@ -89,13 +89,13 @@ function stateRng(host) {
 export function start(api) {
   const ids=api.players.map((p)=>p.id), meIndex=ids.indexOf(api.me), root=h('div.kt.wide.tl');
   api.root.append(h('style',CSS),root);
-  const S={g:null,log:[],scores:null,view:meIndex>=0?meIndex:0,sel:null,zoom:1,panX:0,panY:0,cards:false,final:false};
+  const S={g:null,log:[],scores:null,view:meIndex>=0?meIndex:0,sel:null,refresh:null,zoom:1,panX:0,panY:0,cards:false,final:false};
   const playerName=(i)=>api.player(ids[i])?.name||'Explorer';
   const myTurn=()=>!!S.g&&!S.g.over&&S.g.turn===meIndex&&api.iAmPlayer;
   const viewBoard=(i=S.view)=>S.g?R.boardFromList(S.g.boards[i],S.g.nature[i]):R.newBoard();
   const scoreFor=(i)=>S.scores?.[i]?.total??(S.g?R.quickTotal(viewBoard(i),S.g.cards):0);
 
-  api.on('state',(m)=>{const changed=S.g&&m.g.turnNo!==S.g.turnNo;S.g=m.g;S.log=m.log||[];S.scores=m.scores||null;S.final=!!m.final;if(changed||!myTurn())S.sel=null;if(changed){S.panX=S.panY=0;api.sfx(m.g.over?'good':'turn',.55);}render();});
+  api.on('state',(m)=>{const changed=S.g&&m.g.turnNo!==S.g.turnNo;S.g=m.g;S.log=m.log||[];S.scores=m.scores||null;S.final=!!m.final;if(changed||!myTurn()){S.sel=null;S.refresh=null;}if(changed){S.panX=S.panY=0;api.sfx(m.g.over?'good':'turn',.55);}render();});
   api.on('sfx',(m)=>api.sfx(m.k,m.v)); api.onPlayersChanged(render);
 
   function selectPair(i){if(!myTurn())return;S.sel={i,j:i,rot:0,q:null,r:null,tq:null,tr:null};api.sfx('chip',.55);render();}
@@ -104,7 +104,8 @@ export function start(api) {
   function placeAt(q,r){if(!myTurn()||!S.sel)return;S.sel={...S.sel,q,r,tq:null,tr:null};api.sfx('wood',.55);render();}
   function tokenAt(q,r){if(!myTurn()||!S.sel||S.sel.q===null)return;S.sel={...S.sel,tq:q,tr:r};api.sfx('chip',.6);render();}
   function submit(){if(!myTurn()||!S.sel||S.sel.q===null)return;api.toHost('take',{...S.sel});api.sfx('place',.7);S.sel=null;render();}
-  function wipe(kind,idx){if(!myTurn())return;api.toHost('wipe',{kind,idx});api.sfx('shuffle',.55);}
+  function wipe(kind,idx){if(!myTurn()||!idx?.length)return;api.toHost('wipe',{kind,idx});api.sfx('shuffle',.55);S.refresh=null;render();}
+  function toggleRefresh(i,e){e?.stopPropagation();if(S.refresh===null)return;S.refresh=S.refresh.includes(i)?S.refresh.filter((x)=>x!==i):[...S.refresh,i];render();}
 
   function boardSvg() {
     let b=viewBoard(); const canAct=myTurn()&&S.view===meIndex; let opens=canAct&&S.sel?R.openHexes(b):[], tokenSpots=[];
@@ -129,10 +130,10 @@ export function start(api) {
   }
 
   function market() {
-    const g=S.g,active=myTurn(),pairs=g.market.tiles.map((tid,i)=>h('div.tl-pair'+(S.sel?.i===i&&S.sel?.j===i?'.sel':S.sel?.i===i||S.sel?.j===i?'.split':''),{onclick:()=>active&&selectPair(i),'aria-label':`Draft pair ${i+1}`},h('span.num',i+1),tid==null?h('div.tl-minihex'):tileSvg(tid,0,S.sel?.i===i?'pick':''),g.market.tokens[i]<0?h('div.tl-wild'):h('button.tl-wild'+(S.sel?.j===i?'.pick':''),{onclick:(e)=>selectToken(i,e),'aria-label':R.ANIMAL_NAME[g.market.tokens[i]]},animalArt(g.market.tokens[i]))));
-    pairs.forEach((p,i)=>p.querySelector('.tl-minihex')?.addEventListener('click',(e)=>selectTile(i,e)));
+    const g=S.g,active=myTurn(),pairs=g.market.tiles.map((tid,i)=>h('div.tl-pair'+(S.sel?.i===i&&S.sel?.j===i?'.sel':S.sel?.i===i||S.sel?.j===i?'.split':''),{onclick:()=>active&&S.refresh===null&&selectPair(i),'aria-label':`Draft pair ${i+1}`},h('span.num',i+1),tid==null?h('div.tl-minihex'):tileSvg(tid,0,S.sel?.i===i?'pick':''),g.market.tokens[i]<0?h('div.tl-wild'):h('button.tl-wild'+(S.refresh?.includes(i)||S.sel?.j===i?'.pick':''),{onclick:(e)=>S.refresh===null?selectToken(i,e):toggleRefresh(i,e),'aria-label':R.ANIMAL_NAME[g.market.tokens[i]]},animalArt(g.market.tokens[i]))));
+    pairs.forEach((p,i)=>p.querySelector('.tl-minihex')?.addEventListener('click',(e)=>S.refresh===null&&selectTile(i,e)));
     const o=R.overpop(g),over=o&&o.n===3&&!g.freeWiped&&active?h('div.tl-over',h('span',`Three ${R.ANIMAL_NAME[o.animal].toLowerCase()} tokens.`),h('button.btn.tonal',{onclick:()=>wipe('free',o.idx)},'Refresh free')):null,pine=g.nature[meIndex]||0;
-    return h('section.market-section',h('div.tl-section-head',h('b','Trailhead'),h('span.tl-round',g.over?'Trail complete':g.solo?`${20-g.turns[0]} turns left`:`Turn ${g.turnNo+1} / ${20*g.n}`)),h('div.tl-market',pairs),h('div.tl-resource',h('span.tl-pine','◆',`${pine} pinecone${pine===1?'':'s'}`),S.sel&&S.sel.i!==S.sel.j?h('span.chip.purple','Split pair · costs 1'):null,active&&pine>0?h('button.btn.ghost',{onclick:()=>wipe('nature',[0,1,2,3])},'Refresh all · 1 pinecone'):null),over);
+    return h('section.market-section',h('div.tl-section-head',h('b','Trailhead'),h('span.tl-round',g.over?'Trail complete':g.solo?`${20-g.turns[0]} turns left`:`Turn ${g.turnNo+1} / ${20*g.n}`)),h('div.tl-market',pairs),h('div.tl-resource',h('span.tl-pine','◆',`${pine} pinecone${pine===1?'':'s'}`),S.sel&&S.sel.i!==S.sel.j?h('span.chip.purple','Split pair · costs 1'):null,active&&pine>0&&S.refresh===null?h('button.btn.ghost',{onclick:()=>{S.sel=null;S.refresh=[];render();}},'Choose refresh · 1 pinecone'):null),over);
   }
 
   function scoreSection() {
@@ -143,6 +144,7 @@ export function start(api) {
   function prompt() {
     if(S.final)return h('div.tl-prompt',h('div.copy','Final scores are ready',h('small','Open the breakdown to see every point.')),h('button.btn.primary',{onclick:()=>{S.cards=true;render();}},'Score breakdown'));
     if(!myTurn())return h('div.tl-prompt',h('div.copy',`${playerName(S.g.turn)} is exploring…`,h('small',S.g.solo?'Plan your next placement.':`Viewing ${playerName(S.view)}'s wilderness`)));
+    if(S.refresh!==null)return h('div.tl-prompt',h('div.copy','Choose wildlife to refresh',h('small',`${S.refresh.length} selected · costs one pinecone`)),h('button.btn.ghost',{onclick:()=>{S.refresh=null;render();}},'Cancel'),h('button.btn.primary',{disabled:!S.refresh.length,onclick:()=>wipe('nature',S.refresh)},'Refresh'));
     if(!S.sel)return h('div.tl-prompt',h('div.copy','Choose a habitat and wildlife pair',h('small','With a pinecone, tap separate pieces to split the pair.')));
     if(S.sel.q===null)return h('div.tl-prompt',h('button.tl-circle',{onclick:()=>{S.sel.rot=(S.sel.rot+5)%6;render();},'aria-label':'Rotate left'},'↶'),h('div.copy','Place the habitat on a green space',h('small','Drag the map to pan. Rotation matters where two habitats meet.')),h('button.tl-circle',{onclick:()=>{S.sel.rot=(S.sel.rot+1)%6;render();},'aria-label':'Rotate right'},'↷'),h('button.btn.ghost',{onclick:()=>{S.sel=null;render();}},'Undo'));
     const b=R.withTile(viewBoard(meIndex),S.g.market.tiles[S.sel.i],S.sel.q,S.sel.r,S.sel.rot),spots=R.tokenSpots(b,S.g.market.tokens[S.sel.j]);
@@ -167,7 +169,7 @@ export function start(api) {
     const restored=api.restore?.v===1?JSON.parse(JSON.stringify(api.restore)):null,H=restored||{v:1,rand:(Number(api.seed)||Date.now())>>>0,g:null,log:[],finished:false},rng=stateRng(H);
     if(!H.g){const mode=api.opts.scoring||'varied',cards=mode==='family'?Array(5).fill('F'):mode==='intermediate'?Array(5).fill('I'):mode==='starter'?Array(5).fill('A'):Array.from({length:5},()=>R.VARIANTS[rng.int(4)]);H.g=R.newGame(ids.length,rng,{cards,solo:ids.length===1});H.log=['A new trail begins.'];}
     const scores=()=>H.g.over?R.finalScores(H.g.boards.map((x,i)=>R.boardFromList(x,H.g.nature[i])),H.g.cards,{n:H.g.n,majority:api.opts.bonus!=='off'}):null;
-    const pub=()=>{api.broadcast('state',{g:H.g,log:H.log,scores:scores(),final:H.g.over});api.save({v:1,rand:H.rand,g:H.g,log:H.log,finished:H.finished},{turn:ids[H.g.turn],label:`Turn ${H.g.turnNo+1}`});};
+    const pub=()=>{api.broadcast('state',{g:H.g,log:H.log,scores:scores(),final:H.g.over});api.save({v:1,rand:H.rand,g:H.g,log:H.log,finished:H.finished},{turn:ids[H.g.turn],label:H.g.over?'Trail complete':`Turn ${H.g.turnNo+1}`,over:H.g.over,summary:H.g.over?'Final scores ready':'Wilderness in progress',moves:H.g.turnNo});};
     const finish=()=>{if(H.finished)return;H.finished=true;const sc=scores(),ranking=ids.map((id,i)=>({id,score:sc[i].total,note:`${sc[i].wild} wildlife · ${sc[i].hab} habitat · ${sc[i].maj} bonus · ${sc[i].nature} pinecones`})).sort((a,b)=>b.score-a.score),top=ranking[0].score,winners=ranking.filter((x)=>x.score===top).map((x)=>x.id);api.endGame({title:H.g.solo?`${R.soloRank(top)} wilderness`:`${winners.map((id)=>api.player(id)?.name||'Explorer').join(' & ')} reached the summit!`,subtitle:`${top} points`,ranking,winners});};
     api.on('wipe',(m,from)=>{const pi=ids.indexOf(from);if(pi<0||R.doWipe(H.g,rng,pi,m?.kind,m?.idx))return;H.log.unshift(`${playerName(pi)} refreshed the wildlife row${m.kind==='nature'?' with a pinecone':''}.`);api.broadcast('sfx',{k:'shuffle',v:.55});pub();});
     api.on('take',(m,from)=>{const pi=ids.indexOf(from);if(pi<0)return;const out=R.doTake(H.g,rng,pi,m||{});if(out.err)return;const r=out.res,animal=r.tok>=0?` and placed a ${R.ANIMAL_NAME[r.tok].toLowerCase()}`:' and returned the wildlife';H.log.unshift(`${playerName(pi)} added ${R.tileHabs(R.TILE_BY_ID[r.tile]).map((x)=>R.HAB_NAME[x].toLowerCase()).join(' / ')}${animal}${r.gained?' · +1 pinecone':''}.`);api.broadcast('sfx',{k:r.gained?'good':'wood',v:.65});pub();if(H.g.over)api.timeout(finish,6500);});
