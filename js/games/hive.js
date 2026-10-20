@@ -70,6 +70,8 @@ ${GLYPH_CSS}
 .hv-arena.d3 { background:#1c2216; }
 .hv-arena.d3 .hv-board,.hv-arena.d3 .hv-zoom { display:none; }
 .hv-arena.d3::before { box-shadow:inset 0 0 90px rgba(10,8,3,.5); }
+.hv.d3 .hv-tray { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); padding:0; }
+.hv.d3 .hv-bag { display:none; }
 .hv-tray { grid-area:tray; display:flex; justify-content:center; padding:6px 10px 4px; background:#120f0b; min-width:0; }
 .hv-trayrow { position:relative; width:min(100%, calc(var(--n) * 104px)); aspect-ratio:var(--ratio); background-size:100% 100%; background-repeat:no-repeat; filter:drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
 .hv-trayrow .hv-rpiece { position:absolute; top:46%; width:var(--tw); height:auto; aspect-ratio:1; transform:translate(-50%,-50%); filter:drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
@@ -237,9 +239,10 @@ export function start(api) {
       onPiece: (piece) => { const cell = pos.occ.find((c) => pos.stack(c).includes(piece)); if (cell != null) selectCell(cell); },
       onTarget: (id) => { const mv = targetMoves[id]; if (mv) stageMove(mv); },
       onCell: (q, r) => tapCell(cellOf(q, r)),
+      onReserve: (type) => { const color = otb ? pos.turn : viewColor; const btn = trayEl.querySelector(`[aria-label^="${LABEL[type]},"]`); if (btn && !btn.disabled) btn.click(); },
       onEmpty: () => { if (selected || pendingMove) { selected = null; pendingMove = null; hintMove = null; render(); } },
       onHover: (id) => { hoverTarget = id; pushModel(); },
-    })).then((v) => { view3d = v; arena.classList.add('d3'); render(); })
+    })).then((v) => { view3d = v; arena.classList.add('d3'); root.classList.add('d3'); render(); })
       .catch((e) => console.warn('[hive] 3D table unavailable, using the flat board', e));
   }
 
@@ -324,7 +327,7 @@ export function start(api) {
     });
     for (const e of edges.values()) {
       const colour = prefs.routeColors ? (e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8]) : '#FBBC05';
-      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: 0.034, opacity: 0.96, dests: e.dests });
+      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: 0.017, opacity: 0.96, dests: e.dests });
     }
     return out;
   }
@@ -353,7 +356,19 @@ export function start(api) {
       return { id: i, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: m.k === K_PLACE ? 'place' : 'move', pending: key === pendingKey, hint: key === hintKey,
         color: m.k !== K_MOVE ? '#34A853' : prefs.routeColors ? DEST_COLORS[i % 8] : '#FBBC05', shape: prefs.routeColors ? SHAPE_NAMES[i % 8] : 'circle' };
     });
-    const arrows = prefs.hints >= 2 && fp != null ? buildArrows(chosen) : [];
+    let arrows = prefs.hints >= 2 && fp != null ? buildArrows(chosen) : [];
+    if (prefs.hints >= 3 && fp != null && !selected && !pendingMove) {
+      // "All pieces": every move of every stone is on the board at once; the stone in the spotlight is bright, the rest quiet
+      const seen = new Set(targets.map((t) => `${t.q},${t.r},${t.height}`));
+      for (const m of moves) {
+        if (m.k !== K_MOVE || pos.top(m.from) === fp) continue;
+        const key = `${qOf(m.to)},${rOf(m.to)},${pos.H[m.to]}`;
+        if (!seen.has(key)) { seen.add(key); targets.push({ id: null, faint: true, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: 'move', color: '#FBBC05', shape: 'circle' }); }
+      }
+      const others = new Map();
+      for (const m of moves) if (m.k === K_MOVE && pos.top(m.from) !== fp) { const p = pos.top(m.from); (others.get(p) || others.set(p, []).get(p)).push(m); }
+      for (const list of others.values()) for (const a of buildArrows(list)) arrows.push({ ...a, opacity: 0.2, width: 0.012, head: a.head });
+    }
     const ghostMove = pendingMove || (hoverTarget != null ? targetMoves[hoverTarget] : null);
     const last = [...(S.moves || [])].reverse().find((m) => m.to);
     const lastCell = last?.to ? cellOf(last.to[0], last.to[1]) : -1;
@@ -361,6 +376,7 @@ export function start(api) {
       tiles, targets, arrows, ghost: ghostFor(ghostMove), moveAnim: anim, instant,
       selectable: new Set(prefs.hints > 0 && canAct() ? moves.filter((m) => m.k === K_MOVE).map((m) => pos.top(m.from)) : []),
       selected: selected?.kind === 'board' ? pos.top(selected.cell) : null, focus: fp != null ? [fp] : [],
+      reserve: { color: otb ? pos.turn : viewColor, items: pos.types.map((t) => ({ type: t, count: pos.handCount(otb ? pos.turn : viewColor, t), active: moves.some((m) => m.k === K_PLACE && typeOfPiece(m.p) === t), selected: selected?.kind === 'reserve' && selected.type === t })) },
       last: lastCell >= 0 ? pos.top(lastCell) : null,
       settings: { rotation: prefs.rotation }, keepView: false,
     });
@@ -677,7 +693,7 @@ export function start(api) {
     const bottomColor = otb ? 0 : viewColor;
     playerBar(1 - bottomColor, false);
     playerBar(bottomColor, true);
-    renderTray(bottomColor);
+    renderTray(otb ? pos.turn : viewColor);
     const current = idOf(pos.turn);
     statusEl.replaceChildren(
       h('b', statusText()),
@@ -694,7 +710,7 @@ export function start(api) {
     const seg = (key, opts2) => h('div.hv-seg', opts2.map(([v, label]) => h('button' + (prefs[key] === v ? '.on' : ''), { onclick: (e) => { prefs[key] = v; savePrefs(); [...e.currentTarget.parentNode.children].forEach((b) => b.classList.toggle('on', b === e.currentTarget)); render(); } }, label)));
     openSheet(h('div.hv-sheet.hv-set',
       h('h3', 'Display and hints'),
-      h('b', 'Move hints'), h('small', 'Off shows nothing; destinations shows where a piece can go; paths adds an arrow route to every destination; all pieces steps through every movable stone, one at a time.'),
+      h('b', 'Move hints'), h('small', 'Off shows nothing; destinations shows where a piece can go; paths adds an arrow route to every destination; all pieces shows every move at once and spotlights one stone at a time.'),
       seg('hints', [[0, 'Off'], [1, 'Destinations'], [2, 'Paths'], [3, 'All pieces']]),
       h('b', 'Piece rotation'), h('small', 'How each stone lies after it is placed or moved. Natural adds a tiny hand-set tilt.'),
       seg('rotation', [['off', 'Upright'], ['neat', 'Neat'], ['natural', 'Natural']]),

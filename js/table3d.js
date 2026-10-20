@@ -55,7 +55,7 @@ export function createTable3D(host, opts = {}) {
   const dpr = () => Math.min(devicePixelRatio || 1, tier >= 2 ? 2 : 1);
   renderer.setPixelRatio(dpr());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.96;
+  renderer.toneMappingExposure = 1.06;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x1c2216);
@@ -63,16 +63,16 @@ export function createTable3D(host, opts = {}) {
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.3;
+  scene.environmentIntensity = 0.36;
 
-  const key = new THREE.DirectionalLight(0xffe0bd, 2.7);
+  const key = new THREE.DirectionalLight(0xffe0bd, 2.95);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
   key.shadow.radius = 4;
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.025;
   scene.add(key, key.target);
-  const fill = new THREE.HemisphereLight(0xcfe3ff, 0x3a2a18, 0.2);
+  const fill = new THREE.HemisphereLight(0xcfe3ff, 0x3a2a18, 0.26);
   scene.add(fill);
 
   /** Aim the shadow camera at a square of the table (centre cx,cz and half size r). */
