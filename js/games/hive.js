@@ -9,6 +9,7 @@ import {
 } from '../engines/hive-rules.js';
 import { chooseMoveAsync, stopHiveWorker } from '../engines/hive-ai.js';
 import { glyphDefs, GLYPH_CSS, tileInner, tileSVG } from './hive-art.js';
+import { webglAvailable } from '../table3d.js';
 
 const LABEL = {
   Q: 'Queen Bee', S: 'Spider', B: 'Beetle', G: 'Grasshopper', A: 'Soldier Ant',
@@ -62,10 +63,19 @@ ${GLYPH_CSS}
 .hv-rpiece { position:relative; width:42px; height:46px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 3px 2px rgba(0,0,0,.34)); transition:transform .16s var(--std),filter .16s; }
 .hv-rpiece svg { width:42px; height:46px; display:block; }
 .hv-rpiece:hover:not(:disabled),.hv-rpiece.sel { transform:translateY(-4px); filter:drop-shadow(0 6px 4px rgba(0,0,0,.23)); }
-.hv-rpiece.sel { outline:3px solid #ffc84a; outline-offset:0; clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%); }
+.hv-rpiece.sel { outline:none; filter:drop-shadow(0 0 7px #ffc84a) drop-shadow(0 5px 3px rgba(0,0,0,.4)); }
 .hv-rpiece:disabled { cursor:default; opacity:.52; }
 .hv-rpiece.empty { display:none; }
 .hv-count { position:absolute; right:-1px; bottom:0; width:19px; height:19px; border-radius:50%; display:grid; place-items:center; background:var(--m-blue); color:#fff; border:2px solid var(--surface); font:800 10px var(--font); }
+.hv-arena.d3 { background:#1c2216; }
+.hv-arena.d3 .hv-board,.hv-arena.d3 .hv-zoom { display:none; }
+.hv-arena.d3::before { box-shadow:inset 0 0 90px rgba(10,8,3,.5); }
+.hv-timg { width:100%; height:auto; aspect-ratio:1; display:block; pointer-events:none; filter:drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
+.hv-seg { display:flex; gap:0; margin:6px 0 14px; border:1px solid var(--line2); }
+.hv-seg button { flex:1; border:0; border-right:1px solid var(--line2); background:var(--surface); color:var(--on); padding:10px 6px; font:700 13px var(--font); cursor:pointer; }
+.hv-seg button:last-child { border-right:0; }
+.hv-seg button.on { background:var(--blue); color:#fff; }
+.hv-set small { display:block; color:var(--on2); font:500 12px/1.4 var(--font); margin:-2px 0 4px; }
 .hv-arena { grid-area:arena; position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-table-v2.png") center/cover no-repeat; border:1px solid #25170e; touch-action:none; user-select:none; }
 .hv-arena::before { content:''; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 70px rgba(15,8,3,.42); }
 .hv-board { position:absolute; inset:0; width:100%; height:100%; overflow:visible; touch-action:none; }
@@ -198,6 +208,23 @@ export function start(api) {
   root.append(rail, arena, inspector, command);
   api.root.append(h('style', CSS), root);
 
+  // ---- 3D table (falls back to the flat SVG board if WebGL or the art cannot load)
+  const PREF_KEY = 'gn.hive3d';
+  const prefs = { hints: 2, rotation: 'natural' };
+  try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch {}
+  const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
+  let view3d = null, hoverTarget = null, targetMoves = [], firstState = true, pendingAnim = null;
+  if (webglAvailable() && !/[?&]flat\b/.test(location.href)) {
+    import('./hive3d.js').then((m) => m.createHive3D(arena, {
+      onPiece: (piece) => { const cell = pos.occ.find((c) => pos.stack(c).includes(piece)); if (cell != null) selectCell(cell); },
+      onTarget: (id) => { const mv = targetMoves[id]; if (mv) stageMove(mv); },
+      onCell: (q, r) => tapCell(cellOf(q, r)),
+      onEmpty: () => { if (selected || pendingMove) { selected = null; pendingMove = null; hintMove = null; render(); } },
+      onHover: (id) => { hoverTarget = id; pushModel(); },
+    })).then((v) => { view3d = v; arena.classList.add('d3'); render(); })
+      .catch((e) => console.warn('[hive] 3D table unavailable, using the flat board', e));
+  }
+
   let S = { moves: [], logs: [], result: null, version: 0 };
   let pos = new Position(opts);
   let selected = null;
@@ -223,7 +250,115 @@ export function start(api) {
     zoomLabel.textContent = `${Math.round(view.scale * 100)}%`;
   }
 
+  /** A piece picture for trays and the guide: rendered by the 3D scene when it is up, drawn flat otherwise. */
+  function tileArt(type, color, size) {
+    if (view3d) { try { return `<img class="hv-timg" src="${view3d.thumb(type, color)}" width="${size}" height="${size}" alt="">`; } catch (e) { console.warn('[hive] thumb', e); } }
+    return tileSVG(type, color === 0 ? 'w' : 'b', size);
+  }
+  const SHAPE_NAMES = ['circle', 'diamond', 'triangle', 'square', 'star', 'hex', 'plus', 'ring'];
+  const DEST_COLORS = ['#FBBC05', '#4285F4', '#EA4335', '#34A853', '#A142F4', '#12B5CB', '#FF6D00', '#F538A0'];
+  const lvl = (c) => pos.H[c];
+
+  /** Ply at which each piece last moved, so its resting rotation changes every time it is moved or placed. */
+  function plyMap(moves) {
+    const p = new Position(opts), out = new Map();
+    moves.forEach((j, i) => {
+      const mv = p.fromJSON(j); if (!mv) return;
+      const piece = mv.k === K_PLACE ? mv.p : mv.k === K_MOVE ? p.top(mv.from) : -1;
+      if (piece >= 0) out.set(piece, i + 1);
+      p.play(mv);
+    });
+    return out;
+  }
+  /** Path of the most recent real move, for the slide / hop / drop animation. */
+  function lastMoveAnim(moves) {
+    let idx = moves.length - 1;
+    while (idx >= 0 && moves[idx].k === 'pass') idx--;
+    if (idx < 0) return null;
+    const before = replay(opts, moves.slice(0, idx));
+    const mv = before.fromJSON(moves[idx]);
+    if (!mv) return null;
+    if (mv.k === K_PLACE) return { piece: mv.p, path: [[qOf(mv.to), rOf(mv.to), before.H[mv.to]]] };
+    const cells = before.pathOf(mv);
+    return { piece: before.top(mv.from), path: cells.map((c, i) => [qOf(c), rOf(c), i === 0 ? before.H[c] - 1 : before.H[c]]) };
+  }
+
+  function ghostFor(move) {
+    if (!move) return null;
+    const piece = move.p !== undefined ? move.p : pos.top(move.from);
+    return { type: typeOfPiece(piece), color: colorOfPiece(piece), q: qOf(move.to), r: rOf(move.to), height: pos.H[move.to] };
+  }
+
+  function buildArrows(moves, sel) {
+    const out = [];
+    if (prefs.hints < 2) return out;
+    const edges = new Map();
+    moves.forEach((m, i) => {
+      if (m.k !== K_MOVE) return;
+      const path = pos.pathOf(m);
+      for (let j = 1; j < path.length; j++) {
+        const key = `${path[j - 1]}>${path[j]}`;
+        const e = edges.get(key) || { a: path[j - 1], b: path[j], dests: [], final: -1 };
+        e.dests.push(i); if (j === path.length - 1) e.final = i;
+        edges.set(key, e);
+      }
+    });
+    for (const e of edges.values()) {
+      const colour = prefs.hints >= 3 && !sel ? DEST_COLORS[e.dests[0] % 8] : (e.final >= 0 ? DEST_COLORS[e.final % 8] : e.dests.length > 1 ? '#FFD978' : DEST_COLORS[e.dests[0] % 8]);
+      out.push({ cells: [[qOf(e.a), rOf(e.a), lvl(e.a)], [qOf(e.b), rOf(e.b), lvl(e.b)]], color: colour, head: e.final >= 0, width: sel ? 0.032 : 0.026, opacity: sel ? 0.95 : 0.78 });
+    }
+    return out;
+  }
+
+  function pushModel(anim = null, instant = false) {
+    if (!view3d) return;
+    const plies = plyMap(S.moves || []);
+    const tiles = [];
+    for (const cell of pos.occ) pos.stack(cell).forEach((piece, level) => tiles.push({ piece, q: qOf(cell), r: rOf(cell), level, type: typeOfPiece(piece), color: colorOfPiece(piece), ply: plies.get(piece) || 0 }));
+    const moves = legal();
+    const sel = selected?.kind === 'board' ? pos.top(selected.cell) : null;
+    const chosen = chosenMoves();
+    targetMoves = hints3d() ? chosen : [];
+    const pendingKey = pendingMove ? JSON.stringify(pos.toJSON(pendingMove)) : null;
+    const hintKey = hintMove ? JSON.stringify(hintMove) : null;
+    const targets = targetMoves.map((m, i) => {
+      const key = JSON.stringify(pos.toJSON(m));
+      return { id: i, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: m.k === K_PLACE ? 'place' : 'move', pending: key === pendingKey, hint: key === hintKey,
+        color: prefs.hints >= 3 && m.k === K_MOVE ? DEST_COLORS[i % 8] : '#FBBC05', shape: prefs.hints >= 3 ? SHAPE_NAMES[i % 8] : 'circle' };
+    });
+    let arrows = hints3d() ? buildArrows(chosen, true) : [];
+    if (hints3d() && prefs.hints >= 3 && !selected && canAct()) {
+      // everything that can move, all at once: thin lines in one colour per piece
+      arrows = [];
+      const byPiece = new Map();
+      for (const m of moves) if (m.k === K_MOVE) { const p = pos.top(m.from); (byPiece.get(p) || byPiece.set(p, []).get(p)).push(m); }
+      let n = 0;
+      for (const list of byPiece.values()) { const col = DEST_COLORS[n++ % 8]; for (const a of buildArrows(list, false)) arrows.push({ ...a, color: col }); }
+    }
+    const ghostMove = pendingMove || (hoverTarget != null ? targetMoves[hoverTarget] : null);
+    const last = [...(S.moves || [])].reverse().find((m) => m.to);
+    const lastCell = last?.to ? cellOf(last.to[0], last.to[1]) : -1;
+    view3d.update({
+      tiles, targets, arrows, ghost: ghostFor(ghostMove), moveAnim: anim, instant,
+      selectable: hints3d() || prefs.hints === 0 ? new Set(prefs.hints > 0 && canAct() ? moves.filter((m) => m.k === K_MOVE).map((m) => pos.top(m.from)) : []) : new Set(),
+      selected: sel, last: lastCell >= 0 ? pos.top(lastCell) : null,
+      settings: { rotation: prefs.rotation }, keepView: false,
+    });
+  }
+  const hints3d = () => prefs.hints >= 1;
+
+  function tapCell(cell) {
+    if (!canAct()) return;
+    if (selected) {
+      const mv = chosenMoves().find((m) => m.to === cell);
+      if (mv) return stageMove(mv);
+    }
+    if (legal().some((m) => m.k === K_MOVE && m.from === cell)) return selectCell(cell);
+    if (selected || pendingMove) { selected = null; pendingMove = null; hintMove = null; render(); }
+  }
+
   function fitBoard() {
+    if (view3d) return view3d.refit();
     if (!pos.occ.length) {
       view.scale = 1.06;
       view.x = 0;
@@ -262,7 +397,7 @@ export function start(api) {
         render();
       },
     });
-    btn.innerHTML = tileSVG(type, color === 0 ? 'w' : 'b', 46) + `<span class="hv-count">${count}</span>`;
+    btn.innerHTML = tileArt(type, color, 46) + `<span class="hv-count">${count}</span>`;
     if (!bottom) btn.tabIndex = active ? 0 : -1;
     return btn;
   }
@@ -453,7 +588,7 @@ export function start(api) {
   function renderInspector() {
     const type = activeType();
     const art = h('div');
-    art.innerHTML = tileSVG(type, pos.turn === 0 ? 'w' : 'b', 58);
+    art.innerHTML = tileArt(type, pos.turn, 58);
     const heading = h('div.hv-info-head', art, h('div', h('small', selected ? 'Selected insect' : 'Movement rules'), h('h3', LABEL[type])));
     const rules = h('ul.hv-rules', RULE_DETAILS[type].map((line) => h('li', line)));
     const history = h('div.hv-history', S.logs.length
@@ -473,15 +608,26 @@ export function start(api) {
       h('b', statusText()),
       h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `${pos.ply + 1}. ${pos.turn === 0 ? 'White' : 'Black'} to act`),
     );
-    drawBoard();
+    if (view3d) { pushModel(pendingAnim); pendingAnim = null; } else drawBoard();
     renderActions();
     renderInspector();
     if (freshBoard) { freshBoard = false; requestAnimationFrame(fitBoard); }
   }
 
+  function showSettings() {
+    const seg = (key, opts2) => h('div.hv-seg', opts2.map(([v, label]) => h('button' + (prefs[key] === v ? '.on' : ''), { onclick: (e) => { prefs[key] = v; savePrefs(); [...e.currentTarget.parentNode.children].forEach((b) => b.classList.toggle('on', b === e.currentTarget)); render(); } }, label)));
+    openSheet(h('div.hv-sheet.hv-set',
+      h('h3', 'Display and hints'),
+      h('b', 'Move hints'), h('small', 'Off shows nothing; destinations shows where a piece can go; paths adds an arrow route to every destination; all pieces draws every movable piece at once.'),
+      seg('hints', [[0, 'Off'], [1, 'Destinations'], [2, 'Paths'], [3, 'All pieces']]),
+      h('b', 'Piece rotation'), h('small', 'How each stone lies after it is placed or moved. Natural adds a tiny hand-set tilt.'),
+      seg('rotation', [['off', 'Upright'], ['neat', 'Neat'], ['natural', 'Natural']]),
+    ), { wide: true });
+  }
+
   function showGuide() {
     const content = h('div.hv-sheet', h('h3', 'Insect guide'), h('div.hv-guide', pos.types.map((type) => {
-      const art = h('div'); art.innerHTML = tileSVG(type, 'w', 48);
+      const art = h('div'); art.innerHTML = tileArt(type, 0, 48);
       return h('div.hv-guide-row', art, h('b', LABEL[type]), h('span', SHORT_RULE[type]));
     })), h('p.muted', 'Keep every piece connected. Ground insects must slide through open gaps. Surround all six sides of the opposing Queen Bee to win.'));
     openSheet(content, { wide: true });
@@ -522,6 +668,8 @@ export function start(api) {
       return;
     }
     pos = rebuilt;
+    pendingAnim = !firstState && S.version > before && S.version - before <= 3 ? lastMoveAnim(S.moves || []) : null;
+    firstState = false;
     selected = null;
     pendingMove = null;
     hintMove = null;
@@ -601,7 +749,7 @@ export function start(api) {
     if (first) fitBoard(); else worldTransform();
   });
   resize.observe(arena);
-  floatTools.append(iconBtn('gps_fixed', 'Recenter hive', fitBoard));
+  floatTools.append(iconBtn('gps_fixed', 'Recenter hive', fitBoard), iconBtn('tune', 'Display and hints', showSettings));
 
   let maybeBot = () => {};
   if (api.isHost) {
@@ -720,8 +868,9 @@ export function start(api) {
 
   api.on('state', applyState);
   api.onPlayersChanged(render);
-  api.cleanup(() => { resize.disconnect(); stopHiveWorker(); });
+  Object.defineProperty(arena, '__hv', { value: { get view() { return view3d; }, get targets() { return targetMoves; }, get pos() { return pos; }, prefs, load(list, turn = 0) { pos = Position.setup(opts, list, turn); S = { ...S, moves: [], result: null }; selected = null; pendingMove = null; render(); } }, enumerable: false });
+  api.cleanup(() => { resize.disconnect(); stopHiveWorker(); view3d?.dispose(); });
   render();
 
-  return { destroy() { resize.disconnect(); stopHiveWorker(); } };
+  return { destroy() { resize.disconnect(); stopHiveWorker(); view3d?.dispose(); } };
 }
