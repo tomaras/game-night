@@ -55,10 +55,25 @@ export const GAMES = [
   },
   // ---- wingspan: owned by the wingspan agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'wingspan', name: 'Wingspan (working title)', emoji: '🐦', color: '#12B5CB', cat: 'Strategy', tags: [], min: 1, max: 5,
-    tagline: 'Coming soon.',
-    desc: 'Coming soon.',
-    howto: ['Coming soon.'],
+    id: 'wingspan', name: 'Skyward Sanctuary', emoji: '🐦', color: '#4285F4', cat: 'Strategy', tags: ['Engine Building', 'Nature', 'Solo'], min: 1, max: 5,
+    tagline: 'Build a living refuge, one remarkable bird at a time.',
+    desc: 'Welcome birds into a growing forest, meadow and wetland. Gather food, tend nests and chain each habitat’s powers across four thoughtful rounds.',
+    howto: [
+      'Begin with five bird cards and five food tokens. Keep any five total, then choose one private sanctuary objective.',
+      'On your turn, either play a bird by paying its food and nest cost, or activate a habitat to gain food, lay eggs or draw birds.',
+      'A habitat gets stronger as it fills. After its main action, activate each brown bird power from right to left.',
+      'At each round’s end, compare the highlighted goal. One fewer turn is available in every new round, so build your engine early.',
+      'After round four, score bird values, private objectives, round goals, eggs, cached food and tucked discoveries. Most points wins.',
+    ],
+    options: [
+      { key: 'goals', label: 'Round goals', choices: [{ value: 'green', label: 'Competitive' }, { value: 'blue', label: 'Personal' }], default: 'green' },
+    ],
+    help: {
+      goal: 'Build the highest-scoring sanctuary across four rounds.',
+      steps: ['Choose one action each turn.', 'Fill habitats to strengthen their actions.', 'Run habitat powers from right to left.', 'Score birds, goals, eggs, caches and tucked cards.'],
+      tips: ['Food can be flexible: any two tokens can replace one required token.', 'Later bird slots also cost eggs.', 'Watch the next round goal before committing a bird.'],
+      controls: [['Tap a habitat', 'take its action'], ['Tap Play', 'choose and confirm a bird'], ['Tap a player', 'inspect their public sanctuary']],
+    },
     load: () => import('./wingspan.js'),
   },
   // ---- coup: owned by the coup agent (edit only this entry, its CAPS line and its module) ----
@@ -775,7 +790,7 @@ const CAPS = {
   hive: { bots: true, async: true, otb: true }, // hive agent
   cascadia: { bots: true, solo: true, min: 1, async: true }, // Cascadia implementation refined by OpenAI Codex
   harmonies: {}, // harmonies agent
-  wingspan: {}, // wingspan agent
+  wingspan: { bots: true }, // wingspan agent
   coup: {}, // coup agent
   connect4: { bots: true, async: true },
   chess: { bots: true, async: true, otb: true },
