@@ -14,7 +14,7 @@ eq([1, 2, 3, 4, 5].map((n) => coinsFor('garden', n)), [0, 2, 3, 3, 3], 'garden m
 eq([2, 3, 4].map((n) => coinsFor('red', n)), [1, 2, 3], 'red meter');
 // ---- setups
 eq(configFor(3).fields, 3, '3p fields'); eq(configFor(3).passes, 2, '3p passes'); eq(configFor(3).cost, null, '3p cannot buy');
-eq(configFor(7).hands, [3, 4, 5, 6, 6, 6, 6], '7p hands'); eq(configFor(7).cost, 2, '7p cost'); eq(configFor(7).draw, 4, '7p draw');
+eq(configFor(7).hands, [3, 4, 5, 6, 6, 6, 6], '7p hands'); eq(configFor(7).cost, 2, '7p cost'); eq(configFor(7).draw, 1, '7p draw each'); eq(configFor(7).drawAll, true, '7p everyone draws');
 eq(configFor(4).remove, ['coffee'], '4p'); eq(configFor(2).duel, true, '2p duel');
 
 const total = (g) => g.deck.length + g.discard.length + g.box + g.faceUp.length + g.order.reduce((a, id) => { const p = g.P[id]; return a + p.hand.length + p.coins.length + p.pending.length + p.offered.length + p.fields.reduce((x, f) => x + f.cards.length, 0); }, 0);

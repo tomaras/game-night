@@ -22,11 +22,11 @@ export function coinsFor(t, n) { let c = 0; for (const [b, co] of TYPES[t].v) if
 
 /** Setup for a player count. `hands` is by seat from the starting player. */
 export function configFor(n) {
-  const base = { remove: [], hands: Array(n).fill(5), fields: 2, cost: 3, passes: 3, draw: 3, duel: false };
+  const base = { remove: [], hands: Array(n).fill(5), fields: 2, cost: 3, passes: 3, draw: 3, drawAll: false, duel: false };
   if (n <= 2) return { ...base, remove: ['garden', 'cocoa'], passes: 1, draw: 2, duel: true };
   if (n === 3) return { ...base, remove: ['cocoa'], fields: 3, cost: null, passes: 2 };
   if (n <= 5) return { ...base, remove: ['coffee'] };
-  return { ...base, remove: ['cocoa', 'garden'], hands: [3, 4, 5, 6, 6, 6, 6].slice(0, n), cost: 2, draw: 4 };
+  return { ...base, remove: ['cocoa', 'garden'], hands: [3, 4, 5, 6, 6, 6, 6].slice(0, n), cost: 2, draw: 1, drawAll: true };
 }
 
 export class Game {
@@ -135,15 +135,19 @@ export class Game {
   }
   turnEnd() {
     if (this.endPending) return this.finish();
-    const p = this.P[this.active];
     let drawn = 0;
-    for (let i = 0; i < this.cfg.draw; i++) {
-      const c = this.drawCard();
-      if (c === null) break;
-      p.hand.push(c); drawn++;
+    const recipients = this.cfg.drawAll ? this.order.slice(this.turn).concat(this.order.slice(0, this.turn)) : [this.active];
+    for (const id of recipients) {
+      if (this.left.has(id)) continue;
+      for (let i = 0; i < this.cfg.draw; i++) {
+        const c = this.drawCard();
+        if (c === null) break;
+        this.P[id].hand.push(c); drawn++;
+        if (this.endPending) break;
+      }
       if (this.endPending) break;
     }
-    if (drawn) this.ev({ k: 'draw', who: this.active, n: drawn });
+    if (drawn) this.ev({ k: 'draw', who: this.cfg.drawAll ? 'all' : this.active, n: drawn });
     if (this.endPending) return this.finish();
     this.nextTurn();
   }
@@ -202,9 +206,10 @@ export class Game {
       });
       rows.push({ id, before: p.coins.length - fields.reduce((a, x) => a + x.coins, 0), fields, total: p.coins.length, hand: p.hand.length });
     }
-    rows.sort((a, b) => b.total - a.total || b.hand - a.hand);
+    // Official tie-break: among equal purses, the seat furthest clockwise from the starting player wins.
+    rows.sort((a, b) => b.total - a.total || this.order.indexOf(b.id) - this.order.indexOf(a.id));
     const top = rows[0];
-    this.result = { rows, winners: rows.filter((r) => r.total === top.total && r.hand === top.hand).map((r) => r.id) };
+    this.result = { rows, winners: [top.id] };
     this.ev({ k: 'end' });
   }
 
@@ -466,7 +471,7 @@ export class Game {
     for (const c of this.discard) if (!this.hidden.has(c)) dcounts[this.type[c]] = (dcounts[this.type[c]] || 0) + 1;
     return {
       phase: this.phase, turn: this.active, order: this.order, planted: this.planted, over: this.over, types: this.types,
-      cfg: { cost: this.cfg.cost, passes: this.cfg.passes, draw: this.cfg.draw, duel: this.cfg.duel, nf0: this.cfg.fields },
+      cfg: { cost: this.cfg.cost, passes: this.cfg.passes, draw: this.cfg.draw, drawAll: this.cfg.drawAll, duel: this.cfg.duel, nf0: this.cfg.fields },
       deck: this.deck.length, total: this.total, discard: this.discard.length, dtop: this.discard.length ? this.C(this.discard[this.discard.length - 1]) : null,
       dcounts, exhausted: this.exhausted, endPending: this.endPending, box: this.box,
       faceUp: this.faceUp.map((c) => this.C(c)),
