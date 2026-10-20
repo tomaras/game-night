@@ -472,7 +472,8 @@ export class Game {
     return {
       phase: this.phase, turn: this.active, order: this.order, planted: this.planted, over: this.over, types: this.types,
       cfg: { cost: this.cfg.cost, passes: this.cfg.passes, draw: this.cfg.draw, drawAll: this.cfg.drawAll, duel: this.cfg.duel, nf0: this.cfg.fields },
-      deck: this.deck.length, total: this.total, discard: this.discard.length, dtop: this.discard.length ? this.C(this.discard[this.discard.length - 1]) : null,
+      deck: this.deck.length, total: this.total, discard: this.discard.length,
+      dtop: this.discard.length && !this.hidden.has(this.discard[this.discard.length - 1]) ? this.C(this.discard[this.discard.length - 1]) : null,
       dcounts, exhausted: this.exhausted, endPending: this.endPending, box: this.box,
       faceUp: this.faceUp.map((c) => this.C(c)),
       offers: this.offers.map((o) => ({ id: o.id, from: o.from, to: o.to, give: o.give.map((c) => this.C(c)), want: o.want })),

@@ -20,6 +20,14 @@ eq(configFor(4).remove, ['coffee'], '4p'); eq(configFor(2).duel, true, '2p duel'
 const total = (g) => g.deck.length + g.discard.length + g.box + g.faceUp.length + g.order.reduce((a, id) => { const p = g.P[id]; return a + p.hand.length + p.coins.length + p.pending.length + p.offered.length + p.fields.reduce((x, f) => x + f.cards.length, 0); }, 0);
 const mk = (n, seed = 1) => { const ids = Array.from({ length: n }, (_, i) => 'p' + i); const g = new Game(ids, mkRng(seed)); g.start(); return g; };
 
+// Six- and seven-player tables deal one new card to every player at turn end.
+{
+  const g = mk(6, 27); const before = Object.fromEntries(g.order.map((id) => [id, g.P[id].hand.length]));
+  g.phase = 'plant3'; g.faceUp = []; g.order.forEach((id) => { g.P[id].pending = []; });
+  g.turnEnd();
+  g.order.forEach((id) => eq(g.P[id].hand.length, before[id] + 1, `6p end draw for ${id}`));
+}
+
 // ---- unit scenarios (3 players: three fields, no Cocoa)
 {
   const g = mk(3, 7);
