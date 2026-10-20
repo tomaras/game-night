@@ -1,4 +1,4 @@
-// Bean Bazaar — the computer players' brain. Pure functions over what a player may see (Game.view): every bot plays
+// Bohnanza — the computer players' brain. Pure functions over what a player may see (Game.view): every bot plays
 // with exactly the information a person has. A position is scored as  coins + the field "potential" (bean-o-meter,
 // copies still unseen, how much of the game is left) + a small hand term (is the front card plantable?).
 // Trades are judged by how much they change that score for me and for the partner.

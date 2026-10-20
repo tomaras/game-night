@@ -1,4 +1,4 @@
-// Bean Bazaar — host-authoritative bean planting, trading and harvesting for 2–7 players.
+// Bohnanza — host-authoritative bean planting, trading and harvesting for 2–7 players.
 // Original game name, writing and SVG art. Mechanics follow the classic fixed-order-hand trading game.
 import { h } from '../util.js';
 import { icon } from '../ui.js';

@@ -1,4 +1,4 @@
-// Headless rules + bot tests for Bean Bazaar (js/games/beans-engine.js, beans-bot.js). Run: node tests/beans-rules.mjs
+// Headless rules + bot tests for Bohnanza (js/games/beans-engine.js, beans-bot.js). Run: node tests/beans-rules.mjs
 import { Game, TYPES, coinsFor, configFor } from '../js/games/beans-engine.js';
 import { nextBotAction } from '../js/games/beans-bot.js';
 

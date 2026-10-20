@@ -1,4 +1,4 @@
-// Bean Bazaar — the rules engine (pure: no DOM, no network). The host owns one Game; everyone else only ever sees view(id).
+// Bohnanza — the rules engine (pure: no DOM, no network). The host owns one Game; everyone else only ever sees view(id).
 // Rules follow the classic bean-trading card game: plant from the FRONT of a fixed-order hand, turn up two cards, trade and
 // donate (the active player is in every deal), plant everything received, draw three to the back of the hand.
 

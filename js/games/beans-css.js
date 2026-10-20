@@ -1,4 +1,4 @@
-// Bean Bazaar — styles (injected by beans.js). Uses the app tokens; the only literal colours are the bean colours,
+// Bohnanza — styles (injected by beans.js). Uses the app tokens; the only literal colours are the bean colours,
 // the coin gold and the card paper, which belong to the physical objects.
 export const CSS = `
 .bz { --cw: 62px; flex:1; min-height:0; min-width:0; display:flex; flex-direction:column; position:relative; font-family:var(--font); color:var(--on); overflow:hidden; }

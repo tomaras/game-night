@@ -1,4 +1,4 @@
-// node tests/cascadia-rules.mjs — rules & scoring checks for Timberline (the Cascadia-style game), on hand-built boards.
+// node tests/cascadia-rules.mjs — rules & scoring checks for Cascadia (the Cascadia-style game), on hand-built boards.
 import * as R from '../js/games/cascadia-rules.js';
 import { makeRng } from '../js/util.js';
 

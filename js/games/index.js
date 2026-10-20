@@ -47,7 +47,7 @@ export const GAMES = [
   },
   // ---- harmonies: owned by the harmonies agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'harmonies', name: 'Harmonies (working title)', emoji: '🏞️', color: '#4285F4', cat: 'Strategy', tags: [], min: 1, max: 4,
+    id: 'harmonies', name: 'Harmonies', emoji: '🏞️', color: '#4285F4', cat: 'Strategy', tags: [], min: 1, max: 4,
     tagline: 'Coming soon.',
     desc: 'Coming soon.',
     howto: ['Coming soon.'],
@@ -55,7 +55,7 @@ export const GAMES = [
   },
   // ---- wingspan: owned by the wingspan agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'wingspan', name: 'Skyward Sanctuary', emoji: '🐦', color: '#4285F4', cat: 'Strategy', tags: ['Engine Building', 'Nature', 'Solo'], min: 1, max: 5,
+    id: 'wingspan', name: 'Wingspan', emoji: '🐦', color: '#4285F4', cat: 'Strategy', tags: ['Engine Building', 'Nature', 'Solo'], min: 1, max: 5,
     tagline: 'Build a living refuge, one remarkable bird at a time.',
     desc: 'Welcome birds into a growing forest, meadow and wetland. Gather food, tend nests and chain each habitat’s powers across four thoughtful rounds.',
     howto: [
@@ -78,10 +78,24 @@ export const GAMES = [
   },
   // ---- coup: owned by the coup agent (edit only this entry, its CAPS line and its module) ----
   {
-    id: 'coup', name: 'Coup (working title)', emoji: '👑', color: '#EA4335', cat: 'Bluffing', tags: [], min: 2, max: 6,
-    tagline: 'Coming soon.',
-    desc: 'Coming soon.',
-    howto: ['Coming soon.'],
+    id: 'coup', name: 'Coup', emoji: '👑', color: '#A142F4', cat: 'Bluffing', tags: ['Cards', 'Deduction'], min: 2, max: 6,
+    tagline: 'Claim power. Call bluffs. Rule the court.',
+    desc: 'Two secret allies stand between you and exile. Claim any courtier’s power, challenge suspicious rivals, and protect your last influence — truth is useful, but timing wins the crown.',
+    howto: [
+      'You begin with two hidden influence cards and two coins. On your turn, choose one action — you may claim any courtier, whether or not you hold that card.',
+      'Income gains 1 coin safely. Foreign aid gains 2 but a Duchess may block it. Character actions are stronger, but anyone may challenge the claim.',
+      'If challenged, a truthful claimant proves the card, draws a replacement, and the challenger reveals influence. A bluffing claimant reveals influence and their action fails.',
+      'Pay 7 coins to overthrow a rival without challenge or block. At 10 coins you must do it. Reveal both of a rival’s cards to remove them; last influence standing wins.',
+    ],
+    options: [
+      { key: 'court', label: 'Fifth courtier', choices: [{ value: 'envoy', label: 'Envoy · classic exchange' }, { value: 'oracle', label: 'Oracle · inspect and swap' }], default: 'envoy' },
+      { key: 'factions', label: 'Factions', choices: [{ value: 'off', label: 'Off · every seat for itself' }, { value: 'on', label: 'On · teams can change' }], default: 'off' },
+    ],
+    help: {
+      goal: 'Keep at least one influence hidden after every rival has revealed theirs.',
+      controls: [['Action card', 'declare an action'], ['Player card', 'choose a target'], ['Allow / Challenge / Block', 'answer a claim'], ['Your influence', 'choose which card to reveal']],
+      tips: ['Every courtier action is a claim, not proof. A convincing bluff is legal.', 'Count revealed cards before challenging — there are three copies of each courtier.', 'An assassination may cost its target two influence if they challenge or block with another bluff.'],
+    },
     load: () => import('./coup.js'),
   },
   {
@@ -110,7 +124,7 @@ export const GAMES = [
   },
   {
     id: 'beans',
-    name: 'Bean Bazaar',
+    name: 'Bohnanza',
     emoji: '🫘',
     color: '#E8710A',
     cat: 'Cards',
@@ -791,7 +805,7 @@ const CAPS = {
   cascadia: { bots: true, solo: true, min: 1, async: true }, // Cascadia implementation refined by OpenAI Codex
   harmonies: {}, // harmonies agent
   wingspan: { bots: true }, // wingspan agent
-  coup: {}, // coup agent
+  coup: { bots: true, watch: false }, // coup agent
   connect4: { bots: true, async: true },
   chess: { bots: true, async: true, otb: true },
   colorrush: { watch: false, bots: true },

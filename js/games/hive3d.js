@@ -197,7 +197,7 @@ export async function createHive3D(host, handlers = {}) {
     const k = type + col; if (MATS.has(k)) return MATS.get(k);
     const e = emblems[type];
     const m = new THREE.MeshPhysicalMaterial({
-      bumpMap: e.height, bumpScale: col === 'w' ? 11 : 9, color: 0xffffff,
+      bumpMap: e.height, bumpScale: col === 'w' ? 26 : 20, color: 0xffffff,
       roughness: col === 'w' ? 0.5 : 0.26, clearcoat: col === 'w' ? 0.28 : 0.85, clearcoatRoughness: col === 'w' ? 0.4 : 0.1,
       sheen: col === 'w' ? 0.25 : 0, sheenColor: new THREE.Color(0xffe9bf), sheenRoughness: 0.6,
     });
@@ -215,7 +215,9 @@ export async function createHive3D(host, handlers = {}) {
           float carve = 1.0 - texture2D(bumpMap, vBumpMapUv).x;
           diffuseColor.rgb *= 1.0 - 0.62 * smoothstep(0.02, 0.32, carve) * (1.0 - emb.a);
           diffuseColor.rgb *= 1.0 - 0.22 * smoothstep(0.3, 0.7, carve) * emb.a;
-          diffuseColor.rgb = mix(diffuseColor.rgb, emb.rgb * 0.96, emb.a);`)
+          diffuseColor.rgb = mix(diffuseColor.rgb, emb.rgb * 0.96, emb.a);
+          float edge = 1.0 - abs(2.0 * emb.a - 1.0);
+          diffuseColor.rgb *= 1.0 - 0.6 * edge * edge;`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
           roughnessFactor = mix(roughnessFactor, 0.34, emb.a);`);
     };

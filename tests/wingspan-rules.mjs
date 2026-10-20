@@ -31,4 +31,4 @@ for (const count of [1, 2, 3, 5]) {
   }
 }
 
-console.log(`Skyward Sanctuary rules: ${finished} complete games passed`);
+console.log(`Wingspan rules: ${finished} complete games passed`);

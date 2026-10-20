@@ -1,4 +1,4 @@
-// Sunlit Wilds - an original presentation of a tactile landscape-building puzzle.
+// Harmonies - an original presentation of a tactile landscape-building puzzle.
 // The host owns and validates all state; clients only preview an unconfirmed turn.
 import { h } from '../util.js';
 import { icon } from '../ui.js';

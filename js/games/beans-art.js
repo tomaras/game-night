@@ -1,4 +1,4 @@
-// Bean Bazaar — all artwork is drawn here, by hand, as inline SVG: eleven bean characters, coins, card backs.
+// Bohnanza — all artwork is drawn here, by hand, as inline SVG: eleven bean characters, coins, card backs.
 // Flat, vivid shapes with a simple highlight and a dark outline; every bean has its own silhouette AND a face so the
 // varieties never rely on colour alone.
 import { TYPES, coinsFor } from './beans-engine.js';

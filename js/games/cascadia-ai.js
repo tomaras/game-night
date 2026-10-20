@@ -1,4 +1,4 @@
-// Computer players for Timberline. Pure (no DOM). planTurn() returns either a wipe to perform first or a full move.
+// Computer players for Cascadia. Pure (no DOM). planTurn() returns either a wipe to perform first or a full move.
 //  easy   — greedy with big noise, ignores pinecones and corridor races, sometimes wastes a token
 //  normal — scores every tile placement + token spot with the real scoring cards, adds a "future potential" term
 //  hard   — as normal plus corridor-majority awareness, pinecone play, a one-turn lookahead on what stays in the

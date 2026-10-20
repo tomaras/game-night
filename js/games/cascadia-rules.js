@@ -1,4 +1,4 @@
-// Timberline (Cascadia-style) — pure rules: tiles, hex geometry, scoring cards, corridor scoring, market engine.
+// Cascadia (Cascadia-style) — pure rules: tiles, hex geometry, scoring cards, corridor scoring, market engine.
 // No DOM, no imports: used by the host, the clients (previews), the bots and tests/cascadia-rules.mjs.
 
 export const HAB = ['forest', 'mountain', 'prairie', 'wetland', 'river'];

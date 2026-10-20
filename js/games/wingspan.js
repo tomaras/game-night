@@ -1,4 +1,4 @@
-// Skyward Sanctuary — an original bird-preserve engine builder.
+// Wingspan — an original bird-preserve engine builder.
 // OpenAI Codex implementation: host-authoritative play, private hands, bots, solo rival and responsive UI.
 import { h } from '../util.js';
 import { icon, iconBtn } from '../ui.js';
@@ -214,7 +214,7 @@ export function start(api) {
     const marketCan = S.prompt?.kind === 'draw' && S.prompt.pid === api.me;
     const goalEls = S.goals.map((g, i) => { const result = S.goalRes[i]?.[selectedPid]; return h('div.ss-goal' + (S.round === i + 1 && S.phase !== 'over' ? '.now' : ''), h('b', `R${i + 1} · ${GOAL_BY_KEY[g].n}`), h('small', result ? `${result.count} · +${result.pts}` : 'up next')); });
     root.replaceChildren(h('div.ss-scene', h('i.ss-sun'), h('i.ss-cloud'), h('i.ss-cloud.two'), h('i.ss-hill'), h('i.ss-hill.two')),
-      h('main.ss-shell', h('header.ss-top', h('div.ss-brand', h('span.ss-brand-mark', icon('pets')), h('span', h('b', 'Skyward Sanctuary'), h('small', 'Build a living refuge'))), h('div.ss-players', players), h('div.ss-status', h('span.ss-round', `Round ${S.round || '—'} / 4`), h('span.ss-turns', S.phase === 'over' ? 'Complete' : S.cur ? `${S.names[S.cur]}'s turn` : 'Preparing'))),
+      h('main.ss-shell', h('header.ss-top', h('div.ss-brand', h('span.ss-brand-mark', icon('pets')), h('span', h('b', 'Wingspan'), h('small', 'Build a living refuge'))), h('div.ss-players', players), h('div.ss-status', h('span.ss-round', `Round ${S.round || '—'} / 4`), h('span.ss-turns', S.phase === 'over' ? 'Complete' : S.cur ? `${S.names[S.cur]}'s turn` : 'Preparing'))),
         h('div.ss-layout', h('div.ss-board', ...HAB.map((_, i) => renderHabitat(P, i))), h('aside.ss-side', h('section.ss-panel', h('div.ss-panel-title', h('b', 'Bird display'), h('small', `${S.deckN} in deck`)), h('div.ss-market', S.tray.map((id, i) => id == null ? h('div') : birdCard(id, null, { onClick: marketCan ? () => answer(i) : null }))), h('button.ss-deck', { disabled: !marketCan, onclick: () => answer('d') }, `Draw face-down · ${S.deckN}`)),
           h('section.ss-panel', h('div.ss-panel-title', h('b', 'Birdfeeder'), h('small', `${S.out.length} dice out`)), h('div.ss-feeder', S.feeder.map((f) => dieEl(f, false)))), h('section.ss-panel', h('div.ss-panel-title', h('b', S.goalMode === 'blue' ? 'Personal round goals' : 'Round goals'), h('small', S.goalMode)), h('div.ss-goals', goalEls)),
           h('section.ss-panel', h('div.ss-panel-title', h('b', selectedPid === api.me ? 'Your supplies' : `${S.names[selectedPid]}'s supplies`), h('small', `${P.handN} cards`)), h('div.ss-feeder', FOODS.map((t) => foodToken(t, P.food[t] || 0))), h('div.ss-tools', h('button.btn.tonal', { disabled: !S.players[api.me]?.hand, onclick: () => showHand(false) }, `My hand ${S.players[api.me]?.handN ?? 0}`), h('button.btn.tonal', { onclick: showScores }, 'Scores'))),
