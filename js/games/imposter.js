@@ -19,25 +19,25 @@ const CATS = {
 
 const CSS = `
 .im { flex:1; display:flex; flex-direction:column; gap:12px; padding:12px; min-height:0; overflow-y:auto; max-width:820px; width:100%; margin:0 auto; }
-.im-card { color:#fff; background:#673AB7; box-shadow:var(--e2); border-radius:var(--r); padding:16px; text-align:center; cursor:pointer; user-select:none; }
-.im-card .lbl { color:rgba(255,255,255,.8); font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:1px; }
+.im-card { color:#fff; background:#A142F4; box-shadow:var(--z2); border-radius:var(--r); padding:16px; text-align:center; cursor:pointer; user-select:none; }
+.im-card .lbl { color:#fff; opacity:.9; font-weight:800; text-transform:uppercase; font-size:12px; letter-spacing:1px; }
 .im-card .big { font-size:clamp(26px,6vw,40px); font-weight:900; margin:4px 0; }
-.im-card .muted { color:rgba(255,255,255,.82); }
-.im-card.imp { background:#E53935; }
+.im-card .muted { color:#fff; opacity:.9; }
+.im-card.imp { background:#EA4335; }
 .im-status { text-align:center; font-weight:800; font-size:18px; }
-.im-timer { height:6px; background:var(--primary); border-radius:3px; transition:width .25s linear; }
+.im-timer { height:6px; background:var(--primary); border-radius:0; transition:width .25s linear; }
 .im-clues { display:flex; flex-direction:column; gap:6px; }
 .im-clue { display:flex; align-items:center; gap:10px; background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:8px 14px; }
 .im-clue.turn { box-shadow:0 0 0 2px var(--yellow); }
 .im-clue .nm { font-weight:800; width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
 .im-clue .tx { font-size:18px; font-weight:800; }
-.im-clue .pt { margin-left:auto; font-weight:800; color:#b06a00; }
+.im-clue .pt { margin-left:auto; font-weight:800; color:var(--yellow-d); }
 .im-vote { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
 .im-vote button { display:flex; align-items:center; gap:8px; background:var(--panel); box-shadow:var(--e1); border:2px solid transparent; border-radius:var(--r); padding:8px 10px; cursor:pointer; color:var(--text); font-weight:800; }
 .im-vote button:hover:not(:disabled) { border-color:var(--red); }
-.im-vote button.on { border-color:var(--red); background:var(--red-c); }
+.im-vote button.on { border-color:var(--red); background:var(--red); color:#fff; }
 .im-vote button:disabled { opacity:.5; cursor:default; }
-.im-vote .ct { margin-left:auto; background:#e63946; border-radius:999px; padding:0 8px; font-size:12px; }
+.im-vote .ct { margin-left:auto; background:var(--m-red); color:#fff; border-radius:999px; padding:0 8px; font-size:12px; }
 .im-row { display:flex; gap:8px; }
 .im-row input { flex:1; font-size:18px; }
 .im-reveal { background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:14px; display:flex; flex-direction:column; gap:8px; align-items:center; text-align:center; }

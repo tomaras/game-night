@@ -30,7 +30,7 @@ const PAIRS = [
 ];
 
 const CSS = `
-.al-role { border-radius:var(--r); padding:16px; text-align:center; color:#fff; cursor:pointer; user-select:none; box-shadow:var(--e2); background:#1E88E5; } .al-role.alien { background:#43A047; } .al-role.cover { background:#3F51B5; }
+.al-role { border-radius:var(--r); padding:16px; text-align:center; color:#fff; cursor:pointer; user-select:none; box-shadow:var(--e2); background:#4285F4; } .al-role.alien { background:#34A853; } .al-role.cover { background:#5B5FEF; }
 .al-role .em { font-size:48px; line-height:1; display:block; } .al-role b { font:800 22px var(--font); display:block; margin:2px 0; } .al-role small { opacity:.9; font:500 13px/1.35 var(--font); display:block; }
 .al-ans { display:flex; flex-direction:column; gap:8px; }
 .al-a { display:flex; gap:10px; align-items:flex-start; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 14px; animation:ktpop .35s both; } .al-a .nm { font:800 13px var(--font); color:var(--on2); } .al-a .tx { font:600 16px/1.35 var(--font); word-break:break-word; } .al-a.out { opacity:.5; }
@@ -75,7 +75,7 @@ export function start(api) {
     if (S.phase === 'answer') {
       input = input || h('input.txt', { placeholder: 'Your answer…', maxlength: 60, autocomplete: 'off' });
       if (!iAlive()) return root.replaceChildren(head, h('div.kt-card', { style: 'text-align:center' }, '🚪 You were ejected. Watch and cheer from the airlock!'));
-      return root.replaceChildren(head, roleCard(), h('div.kt-prompt', { style: `--pc:${S.role === 'alien' ? '#2e7d32' : '#1565c0'}` }, h('small', 'Your question'), S.q),
+      return root.replaceChildren(head, roleCard(), h('div.kt-prompt', { style: `--pc:${S.role === 'alien' ? '#1E8E3E' : '#1A73E8'}` }, h('small', 'Your question'), S.q),
         S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Answer sent! Waiting for the crew…') : h('div.kt-field', input, h('button.btn.primary', { onclick: () => { const t = input.value.trim(); if (!t) return; S.submitted = true; api.toHost('ans', { t }); api.sfx('good'); render(); } }, icon('send'), 'Send')));
     }
     if (S.phase === 'discuss') {
@@ -84,17 +84,17 @@ export function start(api) {
     }
     if (S.phase === 'vote') {
       if (!iAlive()) return root.replaceChildren(head, h('div.kt-card', { style: 'text-align:center' }, '🚪 You were ejected — watching the vote.'), ans());
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#c62828' }, h('small', 'Emergency meeting'), 'Who is the alien?'), roleCard(), ans(), h('div.al-grid', S.alive.filter((id) => id !== me).map((id) => h('button.al-p' + (S.myVote === id ? '.sel' : ''), { onclick: () => { S.myVote = id; api.toHost('vote', { id }); api.sfx('pop'); render(); } }, avatarEl(api.player(id), 'lg', { still: true }), nameOf(id), S.voted.has(id) ? h('span.chip.green', { style: 'height:20px;font-size:11px' }, 'voted') : null))), h('div.kt-hint', S.myVote ? 'Vote locked — you can still change it.' : 'Tap a suspect.'));
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#D93025' }, h('small', 'Emergency meeting'), 'Who is the alien?'), roleCard(), ans(), h('div.al-grid', S.alive.filter((id) => id !== me).map((id) => h('button.al-p' + (S.myVote === id ? '.sel' : ''), { onclick: () => { S.myVote = id; api.toHost('vote', { id }); api.sfx('pop'); render(); } }, avatarEl(api.player(id), 'lg', { still: true }), nameOf(id), S.voted.has(id) ? h('span.chip.green', { style: 'height:20px;font-size:11px' }, 'voted') : null))), h('div.kt-hint', S.myVote ? 'Vote locked — you can still change it.' : 'Tap a suspect.'));
     }
     if (S.phase === 'eject' && S.eject) {
       const e = S.eject;
-      return root.replaceChildren(h('div.kt-prompt', { style: `--pc:${e.id ? (e.alien ? '#2e7d32' : '#1565c0') : '#546e7a'}` }, h('small', 'The votes are in'), e.id ? `${nameOf(e.id)} was ejected!` : 'Nobody was ejected'),
+      return root.replaceChildren(h('div.kt-prompt', { style: `--pc:${e.id ? (e.alien ? '#1E8E3E' : '#1A73E8') : '#9AA0A6'}` }, h('small', 'The votes are in'), e.id ? `${nameOf(e.id)} was ejected!` : 'Nobody was ejected'),
         h('div.al-eject', e.id ? [avatarEl(api.player(e.id), 'xl', { still: false }), h('div', { style: 'font:800 22px var(--font)' }, e.alien ? '👽 …and they WERE an alien!' : '🧑‍🚀 …but they were a human.')] : h('div.kt-hint', 'The votes were tied or too scattered.'), h('div.kt-hint', Object.entries(S.tally).map(([id, n]) => `${nameOf(id)}: ${n}`).join(' · '))),
         h('div.kt-hint', e.left ? `${e.left} alien${e.left > 1 ? 's' : ''} still hiding…` : ''));
     }
     if (S.phase === 'end' && S.end) {
       const e = S.end;
-      return root.replaceChildren(h('div.kt-prompt', { style: `--pc:${e.humans ? '#1565c0' : '#2e7d32'}` }, h('small', 'Game over'), e.humans ? '🧑‍🚀 The humans win!' : '👽 The aliens win!'), h('div.kt-card', { style: 'text-align:center' }, 'The aliens were: ', h('b', e.aliens.map(nameOf).join(', '))));
+      return root.replaceChildren(h('div.kt-prompt', { style: `--pc:${e.humans ? '#1A73E8' : '#1E8E3E'}` }, h('small', 'Game over'), e.humans ? '🧑‍🚀 The humans win!' : '👽 The aliens win!'), h('div.kt-card', { style: 'text-align:center' }, 'The aliens were: ', h('b', e.aliens.map(nameOf).join(', '))));
     }
     root.replaceChildren(head, h('div.kt-hint', 'Preparing the ship…'));
   }

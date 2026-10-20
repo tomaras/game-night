@@ -12,7 +12,7 @@ const CATS = ['Who would win a staring contest?', 'Who is the better karaoke sin
 const CSS = `
 .cd-duel { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .cd-opt { border:4px solid transparent; border-radius:var(--r); background:var(--surface); box-shadow:var(--e1); padding:10px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; font:700 14px/1.25 var(--font); color:var(--on); text-align:center; transition:transform .12s; }
-.cd-opt:hover:not(:disabled) { transform:translateY(-3px); } .cd-opt.sel { border-color:var(--blue); background:var(--blue-c); } .cd-opt.win { border-color:var(--green); background:var(--green-c); }
+.cd-opt:hover:not(:disabled) { transform:translateY(-3px); } .cd-opt.sel { border-color:var(--primary); box-shadow:var(--z3); } .cd-opt.win { border-color:var(--green); box-shadow:var(--z3); }
 .cd-opt img, .cd-opt .ph { width:100%; aspect-ratio:4/3; border-radius:var(--r); background:#fff; object-fit:cover; display:block; } .cd-opt .ph { display:grid; place-items:center; font-size:40px; }
 .cd-opt .ttl { font:800 15px var(--font); } .cd-opt .plea { font:600 14px/1.3 var(--font); color:var(--on2); font-style:italic; } .cd-opt .pct { font:800 24px var(--font); } .cd-opt .who { font:600 12px var(--font); color:var(--on2); display:flex; align-items:center; gap:4px; justify-content:center; }
 .cd-task { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px; display:flex; flex-direction:column; gap:8px; }
@@ -41,24 +41,24 @@ export function start(api) {
     const head = h('div.kt-row', { style: 'justify-content:center' }, ['plea', 'duel', 'draw'].includes(S.phase) ? h('span.chip.blue', S.final ? 'Grand final' : S.phase === 'draw' ? 'Draw your champion' : `Round ${S.round}/${rounds}`) : null, ['draw', 'plea', 'duel'].includes(S.phase) ? clock.el() : null);
     if (S.phase === 'draw') {
       if (!pad) pad = createDrawPad({ w: 480, h: 360 });
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#e65100' }, h('small', 'Draw your champion'), S.title), S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Champion ready!', waiting(api, ids.filter((i) => !S.done.has(i)))) : [pad.el, h('div.kt-sticky', h('button.btn.primary.big.block', { onclick: () => send('champ', { url: pad.toDataURL(380, 0.55) }) }, icon('check'), 'Done'))]);
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#E8710A' }, h('small', 'Draw your champion'), S.title), S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Champion ready!', waiting(api, ids.filter((i) => !S.done.has(i)))) : [pad.el, h('div.kt-sticky', h('button.btn.primary.big.block', { onclick: () => send('champ', { url: pad.toDataURL(380, 0.55) }) }, icon('check'), 'Done'))]);
     }
     if (S.phase === 'plea') {
-      if (!S.tasks.length) return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#6a1b9a' }, h('small', 'Champions are preparing'), 'Hang tight…'), h('div.kt-hint', 'The champions are writing their pleas…'), waiting(api, ids.filter((i) => !S.done.has(i) && S.pleaers?.includes(i))));
+      if (!S.tasks.length) return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#A142F4' }, h('small', 'Champions are preparing'), 'Hang tight…'), h('div.kt-hint', 'The champions are writing their pleas…'), waiting(api, ids.filter((i) => !S.done.has(i) && S.pleaers?.includes(i))));
       if (!inputs.length) inputs = S.tasks.map(() => h('input.txt', { placeholder: 'Why does your champion win? (short!)', maxlength: 70, autocomplete: 'off' }));
       return root.replaceChildren(head, S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Pleas sent!', waiting(api, ids.filter((i) => !S.done.has(i) && S.pleaers?.includes(i)))) : [
-        ...S.tasks.map((t, k) => h('div.cd-task', h('div.cd-vs', h('img', { src: S.champs[me]?.url || '', alt: '' }), 'VS', h('img', { src: S.champs[t.opp]?.url || '', alt: '' })), h('div.kt-prompt', { style: '--pc:#6a1b9a;padding:14px' }, h('small', `${S.champs[me]?.title} vs ${S.champs[t.opp]?.title}`), t.cat), inputs[k])),
+        ...S.tasks.map((t, k) => h('div.cd-task', h('div.cd-vs', h('img', { src: S.champs[me]?.url || '', alt: '' }), 'VS', h('img', { src: S.champs[t.opp]?.url || '', alt: '' })), h('div.kt-prompt', { style: '--pc:#A142F4;padding:14px' }, h('small', `${S.champs[me]?.title} vs ${S.champs[t.opp]?.title}`), t.cat), inputs[k])),
         h('div.kt-sticky', h('button.btn.primary.big.block', { onclick: () => send('plea', { texts: inputs.map((i) => i.value.trim() || 'Because I said so!') }) }, icon('send'), 'Send'))]);
     }
     if (S.phase === 'duel' && S.duel) {
       const d = S.duel, inDuel = d.by.includes(me);
       const opt = (k) => { const id = d.by[k === 'a' ? 0 : 1]; const c = S.champs[id] || {}; return h('button.cd-opt' + (S.voted === k ? '.sel' : ''), { disabled: inDuel || S.voted !== null, onclick: () => { S.voted = k; api.toHost('vote', { k }); api.sfx('pop'); render(); } }, c.url ? h('img', { src: c.url, alt: '' }) : h('div.ph', '❓'), h('div.ttl', c.title), h('div.plea', `“${d[k === 'a' ? 'pa' : 'pb']}”`), inDuel ? null : S.voted === k ? 'Your vote ✓' : 'Vote'); };
-      return root.replaceChildren(head, h('div.kt-prompt', { style: `--pc:${S.final ? '#f9a825' : '#fb8c00'}` }, h('small', `${S.final ? 'Grand final' : 'Battle ' + (d.i + 1) + ' of ' + d.n}`), d.cat), h('div.cd-duel', opt('a'), opt('b')), h('div.kt-hint', inDuel ? 'Your champion is fighting! You can’t vote.' : S.voted ? 'Vote locked. Waiting…' : 'Tap who would win.'));
+      return root.replaceChildren(head, h('div.kt-prompt', { style: `--pc:${S.final ? '#F9AB00' : '#E8710A'}` }, h('small', `${S.final ? 'Grand final' : 'Battle ' + (d.i + 1) + ' of ' + d.n}`), d.cat), h('div.cd-duel', opt('a'), opt('b')), h('div.kt-hint', inDuel ? 'Your champion is fighting! You can’t vote.' : S.voted ? 'Vote locked. Waiting…' : 'Tap who would win.'));
     }
     if (S.phase === 'reveal' && S.res) {
       const r = S.res, d = S.duel, tot = r.va + r.vb || 1;
       const opt = (k) => { const id = d.by[k === 'a' ? 0 : 1]; const v = k === 'a' ? r.va : r.vb, o = k === 'a' ? r.vb : r.va, c = S.champs[id] || {}; return h('div.cd-opt' + (v > o ? '.win' : ''), c.url ? h('img', { src: c.url, alt: '' }) : h('div.ph', '❓'), h('div.ttl', c.title), h('div.pct', Math.round((v / tot) * 100) + '%'), h('div.who', avatarEl(api.player(id), 'xs', { still: true }), nameOf(id), `+${k === 'a' ? r.pa : r.pb}`)); };
-      return root.replaceChildren(h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', S.final ? 'Grand final' : `Battle ${d.i + 1} of ${d.n}`), r.va === r.vb ? 'A draw!' : `${S.champs[d.by[r.va > r.vb ? 0 : 1]]?.title} wins!`), h('div.cd-duel', opt('a'), opt('b')), scorePills(api, S.scores));
+      return root.replaceChildren(h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', S.final ? 'Grand final' : `Battle ${d.i + 1} of ${d.n}`), r.va === r.vb ? 'A draw!' : `${S.champs[d.by[r.va > r.vb ? 0 : 1]]?.title} wins!`), h('div.cd-duel', opt('a'), opt('b')), scorePills(api, S.scores));
     }
     root.replaceChildren(h('div.kt-center', 'Warming up the arena…'));
   }

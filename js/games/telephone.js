@@ -21,11 +21,11 @@ const CSS = `
 .tp-chain { display:flex; flex-direction:column; gap:12px; }
 .tp-entry { display:flex; gap:10px; align-items:flex-start; animation:ktpop .4s both; }
 .tp-entry .av { margin-top:2px; }
-.tp-bub { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r) 20px 20px 6px; padding:12px 16px; font:600 17px/1.35 var(--font); flex:1; min-width:0; word-break:break-word; }
+.tp-bub { background:var(--surface); box-shadow:var(--z1); border-radius:var(--r); padding:12px 16px; font:600 17px/1.35 var(--font); flex:1; min-width:0; word-break:break-word; }
 .tp-bub img { width:100%; border-radius:var(--r); display:block; background:#fff; }
 .tp-bub .by { font:700 12px var(--font); color:var(--on3); margin-bottom:4px; text-transform:uppercase; letter-spacing:.6px; }
 .tp-heart { border:0; background:var(--s2); border-radius:999px; height:34px; padding:0 12px; display:inline-flex; gap:6px; align-items:center; cursor:pointer; font:700 13px var(--font); color:var(--on2); margin-top:8px; }
-.tp-heart.on { background:var(--pink-c); color:var(--pink-d); }
+.tp-heart.on { background:var(--m-pink); color:#fff; }
 .tp-heart .ic { width:18px; height:18px; }
 `;
 
@@ -86,7 +86,7 @@ export function start(api) {
       const t = S.task;
       if (!t) parts.push(h('div.kt-center', h('div.spinner')));
       else if (t.type === 'draw') {
-        parts.push(header('Draw this!', `Step ${S.step + 1} of ${steps}`), promptCard(t.prompt, { label: 'Your prompt', color: '#e5399b' }), clock.el());
+        parts.push(header('Draw this!', `Step ${S.step + 1} of ${steps}`), promptCard(t.prompt, { label: 'Your prompt', color: '#E52592' }), clock.el());
         if (S.submitted) parts.push(h('div.kt-center', h('div', [h('div.kt-big', '✓'), waiting(api, ids.filter((i) => !S.done.has(i)))])));
         else {
           pad = pad || createDrawPad({ w: 560, h: 420 });

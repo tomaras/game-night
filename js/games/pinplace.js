@@ -37,7 +37,7 @@ const KIND = { landmark: ['🏛️', 'A famous landmark'], city: ['🏙️', 'A 
 const MAP_W = 1800, LAT_TOP = 84, LAT_SPAN = 142, MAP_H = (MAP_W * LAT_SPAN) / 360;
 const proj = (lat, lon) => [((lon + 180) / 360) * MAP_W, ((LAT_TOP - lat) / LAT_SPAN) * MAP_H];
 const unproj = (x, y) => [LAT_TOP - (y / MAP_H) * LAT_SPAN, (x / MAP_W) * 360 - 180];
-const PCOL = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#f9a825', '#6d4c41', '#d81b60', '#546e7a'];
+const PCOL = ['#EA4335', '#4285F4', '#34A853', '#E8710A', '#A142F4', '#12B5CB', '#F9AB00', '#7C4DFF', '#E52592', '#039BE5'];
 const km = (a, b) => { const R = 6371, rad = Math.PI / 180, dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad; const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
 const points = (d) => Math.round(5000 * Math.exp(-d / 1500));
 
@@ -163,7 +163,7 @@ export function start(api) {
       const sp = Math.max(0, Math.min(1, (t - 0.9) / 0.6)), ss = sp >= 1 ? 1 : easeBack(sp);
       if (sp > 0 && sp < 1.0) { ctx.strokeStyle = 'rgba(253,216,53,' + (1 - sp) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(sx, sy, 10 + 60 * sp, 0, 7); ctx.stroke(); }
       ctx.save(); ctx.translate(sx, sy); ctx.scale(ss, ss); ctx.rotate((1 - sp) * 1.4);
-      ctx.fillStyle = '#fdd835'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; star(ctx, 0, 0, 15, 7, 5); ctx.fill(); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = '#FBBC05'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; star(ctx, 0, 0, 15, 7, 5); ctx.fill(); ctx.stroke(); ctx.restore();
       if (t < 2.2) requestAnimationFrame(draw);
     } else if (S.pin) {
       const dt = (performance.now() - pinT0) / 1000;

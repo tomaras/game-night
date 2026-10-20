@@ -9,13 +9,13 @@ const CSS = `
 .wb { align-items:center; }
 .wb-bomb { position:relative; width:min(62vw, 240px); aspect-ratio:1; margin:6px auto; display:grid; place-items:center; }
 .wb-ball { position:absolute; inset:8% 8% 0 8%; border-radius:50%; background:radial-gradient(circle at 35% 30%, #5f6368, #202124 70%); box-shadow:0 14px 30px rgba(0,0,0,.35); }
-.wb-bomb.hot .wb-ball { animation:wbshake .12s infinite; background:radial-gradient(circle at 35% 30%, #f57c00, #7a1c00 70%); }
-.wb-fuse { position:absolute; top:-2%; right:22%; width:8px; height:22%; background:#8d6e63; border-radius:4px; transform:rotate(25deg); transform-origin:bottom; }
-.wb-fuse::after { content:''; position:absolute; top:-12px; left:-8px; width:24px; height:24px; border-radius:50%; background:radial-gradient(circle, #fff 0, #fbbc04 40%, transparent 70%); animation:pulse .25s infinite; }
-.wb-syl { position:relative; font:900 clamp(44px, 14vw, 76px)/1 var(--font); color:#fff; letter-spacing:2px; text-shadow:0 3px 0 rgba(0,0,0,.4); margin-top:6%; }
+.wb-bomb.hot .wb-ball { animation:wbshake .12s infinite; background:radial-gradient(circle at 35% 30%, #FA7B17, #D93025 70%); }
+.wb-fuse { position:absolute; top:-2%; right:22%; width:8px; height:22%; background:#5f6368; border-radius:4px; transform:rotate(25deg); transform-origin:bottom; }
+.wb-fuse::after { content:''; position:absolute; top:-12px; left:-8px; width:24px; height:24px; border-radius:50%; background:radial-gradient(circle, #fff 0, #FBBC05 40%, transparent 70%); animation:pulse .25s infinite; }
+.wb-syl { position:relative; font:900 clamp(44px, 14vw, 76px)/1 var(--font); color:#fff; letter-spacing:2px; text-shadow:0 2px 0 rgba(0,0,0,.35); margin-top:6%; }
 @keyframes wbshake { 0%, 100% { transform:translate(0,0); } 25% { transform:translate(-2px, 1px); } 75% { transform:translate(2px, -1px); } }
 .wb-ring { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-.wb-p { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 10px; min-width:96px; display:flex; flex-direction:column; align-items:center; gap:2px; border:3px solid transparent; transition:.15s; }
+.wb-p { background:var(--surface); box-shadow:var(--z1); border-radius:var(--r); padding:8px 10px; min-width:96px; display:flex; flex-direction:column; align-items:center; gap:2px; border:3px solid transparent; transition:.15s; }
 .wb-p.turn { border-color:var(--red); transform:scale(1.06); }
 .wb-p.out { opacity:.35; }
 .wb-p .nm { font:700 13px var(--font); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

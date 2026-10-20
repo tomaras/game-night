@@ -4,7 +4,7 @@ import { h, canvasPoint, clamp } from '../util.js';
 import { avatarEl } from '../avatar.js';
 
 const W = 800, H = 600;
-const COLORS = ['#000000', '#7f7f7f', '#ffffff', '#c1c1c1', '#ef130b', '#ff7100', '#ffe400', '#00cc00', '#00ff91', '#00b2ff', '#231fd3', '#a300ba', '#d37caa', '#a0522d', '#ffb6a0', '#3a2a12'];
+const COLORS = ['#000000', '#7f7f7f', '#ffffff', '#c1c1c1', '#EA4335', '#ff7100', '#FBBC05', '#00cc00', '#00ff91', '#00b2ff', '#231fd3', '#a300ba', '#d37caa', '#009E8E', '#ffb6a0', '#3a2a12'];
 const SIZES = [4, 10, 20, 38];
 const WORDS = `apple,banana,pizza,burger,ice cream,cake,cookie,donut,popcorn,sandwich,spaghetti,sushi,taco,watermelon,pineapple,carrot,broccoli,egg,cheese,bread,
 cat,dog,horse,cow,pig,sheep,rabbit,elephant,giraffe,lion,tiger,monkey,penguin,dolphin,shark,whale,octopus,crab,fish,turtle,snake,frog,butterfly,bee,spider,ant,snail,owl,eagle,duck,chicken,bat,kangaroo,panda,bear,zebra,crocodile,dinosaur,unicorn,dragon,
@@ -34,37 +34,37 @@ const CSS = `
 .sk-wrap { flex:1; min-height:0; container-type:inline-size; display:flex; flex-direction:column; }
 .sk { flex:1; display:grid; grid-template-columns: 190px minmax(0,1fr) 270px; grid-template-rows: auto minmax(0,1fr); gap:10px; padding:10px; min-height:0; }
 .sk-info { grid-column:1/-1; display:flex; align-items:center; gap:12px; background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:8px 16px; min-height:58px; }
-.sk-timer { width:46px; height:46px; border-radius:50%; background:var(--blue-c); color:var(--blue-d); display:grid; place-items:center; font-weight:900; font-size:18px; flex:none; }
+.sk-timer { width:46px; height:46px; border-radius:50%; background:var(--primary); color:#fff; display:grid; place-items:center; font-weight:700; font-size:18px; flex:none; }
 .sk-timer.low { background:var(--red); color:#fff; animation:pulse .6s infinite; }
 .sk-hint { color:var(--on); flex:1; text-align:center; font-weight:900; font-size:clamp(20px,3.4vw,34px); letter-spacing:.18em; font-family: ui-monospace, Menlo, monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .sk-hint small { display:block; font-size:12px; letter-spacing:.05em; color:var(--muted); font-family:var(--font); font-weight:700; }
 .sk-round { font-size:13px; color:var(--muted); font-weight:700; text-align:right; min-width:70px; }
 .sk-players { display:flex; flex-direction:column; gap:6px; overflow-y:auto; min-height:0; }
 .sk-p { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:var(--r); background:var(--panel); box-shadow:var(--e1); font-size:14px; }
-.sk-p.g { background:var(--green-c); }
+.sk-p.g { background:var(--green-c); box-shadow:inset 4px 0 0 var(--m-green), var(--z1); }
 .sk-p.d { box-shadow:0 0 0 2px var(--yellow); }
 .sk-p .nm { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
 .sk-p .pt { font-weight:900; font-variant-numeric:tabular-nums; }
 .sk-p .tag { font-size:15px; }
 .sk-center { display:flex; flex-direction:column; gap:8px; min-height:0; min-width:0; align-items:center; }
 .sk-canvaswrap { position:relative; flex:1; min-height:0; width:100%; display:flex; align-items:center; justify-content:center; }
-.sk-canvaswrap canvas { background:#fff; border-radius:12px; box-shadow:var(--z2); touch-action:none; max-width:100%; max-height:100%; aspect-ratio:${W}/${H}; width:auto; height:auto; cursor:crosshair; }
-.sk-overlay { position:absolute; inset:0; display:grid; place-items:center; background:rgba(255,255,255,.93); backdrop-filter:blur(6px); border-radius:var(--r); text-align:center; padding:14px; z-index:3; }
+.sk-canvaswrap canvas { background:#fff; border-radius:var(--r); box-shadow:var(--z2); touch-action:none; max-width:100%; max-height:100%; aspect-ratio:${W}/${H}; width:auto; height:auto; cursor:crosshair; }
+.sk-overlay { position:absolute; inset:0; display:grid; place-items:center; background:var(--surface); border-radius:var(--r); text-align:center; padding:14px; z-index:3; }
 .sk-words { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:12px; }
 .sk-tools { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; background:var(--panel); box-shadow:var(--e1); padding:8px 12px; border-radius:var(--r); }
 .sk-colors { display:grid; grid-template-columns:repeat(8, 24px); gap:4px; }
-.sk-sw { width:26px; height:26px; border-radius:50%; border:2px solid rgba(0,0,0,.14); cursor:pointer; padding:0; }
-.sk-sw.on { border-color:#fff; transform:scale(1.18); box-shadow:0 0 0 3px var(--blue); }
-.sk-size { width:34px; height:34px; border-radius:var(--r); border:2px solid transparent; background:var(--bg2); display:grid; place-items:center; cursor:pointer; padding:0; }
-.sk-size.on { border-color:var(--accent); }
+.sk-sw { width:26px; height:26px; border-radius:50%; border:2px solid var(--line2); cursor:pointer; padding:0; }
+.sk-sw.on { border-color:#fff; transform:scale(1.18); box-shadow:0 0 0 3px var(--primary); }
+.sk-size { width:34px; height:34px; border-radius:50%; border:2px solid transparent; background:var(--bg2); display:grid; place-items:center; cursor:pointer; padding:0; }
+.sk-size.on { border-color:var(--primary); background:var(--primary); } .sk-size.on i { background:#fff; }
 .sk-size i { display:block; border-radius:50%; background:#fff; }
-.sk-tool { width:38px; height:34px; border-radius:var(--r); border:2px solid transparent; background:var(--bg2); cursor:pointer; font-size:17px; padding:0; }
-.sk-tool.on { border-color:var(--accent); background:var(--panel3); }
+.sk-tool { width:38px; height:38px; border-radius:50%; border:2px solid transparent; background:var(--bg2); cursor:pointer; font-size:17px; padding:0; }
+.sk-tool.on { border-color:var(--primary); background:var(--s3); }
 .sk-chat { display:flex; flex-direction:column; min-height:0; background:var(--panel); box-shadow:var(--e1); border-radius:var(--r); padding:10px; }
 .sk-msgs { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:3px; font-size:14px; min-height:0; }
 .sk-msgs .m b { font-weight:800; }
 .sk-msgs .ok { color:var(--green); font-weight:800; }
-.sk-msgs .close { color:#b07d00; font-weight:700; }
+.sk-msgs .close { color:var(--yellow-d); font-weight:700; }
 .sk-msgs .sys { color:var(--muted); font-style:italic; }
 .sk-msgs .priv { color:var(--blue); }
 .sk-chat form { display:flex; gap:6px; margin-top:6px; }
@@ -132,7 +132,7 @@ function floodFill(ctx, sx, sy, hex) {
 export function start(api) {
   const rounds = +api.opts.rounds || 3;
   const teamMode = api.opts.teams === 'on';
-  const TEAM = [['Blue', '#1a73e8'], ['Red', '#ea4335']];
+  const TEAM = [['Blue', '#4285F4'], ['Red', '#ea4335']];
   const teamIdx = (id) => api.players.findIndex((p) => p.id === id) % 2;
   const teamScore = (sc, t) => api.players.reduce((a, p) => a + (teamIdx(p.id) === t ? sc[p.id] || 0 : 0), 0);
   const drawMs = (+api.opts.time || 60) * 1000;

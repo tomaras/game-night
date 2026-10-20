@@ -13,7 +13,7 @@ const SPECTRA = [
   ['Lazy', 'Energetic'], ['Dull', 'Colourful'], ['Natural', 'Artificial'], ['Hated', 'Loved'], ['Simple', 'Complicated'], ['Believable', 'Unbelievable'], ['Smells bad', 'Smells good'],
   ['Heavy', 'Light'], ['Round', 'Pointy'], ['Polite', 'Rude'], ['Serious job', 'Fun job'], ['Short film', 'Epic film'], ['Beginner’s luck', 'Pure skill'], ['Winter', 'Summer'], ['Good pizza topping', 'Bad pizza topping'],
 ];
-const ZONES = [[4, 4, '#34a853'], [9, 3, '#fbbc04'], [15, 2, '#f57c00']]; // half-width, points, colour
+const ZONES = [[4, 4, '#34A853'], [9, 3, '#FBBC05'], [15, 2, '#FA7B17']]; // half-width, points, colour
 const pointsFor = (d) => (d <= 4 ? 4 : d <= 9 ? 3 : d <= 15 ? 2 : 0);
 
 const CSS = `
@@ -37,14 +37,13 @@ function gauge({ target, needles = [], guess = null, hide = true }) {
   const NS = 'http://www.w3.org/2000/svg';
   const el = document.createElementNS(NS, 'svg');
   el.setAttribute('viewBox', '0 0 500 260');
-  let inner = `<defs><linearGradient id="dlg" x1="0" x2="1"><stop offset="0" stop-color="#d3e3fd"/><stop offset="1" stop-color="#fcdad6"/></linearGradient></defs>
-    <path d="${arc(cx, cy, r0, R, Math.PI, 0)}" fill="url(#dlg)" stroke="#fff" stroke-width="3"/>`;
+  let inner = `<path d="${arc(cx, cy, r0, R, Math.PI, 0)}" style="fill:var(--s3)" stroke="var(--surface)" stroke-width="3"/>`;
   if (target !== null && !hide) {
     for (const [hw, , c] of [...ZONES].reverse()) inner += `<path d="${arc(cx, cy, r0, R, val2ang(Math.max(0, target - hw)), val2ang(Math.min(100, target + hw)))}" fill="${c}" opacity="0.92"/>`;
   }
   if (target !== null && hide) inner += `<path d="${arc(cx, cy, r0, R, val2ang(Math.max(0, target - 15)), val2ang(Math.min(100, target + 15)))}" fill="#9aa0a6" opacity="0.22"/>`;
   for (const n of needles) { const [x, y] = polar(cx, cy, R + 4, val2ang(n.v)); const [x0, y0] = polar(cx, cy, r0 - 4, val2ang(n.v)); inner += `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="${n.color || '#202124'}" stroke-width="5" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="7" fill="${n.color || '#202124'}"/>`; }
-  if (guess !== null) { const [x, y] = polar(cx, cy, R + 6, val2ang(guess)); const [x0, y0] = polar(cx, cy, r0 - 6, val2ang(guess)); inner += `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="#1a73e8" stroke-width="7" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="14" fill="#1a73e8"/>`; }
+  if (guess !== null) { const [x, y] = polar(cx, cy, R + 6, val2ang(guess)); const [x0, y0] = polar(cx, cy, r0 - 6, val2ang(guess)); inner += `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="#4285F4" stroke-width="7" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="14" fill="#4285F4"/>`; }
   el.innerHTML = inner;
   return h('div.dl-gauge', el);
 }
@@ -83,7 +82,7 @@ export function start(api) {
           answerBox({ placeholder: `A clue between “${S.spec[0]}” and “${S.spec[1]}”`, max: 50, button: 'Send clue', onSubmit: (t) => { api.toHost('clue', { t }); api.sfx('good'); } }).el);
       } else parts.push(h('div.kt-card', gauge({ target: null }), ends), h('div.kt-center', h('div', [h('div.spinner'), h('div.kt-hint', `${nameOf(S.psychic)} is thinking of a clue…`)])));
     } else if (S.phase === 'guess') {
-      parts.push(clock.el(), promptCard(`“${S.clue}”`, { label: `${nameOf(S.psychic)}’s clue`, color: '#1a73e8' }));
+      parts.push(clock.el(), promptCard(`“${S.clue}”`, { label: `${nameOf(S.psychic)}’s clue`, color: '#4285F4' }));
       if (psy) parts.push(h('div.kt-card', gauge({ target: S.target, hide: false }), ends), h('div.kt-hint', 'Say nothing! The others are guessing…'), waiting(api, ids.filter((i) => i !== me && !S.done.has(i)), 'Waiting for'));
       else {
         parts.push(h('div.kt-card', gauge({ target: null, guess: S.guess }), ends));

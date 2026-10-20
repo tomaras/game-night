@@ -7,7 +7,7 @@ import { avatarEl } from '../avatar.js';
 const IW = 960, IH = 640; // master picture size
 const WW = 1600, WH = 1100; // table size
 const OX = (WW - IW) / 2, OY = (WH - IH) / 2;
-const PCOL = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#f9a825', '#6d4c41', '#d81b60', '#546e7a'];
+const PCOL = ['#EA4335', '#4285F4', '#34A853', '#E8710A', '#A142F4', '#12B5CB', '#F9AB00', '#7C4DFF', '#E52592', '#039BE5'];
 const GRIDS = { 24: [6, 4], 48: [8, 6], 96: [12, 8] };
 
 function artwork(seed) {
@@ -251,15 +251,15 @@ export function start(api) {
   function render() {
     if (S.phase === 'pick') {
       if (api.isHost) {
-        root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', 'Jigsaw Together'), 'Choose a picture'),
+        root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', 'Jigsaw Together'), 'Choose a picture'),
           master ? h('img.pv', { src: previewURL }) : h('div.kt-hint', 'Pick a picture for the puzzle:'),
           h('div.kt-row', { style: 'justify-content:center' }, h('button.btn.tonal', { onclick: () => surprise() }, icon('shuffle'), 'Surprise me'), h('button.btn.tonal', { onclick: () => fileIn.click() }, icon('add_a_photo'), 'Use my photo')),
           master ? h('button.btn.primary.big', { onclick: () => api.toHost('begin', {}) }, icon('play_arrow'), `Start ${count}-piece puzzle`) : ''));
-      } else root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', 'Jigsaw Together'), 'The host is choosing a picture…'), master ? h('div.kt-hint', 'Picture ready!') : ''));
+      } else root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', 'Jigsaw Together'), 'The host is choosing a picture…'), master ? h('div.kt-hint', 'Picture ready!') : ''));
       return;
     }
     if (S.phase === 'done' && S.done) {
-      root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', 'Puzzle complete!'), `🧩 Done in ${S.done.time}`), h('img.pv', { src: previewURL || '' }), h('div.kt-hint', 'Great teamwork!')));
+      root.replaceChildren(h('div.jg-pick', h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', 'Puzzle complete!'), `🧩 Done in ${S.done.time}`), h('img.pv', { src: previewURL || '' }), h('div.kt-hint', 'Great teamwork!')));
       return;
     }
     root.replaceChildren(bar, wrap);

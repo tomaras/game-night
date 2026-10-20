@@ -5,24 +5,24 @@ import { avatarEl } from '../avatar.js';
 import { makeClock, scorePills, waiting, hostPhase, rankingFrom, sample } from '../kit.js';
 
 const TPL = [
-  ['#ffd89b', '#ff9a8b', '😴☕'], ['#a1c4fd', '#c2e9fb', '🐶💻'], ['#fbc2eb', '#a6c1ee', '😱🍕'], ['#84fab0', '#8fd3f4', '🐸☂️'], ['#ffecd2', '#fcb69f', '🧓📱'],
-  ['#f6d365', '#fda085', '🔥🏠🐕'], ['#a8edea', '#fed6e3', '🐱🥛'], ['#d299c2', '#fef9d7', '🕺🪩'], ['#89f7fe', '#66a6ff', '🐧🧊'], ['#fddb92', '#d1fdff', '🦖🎂'],
-  ['#cfd9df', '#e2ebf0', '🤖❤️'], ['#fad0c4', '#ffd1ff', '🥶⛄'], ['#a3bded', '#6991c7', '🌧️🧑‍💻'], ['#ffeaa7', '#fab1a0', '🐔🏃'], ['#c1dfc4', '#deecdd', '🧘‍♂️🐍'],
-  ['#e0c3fc', '#8ec5fc', '👻📺'], ['#f5f7fa', '#c3cfe2', '🧑‍🍳🔥'], ['#fdcbf1', '#e6dee9', '🦄💸'], ['#9be15d', '#00e3ae', '🚀🐹'], ['#ff9a9e', '#fecfef', '🙈📚'],
-  ['#43e97b', '#38f9d7', '🏖️😬'], ['#fa709a', '#fee140', '🎤🐔'], ['#667eea', '#764ba2', '🌙🐺'], ['#ffd1ff', '#fad0c4', '🍔🧍'], ['#96fbc4', '#f9f586', '🧃🐻'],
-  ['#c2e59c', '#64b3f4', '🏄‍♂️🦈'], ['#e6b980', '#eacda3', '🎻🐭'], ['#ffc3a0', '#ffafbd', '🐷✈️'], ['#8ec5fc', '#e0c3fc', '👽🌽'], ['#f093fb', '#f5576c', '💃🦀'],
-  ['#4facfe', '#00f2fe', '🛁🦆'], ['#fccb90', '#d57eeb', '🦥🏁'], ['#a1ffce', '#faffd1', '🎈🌵'], ['#ffdde1', '#ee9ca7', '🫠🌡️'], ['#c9d6ff', '#e2e2e2', '👔🦁'], ['#fbab7e', '#f7ce68', '🏆🐢'],
+  ['#FFD54F', '#FFD54F', '😴☕'], ['#82B1FF', '#82B1FF', '🐶💻'], ['#FF8A80', '#FF8A80', '😱🍕'], ['#69F0AE', '#69F0AE', '🐸☂️'], ['#FFAB40', '#FFAB40', '🧓📱'],
+  ['#EA80FC', '#EA80FC', '🔥🏠🐕'], ['#80DEEA', '#80DEEA', '🐱🥛'], ['#FF80AB', '#FF80AB', '🕺🪩'], ['#B388FF', '#B388FF', '🐧🧊'], ['#CCFF90', '#CCFF90', '🦖🎂'],
+  ['#FFD54F', '#FFD54F', '🤖❤️'], ['#82B1FF', '#82B1FF', '🥶⛄'], ['#FF8A80', '#FF8A80', '🌧️🧑‍💻'], ['#69F0AE', '#69F0AE', '🐔🏃'], ['#FFAB40', '#FFAB40', '🧘‍♂️🐍'],
+  ['#EA80FC', '#EA80FC', '👻📺'], ['#80DEEA', '#80DEEA', '🧑‍🍳🔥'], ['#FF80AB', '#FF80AB', '🦄💸'], ['#B388FF', '#B388FF', '🚀🐹'], ['#CCFF90', '#CCFF90', '🙈📚'],
+  ['#FFD54F', '#FFD54F', '🏖️😬'], ['#82B1FF', '#82B1FF', '🎤🐔'], ['#FF8A80', '#FF8A80', '🌙🐺'], ['#69F0AE', '#69F0AE', '🍔🧍'], ['#FFAB40', '#FFAB40', '🧃🐻'],
+  ['#EA80FC', '#EA80FC', '🏄‍♂️🦈'], ['#80DEEA', '#80DEEA', '🎻🐭'], ['#FF80AB', '#FF80AB', '🐷✈️'], ['#B388FF', '#B388FF', '👽🌽'], ['#CCFF90', '#CCFF90', '💃🦀'],
+  ['#FFD54F', '#FFD54F', '🛁🦆'], ['#82B1FF', '#82B1FF', '🦥🏁'], ['#FF8A80', '#FF8A80', '🎈🌵'], ['#69F0AE', '#69F0AE', '🫠🌡️'], ['#FFAB40', '#FFAB40', '👔🦁'], ['#EA80FC', '#EA80FC', '🏆🐢'],
 ];
 
 const CSS = `
-.cc-meme { position:relative; border-radius:var(--r); overflow:hidden; aspect-ratio:4/3; width:100%; display:grid; place-items:center; box-shadow:var(--e2); background:linear-gradient(145deg, var(--a), var(--b)); }
+.cc-meme { position:relative; border-radius:var(--r); overflow:hidden; aspect-ratio:4/3; width:100%; display:grid; place-items:center; box-shadow:var(--z2); background:var(--a); }
 .cc-art { font-size:clamp(70px, 22vw, 130px); letter-spacing:-6px; line-height:1; filter:drop-shadow(0 6px 8px rgba(0,0,0,.2)); }
 .cc-t { position:absolute; left:6px; right:6px; text-align:center; font:900 clamp(17px, 5.2vw, 30px)/1.05 'Impact','Anton','Outfit',sans-serif; color:#fff; text-transform:uppercase; -webkit-text-stroke:1.5px #000; paint-order:stroke fill; text-shadow:0 2px 0 #000; word-break:break-word; letter-spacing:.5px; }
 .cc-t.top { top:8px; } .cc-t.bot { bottom:8px; }
 .cc-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
 .cc-card { display:flex; flex-direction:column; gap:8px; cursor:pointer; border-radius:var(--r); padding:6px; border:3px solid transparent; transition:.15s; background:var(--surface); box-shadow:var(--e1); }
 .cc-card.sel { border-color:var(--blue); }
-.cc-card.win { border-color:var(--yellow); box-shadow:0 0 0 4px rgba(251,188,4,.3), var(--e2); }
+.cc-card.win { border-color:var(--yellow); box-shadow:0 0 0 3px var(--m-yellow), var(--z2); }
 .cc-by { display:flex; gap:8px; align-items:center; padding:2px 8px 6px; font-weight:600; }
 .cc-by b { margin-left:auto; font-weight:800; color:var(--blue); }
 `;

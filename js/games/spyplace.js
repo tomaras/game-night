@@ -15,14 +15,14 @@ const CSS = `
 .sp-place { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; }
 .sp-place button { border:0; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 8px; font:600 13px var(--font); display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; color:var(--on); }
 .sp-place button .e { font-size:24px; } .sp-place button.out { opacity:.35; text-decoration:line-through; }
-.sp-place.pick button:hover { background:var(--blue-c); }
-.sp-card { border-radius:var(--r); padding:20px; text-align:center; color:#fff; background:#1E88E5; box-shadow:var(--e2); }
-.sp-card.spy { background:#E53935; }
+.sp-place.pick button:hover { box-shadow:var(--z3); }
+.sp-card { border-radius:var(--r); padding:20px; text-align:center; color:#fff; background:#4285F4; box-shadow:var(--z2); }
+.sp-card.spy { background:#EA4335; }
 .sp-card .big { font:800 32px var(--font); margin:4px 0; } .sp-card .em { font-size:54px; line-height:1; }
 .sp-turn { display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:12px; font:600 16px var(--font); }
 .sp-pl { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
 .sp-pl button { border:0; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 14px 8px 8px; display:flex; align-items:center; gap:8px; font:600 14px var(--font); cursor:pointer; color:var(--on); }
-.sp-pl button:disabled { opacity:.5; cursor:default; } .sp-pl button.on { background:var(--blue-c); }
+.sp-pl button:disabled { opacity:.5; cursor:default; } .sp-pl button.on { background:var(--primary); color:#fff; }
 `;
 
 export function start(api) {
@@ -72,7 +72,7 @@ export function start(api) {
         else if (S.voted) parts.push(h('div.kt-hint', 'Vote cast'), waiting(api, ids.filter((i) => i !== v.target && !S.done.has(i))));
         else parts.push(h('div.row', { style: 'justify-content:center' }, h('button.btn.bad.big', { onclick: () => { S.voted = true; api.toHost('vote', { yes: true }); render(); } }, 'Guilty'), h('button.btn.good.big', { onclick: () => { S.voted = true; api.toHost('vote', { yes: false }); render(); } }, 'Innocent')), h('div.kt-hint', 'Must be unanimous'));
       } else {
-        parts.push(h('div.kt-prompt', { style: '--pc:#1a73e8' }, h('small', 'Time is up!'), 'Who is the spy?'));
+        parts.push(h('div.kt-prompt', { style: '--pc:#4285F4' }, h('small', 'Time is up!'), 'Who is the spy?'));
         if (S.voted) parts.push(h('div.kt-hint', 'Vote cast'), waiting(api, ids.filter((i) => !S.done.has(i))));
         else parts.push(playerBtns((p) => p.id !== me && !p.left, (id) => { S.voted = true; api.toHost('vote', { id }); render(); }));
       }

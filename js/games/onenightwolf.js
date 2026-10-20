@@ -6,33 +6,33 @@ import { avatarEl } from '../avatar.js';
 import { makeClock } from '../kit.js';
 
 const ROLES = {
-  wolf: ['Werewolf', '🐺', '#c62828', 'Wolves', 'Wake up and see the other werewolves. A lone wolf may peek at one center card. You win if no werewolf dies.'],
-  minion: ['Minion', '🦹', '#ad1457', 'Wolves', 'You see the werewolves (they don’t know you). You win with them — even if you die.'],
-  mason: ['Mason', '🧱', '#5d4037', 'Village', 'You see the other Mason. Together you know you’re villagers.'],
-  seer: ['Seer', '🔮', '#6a1b9a', 'Village', 'Look at one player’s card, or two of the center cards.'],
-  robber: ['Robber', '🥷', '#37474f', 'Village', 'Swap cards with another player and look at your new card.'],
-  troublemaker: ['Troublemaker', '🃏', '#ef6c00', 'Village', 'Swap two other players’ cards without looking.'],
-  drunk: ['Drunk', '🍺', '#f9a825', 'Village', 'Swap your card with a center card — without looking!'],
-  insomniac: ['Insomniac', '🌙', '#3949ab', 'Village', 'At the end of the night you look at your own card to see if it changed.'],
-  hunter: ['Hunter', '🏹', '#2e7d32', 'Village', 'If you die, the player you voted for dies with you.'],
-  villager: ['Villager', '🧑‍🌾', '#1e88e5', 'Village', 'No special power. Find the werewolves!'],
-  tanner: ['Tanner', '👺', '#795548', 'Tanner', 'You hate your job. You only win if YOU are killed.'],
+  wolf: ['Werewolf', '🐺', '#D93025', 'Wolves', 'Wake up and see the other werewolves. A lone wolf may peek at one center card. You win if no werewolf dies.'],
+  minion: ['Minion', '🦹', '#E52592', 'Wolves', 'You see the werewolves (they don’t know you). You win with them — even if you die.'],
+  mason: ['Mason', '🧱', '#009E8E', 'Village', 'You see the other Mason. Together you know you’re villagers.'],
+  seer: ['Seer', '🔮', '#A142F4', 'Village', 'Look at one player’s card, or two of the center cards.'],
+  robber: ['Robber', '🥷', '#039BE5', 'Village', 'Swap cards with another player and look at your new card.'],
+  troublemaker: ['Troublemaker', '🃏', '#E8710A', 'Village', 'Swap two other players’ cards without looking.'],
+  drunk: ['Drunk', '🍺', '#F9AB00', 'Village', 'Swap your card with a center card — without looking!'],
+  insomniac: ['Insomniac', '🌙', '#5B5FEF', 'Village', 'At the end of the night you look at your own card to see if it changed.'],
+  hunter: ['Hunter', '🏹', '#1E8E3E', 'Village', 'If you die, the player you voted for dies with you.'],
+  villager: ['Villager', '🧑‍🌾', '#4285F4', 'Village', 'No special power. Find the werewolves!'],
+  tanner: ['Tanner', '👺', '#F4511E', 'Tanner', 'You hate your job. You only win if YOU are killed.'],
 };
 const BASE = ['wolf', 'wolf', 'seer', 'robber', 'troublemaker', 'villager', 'drunk', 'insomniac', 'hunter', 'mason', 'mason', 'minion', 'tanner', 'villager', 'villager'];
 
 const CSS = `
 .ow { gap:10px; background:transparent; }
-.ow.night { background:#1A237E; color:#e8eaf6; border-radius:0; }
-.ow.night .kt-card { background:rgba(255,255,255,.08); color:#e8eaf6; box-shadow:none; } .ow.night .kt-hint { color:#9fa8da; } .ow.night .kt-title { color:#9fa8da; }
+.ow.night { background:#2A2470; color:#fff; border-radius:0; }
+.ow.night .kt-card { background:#3A3490; color:#fff; box-shadow:var(--z1); } .ow.night .kt-hint { color:#E8EAF6; } .ow.night .kt-title { color:#CFD3FF; }
 .ow-role { border-radius:var(--r); padding:18px; text-align:center; color:#fff; background:var(--rc); box-shadow:var(--e2); cursor:pointer; user-select:none; }
 .ow-role .em { font-size:60px; line-height:1; display:block; } .ow-role b { font:800 24px var(--font); display:block; margin:4px 0; } .ow-role small { opacity:.9; font:500 14px/1.35 var(--font); display:block; }
-.ow-role.cover { background:#3F51B5; } .ow-role.cover .em { font-size:44px; }
+.ow-role.cover { background:#5B5FEF; } .ow-role.cover .em { font-size:44px; }
 .ow-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px,1fr)); gap:8px; }
 .ow-p { border:3px solid transparent; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:10px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; font:700 13px var(--font); color:var(--on); cursor:pointer; position:relative; }
-.ow.night .ow-p { background:rgba(255,255,255,.1); color:#fff; box-shadow:none; } .ow-p.sel { border-color:var(--yellow); background:var(--yellow-c); color:var(--on); } .ow-p.dead { opacity:.5; } .ow-p .vc { position:absolute; top:-8px; right:-4px; background:var(--red); color:#fff; border-radius:var(--r); font:800 12px var(--font); padding:2px 8px; }
-.ow-ctr { display:flex; gap:10px; justify-content:center; } .ow-cc { width:70px; height:96px; border-radius:var(--card-r); background:#3F51B5; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; font:800 12px var(--font); cursor:pointer; border:3px solid transparent; box-shadow:var(--e1); } .ow-cc.sel { border-color:var(--yellow); } .ow-cc .em { font-size:28px; }
-.ow-info { background:var(--blue-c); color:var(--blue-d); border-radius:var(--r); padding:12px 14px; font:600 14px/1.45 var(--font); } .ow.night .ow-info { background:rgba(255,255,255,.12); color:#e8eaf6; }
-.ow-res { display:flex; align-items:center; gap:8px; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 10px; font:700 13px var(--font); } .ow-res.win { background:var(--green-c); } .ow-res .r { margin-left:auto; text-align:right; } .ow-res .r small { display:block; color:var(--on2); font:600 11px var(--font); }
+.ow.night .ow-p { background:#3A3490; color:#fff; box-shadow:var(--z1); } .ow-p.sel { border-color:var(--m-yellow); box-shadow:var(--z3); } .ow-p.dead { opacity:.5; } .ow-p .vc { position:absolute; top:-8px; right:-4px; background:var(--red); color:#fff; border-radius:var(--r); font:800 12px var(--font); padding:2px 8px; }
+.ow-ctr { display:flex; gap:10px; justify-content:center; } .ow-cc { width:70px; height:96px; border-radius:var(--card-r); background:#5B5FEF; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; font:800 12px var(--font); cursor:pointer; border:3px solid transparent; box-shadow:var(--e1); } .ow-cc.sel { border-color:var(--yellow); } .ow-cc .em { font-size:28px; }
+.ow-info { background:var(--surface); color:var(--on); box-shadow:var(--z1), inset 4px 0 0 var(--m-blue); border-radius:var(--r); padding:12px 14px 12px 18px; font:600 14px/1.45 var(--font); } .ow.night .ow-info { background:#3A3490; color:#fff; }
+.ow-res { display:flex; align-items:center; gap:8px; background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:8px 10px; font:700 13px var(--font); } .ow-res.win { background:var(--green-c); box-shadow:var(--z1), inset 4px 0 0 var(--m-green); } .ow-res .r { margin-left:auto; text-align:right; } .ow-res .r small { display:block; color:var(--on2); font:600 11px var(--font); }
 `;
 
 export function start(api) {
@@ -86,20 +86,20 @@ export function start(api) {
     }
     if (S.phase === 'day') {
       const readyMe = S.ready.has(me);
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#f9a825' }, h('small', 'The sun rises'), 'Discuss! Who is lying?'), roleCard(), infoCard || '',
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#F9AB00' }, h('small', 'The sun rises'), 'Discuss! Who is lying?'), roleCard(), infoCard || '',
         h('div.kt-card', h('div.kt-title', 'Players'), h('div.ow-grid', { style: 'margin-top:8px' }, ids.map((id) => h('div.ow-p', { style: 'cursor:default' }, avatarEl(api.player(id), 'lg', { still: true }), nameOf(id) + (id === me ? ' (you)' : ''), S.ready.has(id) ? h('span.chip.green', { style: 'height:20px;font-size:11px' }, 'ready') : null)))),
         h('button.btn.' + (readyMe ? 'tonal' : 'primary') + '.block', { onclick: () => { api.toHost('ready', {}); } }, icon('check'), readyMe ? 'Ready to vote ✓' : 'I’m ready to vote'),
         h('div.kt-hint', 'Voting starts when time is up'));
     }
     if (S.phase === 'vote') {
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#c62828' }, h('small', 'Time to vote'), 'Who is a werewolf?'), roleCard(),
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#D93025' }, h('small', 'Time to vote'), 'Who is a werewolf?'), roleCard(),
         h('div.ow-grid', ids.filter((id) => id !== me).map((id) => playerBtn(id, (x) => { S.myVote = x; api.toHost('vote', { id: x }); api.sfx('pop'); render(); }, S.myVote === id, S.voted.has(id) ? h('span.chip.green', { style: 'height:20px;font-size:11px' }, 'voted') : null))),
         h('div.kt-hint', S.myVote ? 'Vote locked' : 'Tap a player to vote for them.'));
     }
     if (S.phase === 'result' && S.res) {
       const r = S.res;
       const teams = { Village: '🏘️ The village wins!', Wolves: '🐺 The werewolves win!', Tanner: '👺 The Tanner wins!' };
-      return root.replaceChildren(h('div.kt-prompt', { style: `--pc:${r.winTeams.includes('Wolves') ? '#c62828' : r.winTeams.includes('Tanner') ? '#795548' : '#2e7d32'}` }, h('small', 'Results'), r.winTeams.map((t) => teams[t]).join(' ') || 'Nobody wins…'),
+      return root.replaceChildren(h('div.kt-prompt', { style: `--pc:${r.winTeams.includes('Wolves') ? '#D93025' : r.winTeams.includes('Tanner') ? '#F4511E' : '#1E8E3E'}` }, h('small', 'Results'), r.winTeams.map((t) => teams[t]).join(' ') || 'Nobody wins…'),
         h('div.kt-hint', r.note),
         ...ids.map((id) => { const o = ROLES[r.orig[id]], f = ROLES[r.fin[id]]; return h('div.ow-res' + (r.winners.includes(id) ? '.win' : ''), avatarEl(api.player(id), 'sm', { still: true }), h('div', nameOf(id) + (id === me ? ' (you)' : ''), r.dead.includes(id) ? ' ☠️' : ''), h('div.r', `${o[1]} ${o[0]}${r.orig[id] !== r.fin[id] ? ` → ${f[1]} ${f[0]}` : ''}`, h('small', `${r.votes[id] || 0} vote${(r.votes[id] || 0) === 1 ? '' : 's'}${r.votedFor[id] ? ` · voted ${nameOf(r.votedFor[id])}` : ''}`))); }),
         h('div.kt-card', h('div.kt-title', 'Center cards'), h('div.ow-ctr', r.center.map((c) => h('div.ow-cc', { style: `background:${ROLES[c][2]}` }, h('span.em.emo', ROLES[c][1]), ROLES[c][0])))),

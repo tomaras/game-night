@@ -8,7 +8,7 @@ import { makeClock, waiting, scorePills, shuffled } from '../kit.js';
 
 const DRAW_IDEAS = ['A grumpy cloud', 'A taco with a cape', 'A cat astronaut', 'A dancing banana', 'A sleepy dragon', 'A robot eating pizza', 'A wizard on a skateboard', 'A penguin in sunglasses', 'A giant cupcake monster', 'A dog doing yoga', 'A ghost at the beach', 'An angry avocado', 'A llama in a tuxedo', 'A shark with a mustache', 'A smiling volcano', 'A pirate cow', 'A hamburger on a bike', 'A koala rock star', 'A unicorn chef', 'An alien with a balloon', 'A fox detective', 'A dinosaur with a briefcase', 'A tiny elephant superhero', 'A snowman at the gym'];
 const SLOGAN_HINTS = ['Something a grandparent would wear', 'A motto for the world’s worst superhero', 'A cheesy gym slogan', 'What a dog would print on a shirt', 'A shirt for a very tired person', 'A fake band tour name', 'A shirt a villain would wear', 'Something you’d say right before a disaster', 'A shirt for a pizza lover', 'A slogan for a very lazy cat'];
-const COLORS = [['White', '#f5f5f5'], ['Black', '#263238'], ['Red', '#e53935'], ['Blue', '#1e88e5'], ['Yellow', '#fdd835'], ['Green', '#43a047'], ['Pink', '#ec407a']];
+const COLORS = [['White', '#f5f5f5'], ['Black', '#202124'], ['Red', '#EA4335'], ['Blue', '#4285F4'], ['Yellow', '#FBBC05'], ['Green', '#34A853'], ['Pink', '#E52592']];
 const SHIRT_PATH = 'M92 18 L58 32 L8 78 L44 116 L72 98 L72 282 L228 282 L228 98 L256 116 L292 78 L242 32 L208 18 C190 52 110 52 92 18 Z';
 const dark = (hex) => { const v = parseInt(hex.slice(1), 16); return ((v >> 16) * 0.3 + ((v >> 8) & 255) * 0.59 + (v & 255) * 0.11) < 140; };
 
@@ -37,13 +37,13 @@ function shirt({ art, slo, color }, cls = '') {
 const CSS = `
 .ts-shirt { width:100%; height:auto; display:block; filter:drop-shadow(0 6px 10px rgba(0,0,0,.18)); }
 .ts-pick { display:flex; gap:8px; overflow-x:auto; padding:6px 2px; scrollbar-width:none; }
-.ts-art { flex:none; width:96px; height:72px; border-radius:var(--r); overflow:hidden; background:#fff; border:3px solid transparent; box-shadow:var(--e1); cursor:pointer; padding:0; } .ts-art img { width:100%; height:100%; object-fit:cover; display:block; } .ts-art.sel, .ts-slo.sel, .ts-col.sel { border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-c); }
+.ts-art { flex:none; width:96px; height:72px; border-radius:var(--r); overflow:hidden; background:#fff; border:3px solid transparent; box-shadow:var(--e1); cursor:pointer; padding:0; } .ts-art img { width:100%; height:100%; object-fit:cover; display:block; } .ts-art.sel, .ts-slo.sel, .ts-col.sel { border-color:var(--primary); box-shadow:var(--z3); }
 .ts-slo { flex:none; max-width:170px; border-radius:var(--r); background:var(--surface); box-shadow:var(--e1); border:3px solid transparent; padding:8px 12px; font:700 14px/1.2 var(--font); cursor:pointer; text-align:left; color:var(--on); }
 .ts-cols { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; } .ts-col { width:38px; height:38px; border-radius:50%; border:3px solid #fff; box-shadow:var(--e1); cursor:pointer; padding:0; }
 .ts-mix { display:grid; grid-template-columns:minmax(0,1fr); gap:10px; max-width:420px; margin:0 auto; width:100%; }
 .ts-duel { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .ts-opt { border:4px solid transparent; border-radius:var(--r); background:var(--surface); box-shadow:var(--e1); padding:10px 6px 12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; font:800 16px var(--font); color:var(--on); position:relative; transition:transform .12s; }
-.ts-opt:hover:not(:disabled) { transform:translateY(-3px); } .ts-opt.sel { border-color:var(--blue); background:var(--blue-c); } .ts-opt.win { border-color:var(--green); background:var(--green-c); } .ts-opt .pct { font:800 22px var(--font); }
+.ts-opt:hover:not(:disabled) { transform:translateY(-3px); } .ts-opt.sel { border-color:var(--primary); box-shadow:var(--z3); } .ts-opt.win { border-color:var(--green); box-shadow:var(--z3); } .ts-opt .pct { font:800 22px var(--font); }
 .ts-opt .who { font:600 12px var(--font); color:var(--on2); display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:center; }
 .ts-done { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
 `;
@@ -79,20 +79,20 @@ export function start(api) {
     const head = h('div.kt-row', { style: 'justify-content:center' }, S.phase === 'draw' || S.phase === 'slogan' ? h('span.chip.blue', `${S.phase === 'draw' ? 'Drawing' : 'Slogan'} ${S.round}/${per}`) : null, ['draw', 'slogan', 'mix', 'duel'].includes(S.phase) ? clock.el() : null);
     if (S.phase === 'draw') {
       if (!pad) pad = createDrawPad({ w: 480, h: 360 });
-      return root.replaceChildren(head, prompt('Draw something for a T-shirt', S.prompt, '#1e88e5'), S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Drawing sent!', waiting(api, ids.filter((i) => !S.done.has(i)))) : [pad.el, h('div.kt-sticky', h('button.btn.primary.big.block', { onclick: () => send('art', { url: pad.toDataURL(360, 0.55) }) }, icon('check'), 'Done'))]);
+      return root.replaceChildren(head, prompt('Draw something for a T-shirt', S.prompt, '#4285F4'), S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Drawing sent!', waiting(api, ids.filter((i) => !S.done.has(i)))) : [pad.el, h('div.kt-sticky', h('button.btn.primary.big.block', { onclick: () => send('art', { url: pad.toDataURL(360, 0.55) }) }, icon('check'), 'Done'))]);
     }
     if (S.phase === 'slogan') {
       sloInput = sloInput || h('input.txt', { placeholder: 'Write a funny slogan…', maxlength: 36, autocomplete: 'off' });
       const preview = h('div.ts-mix', h('div', { style: 'max-width:230px;margin:0 auto;width:60%' }));
       const upd = () => preview.replaceChildren(h('div', { style: 'max-width:230px;margin:0 auto;width:60%' }, shirt({ art: null, slo: sloInput.value || 'Your slogan here', color: 0 })));
       sloInput.oninput = upd; upd();
-      return root.replaceChildren(head, prompt('Write a slogan', S.prompt, '#e5399b'), S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Slogan sent!', waiting(api, ids.filter((i) => !S.done.has(i)))) : [preview, h('div.kt-field', sloInput, h('button.btn.primary', { onclick: () => send('slo', { text: sloInput.value.trim() || 'No comment' }) }, icon('send'), 'Send'))]);
+      return root.replaceChildren(head, prompt('Write a slogan', S.prompt, '#E52592'), S.submitted ? h('div.kt-card', { style: 'text-align:center' }, '✅ Slogan sent!', waiting(api, ids.filter((i) => !S.done.has(i)))) : [preview, h('div.kt-field', sloInput, h('button.btn.primary', { onclick: () => send('slo', { text: sloInput.value.trim() || 'No comment' }) }, icon('send'), 'Send'))]);
     }
     if (S.phase === 'mix') {
       const my = S.my;
       const prev = shirt({ art: S.arts.find((a) => a.id === my.art)?.url, slo: S.slos.find((s) => s.id === my.slo)?.text || (my.slo === null ? 'Pick a slogan' : ''), color: my.color });
       const can = my.art !== null && my.slo !== null;
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#8e24aa' }, h('small', `Mix & match — make ${per} shirt${per > 1 ? 's' : ''}`), `Shirt ${Math.min(S.shirtsMade + 1, per)} of ${per}`),
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#A142F4' }, h('small', `Mix & match — make ${per} shirt${per > 1 ? 's' : ''}`), `Shirt ${Math.min(S.shirtsMade + 1, per)} of ${per}`),
         S.shirtsMade >= per ? h('div.kt-card', { style: 'text-align:center' }, '✅ Shirts are ready!', waiting(api, ids.filter((i) => !S.done.has(i)))) : h('div.ts-mix',
           h('div', { style: 'max-width:260px;margin:0 auto;width:70%' }, prev),
           h('div.kt-title', 'Pick a drawing'), h('div.ts-pick', S.arts.map((a) => h('button.ts-art' + (my.art === a.id ? '.sel' : ''), { onclick: () => { my.art = a.id; render(); } }, h('img', { src: a.url, alt: '' })))),
@@ -103,13 +103,13 @@ export function start(api) {
     if (S.phase === 'duel' && S.duel) {
       const d = S.duel, mineDuel = d.by.includes(me);
       const opt = (k) => h('button.ts-opt' + (S.voted === k ? '.sel' : ''), { disabled: mineDuel || S.voted !== null, onclick: () => { S.voted = k; api.toHost('vote', { k }); api.sfx('pop'); render(); } }, shirt(d[k]), mineDuel ? '' : S.voted === k ? 'Your vote ✓' : 'Vote');
-      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#fb8c00' }, h('small', `Battle ${d.i + 1} of ${d.n}`), mineDuel ? 'Your shirt is in this battle!' : 'Which shirt is better?'), h('div.ts-duel', opt('a'), opt('b')), h('div.kt-hint', mineDuel ? 'Your battle: waiting for votes' : S.voted ? 'Vote locked. Waiting for the others…' : 'Tap your favourite.'));
+      return root.replaceChildren(head, h('div.kt-prompt', { style: '--pc:#E8710A' }, h('small', `Battle ${d.i + 1} of ${d.n}`), mineDuel ? 'Your shirt is in this battle!' : 'Which shirt is better?'), h('div.ts-duel', opt('a'), opt('b')), h('div.kt-hint', mineDuel ? 'Your battle: waiting for votes' : S.voted ? 'Vote locked. Waiting for the others…' : 'Tap your favourite.'));
     }
     if (S.phase === 'reveal' && S.res) {
       const r = S.res, d = S.duel;
       const tot = r.a.votes + r.b.votes || 1;
       const opt = (k) => h('div.ts-opt' + (r[k].votes > r[k === 'a' ? 'b' : 'a'].votes ? '.win' : ''), shirt(d[k]), h('div.pct', Math.round((r[k].votes / tot) * 100) + '%'), h('div.who', avatarEl(api.player(r[k].by), 'xs', { still: true }), nameOf(r[k].by), r[k].pts ? `+${r[k].pts}` : ''), h('div.who', `🎨 ${nameOf(r[k].artBy)} · ✍️ ${nameOf(r[k].sloBy)}`));
-      return root.replaceChildren(h('div.kt-prompt', { style: '--pc:#43a047' }, h('small', `Battle ${d.i + 1} of ${d.n}`), r.a.votes === r.b.votes ? 'It’s a tie!' : `${nameOf(r[r.a.votes > r.b.votes ? 'a' : 'b'].by)}’s shirt wins!`), h('div.ts-duel', opt('a'), opt('b')), scorePills(api, S.scores));
+      return root.replaceChildren(h('div.kt-prompt', { style: '--pc:#34A853' }, h('small', `Battle ${d.i + 1} of ${d.n}`), r.a.votes === r.b.votes ? 'It’s a tie!' : `${nameOf(r[r.a.votes > r.b.votes ? 'a' : 'b'].by)}’s shirt wins!`), h('div.ts-duel', opt('a'), opt('b')), scorePills(api, S.scores));
     }
     root.replaceChildren(h('div.kt-center', 'Getting the studio ready…'));
   }

@@ -5,11 +5,11 @@ import { icon } from '../ui.js';
 import { WORDS } from '../words.js';
 import { makeClock, hostPhase, waiting, sample } from '../kit.js';
 
-const TEAMS = [['Blue', '#1a73e8', '#d3e3fd'], ['Red', '#ea4335', '#fcdad6']];
+const TEAMS = [['Blue', '#4285F4', '#4285F4'], ['Red', '#EA4335', '#EA4335']];
 const CSS = `
 .cc2-words { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
 .cc2-w { border-radius:var(--r); padding:10px 4px; text-align:center; background:var(--tc); color:var(--tf); font:800 clamp(13px, 3.6vw, 18px)/1.1 var(--font); display:flex; flex-direction:column; gap:4px; align-items:center; }
-.cc2-w i { font:900 22px var(--font); font-style:normal; opacity:.55; }
+.cc2-w i { font:900 22px var(--font); font-style:normal; opacity:.7; }
 .cc2-hist { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
 .cc2-col { background:var(--surface); box-shadow:var(--e1); border-radius:var(--r); padding:6px 6px 8px; min-height:60px; }
 .cc2-col b { display:block; text-align:center; font:800 13px var(--font); color:var(--on3); margin-bottom:4px; }
@@ -36,7 +36,7 @@ export function start(api) {
   api.root.append(h('style', CSS), root);
   const S = { phase: 'wait', turn: 0, team: 0, enc: null, myCode: null, words: [], clues: null, hist: [[[], [], [], []], [[], [], [], []]], tok: [{ w: 0, b: 0 }, { w: 0, b: 0 }], sent: false, guessSent: false, guess: [], res: null, round: 1, done: new Set() };
   const myTeam = teamOf(api.me);
-  const style = (t) => ({ '--tc': TEAMS[t][2], '--tf': TEAMS[t][1] });
+  const style = (t) => ({ '--tc': TEAMS[t][1], '--tf': '#fff' });
 
   api.on('words', (w) => { S.words = w.words; render(); });
   api.on('phase', (p) => {

@@ -117,7 +117,7 @@ export function start(api) {
     function msg(lines) {
       ctx.fillStyle = '#10121f'; ctx.fillRect(0, 0, W, HT);
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = 'bold 15px sans-serif';
-      lines.forEach((t, i) => { ctx.fillStyle = i === 0 ? '#ffd23f' : '#cfd3ff'; ctx.font = (i === 0 ? 'bold 18px' : '13px') + ' sans-serif'; ctx.fillText(t, W / 2, 100 + i * 24); });
+      lines.forEach((t, i) => { ctx.fillStyle = i === 0 ? '#FBBC05' : '#cfd3ff'; ctx.font = (i === 0 ? 'bold 18px' : '13px') + ' sans-serif'; ctx.fillText(t, W / 2, 100 + i * 24); });
     }
     msg(['🕹️ Retro Console', 'The host is picking a game…']);
 
