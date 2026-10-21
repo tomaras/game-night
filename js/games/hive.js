@@ -44,57 +44,90 @@ const xyOf = (cell) => ({ x: STEP * SQ3 * (qOf(cell) + rOf(cell) / 2), y: STEP *
 const cellKey = (cell) => `${qOf(cell)},${rOf(cell)}`;
 
 const CSS = `
-.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:268px minmax(340px,1fr) 304px; grid-template-rows:auto minmax(0,1fr); grid-template-areas:"head head head" "rail center info"; overflow:hidden; background:#100d09; color:#f7efe3; --hv-board:#442816; --hv-board2:#1f130c; }
+.hv { flex:1; min-height:0; width:100%; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); grid-template-areas:"center"; overflow:hidden; background:#100d09; color:#f7efe3; }
 .hv * { box-sizing:border-box; }
+.hv-center { grid-area:center; display:flex; flex-direction:column; min-height:0; min-width:0; }
+.hv-arena { flex:1; position:relative; min-height:0; overflow:hidden; background:#161a10; touch-action:none; user-select:none; }
+.hv-arena.d3 .hv-board,.hv-arena.d3 .hv-zoom { display:none; }
+.hv-zoom { position:absolute; left:10px; bottom:9px; padding:5px 9px; background:#14110d; color:#d8cdbd; border:1px solid #5d452c; font:700 10px var(--font); pointer-events:none; }
+/* the reserve tray is drawn in the 3D scene; this copy only serves keyboards, screen readers and the flat fallback */
+.hv-tray { display:flex; justify-content:center; padding:6px 10px 4px; background:#120f0b; min-width:0; }
+.hv.d3 .hv-tray { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); padding:0; }
+.hv-trayrow { position:relative; width:min(100%, calc(var(--n) * 104px)); aspect-ratio:var(--ratio); background-size:100% 100%; background-repeat:no-repeat; filter:drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
+.hv-trayrow .hv-rpiece { position:absolute; top:46%; width:var(--tw); height:auto; aspect-ratio:1; transform:translate(-50%,-50%); }
+.hv-trayrow .hv-rpiece:hover:not(:disabled),.hv-trayrow .hv-rpiece.sel { transform:translate(-50%,-62%); }
+.hv-trayrow .hv-rpiece.empty { display:block; visibility:hidden; }
+.hv-count { position:absolute; right:2%; bottom:-6%; min-width:19px; height:19px; border-radius:50%; display:grid; place-items:center; background:var(--m-blue); color:#fff; border:2px solid #120f0b; font:800 10px var(--font); }
+/* ---- player panels, after the design: near-black, a fine gold double rule, serif names, gold-ringed portrait ---- */
+.hv-plaque { position:absolute; z-index:4; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:6px 12px; align-items:center; padding:12px 14px 12px 12px; background:#13100c; border:1px solid #5e4729; border-radius:4px; box-shadow:inset 0 0 0 3px #13100c, inset 0 0 0 4px #2b2116, 0 10px 24px rgba(0,0,0,.55); color:#f4ead6; }
+.hv-plaque.turn { border-color:#d69a35; box-shadow:inset 0 0 0 3px #13100c, inset 0 0 0 4px #5a4220, 0 0 0 1px rgba(214,154,53,.35), 0 0 22px rgba(214,154,53,.28), 0 10px 24px rgba(0,0,0,.55); }
+.hv-plaque.opp { left:12px; top:12px; max-width:min(360px, calc(100% - 96px)); }
+.hv-plaque.me { right:12px; bottom:12px; max-width:min(330px, calc(100% - 150px)); }
+.hv-plaque .avatar { box-shadow:0 0 0 2px #13100c, 0 0 0 3.5px #c9973e; border-radius:50%; }
+.hv-plaque .pt { min-width:0; }
+.hv-plaque b { display:block; font:400 19px/1.15 Georgia,'Times New Roman',serif; letter-spacing:.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hv-plaque .ps { display:block; margin-top:3px; font:400 14px/1.3 Georgia,'Times New Roman',serif; color:#b3a58d; }
+.hv-plaque.turn .ps { color:#e8b04a; }
+.hv-plaque .ps i { display:inline-block; width:7px; height:7px; margin:0 7px 1px 0; border-radius:50%; background:#e8b04a; vertical-align:middle; }
+.hv-plaque .qr { width:44px; height:44px; display:block; }
+.hv-plaque .pc { grid-column:1 / -1; display:grid; grid-template-columns:repeat(4, auto); justify-content:start; gap:6px 14px; padding-top:8px; margin-top:2px; border-top:1px solid #2b2116; }
+.hv-chip { position:relative; flex:none; display:flex; align-items:center; gap:4px; }
+.hv-chip .hv-timg { width:38px; height:38px; }
+.hv-chip .x { font:400 14px Georgia,'Times New Roman',serif; color:#cfc3ad; } .hv-chip .x u { text-decoration:none; }
+.hv-chip.none { opacity:.32; }
+button.hv-chip { border:0; background:transparent; padding:2px 4px 2px 2px; color:inherit; cursor:pointer; border-radius:3px; transition:transform .15s var(--std); }
+button.hv-chip:disabled { cursor:default; }
+button.hv-chip.can:hover { transform:translateY(-2px); }
+button.hv-chip.sel { transform:translateY(-4px); background:#2a1f12; box-shadow:0 0 0 1px #d69a35, 0 0 14px rgba(214,154,53,.4); }
+button.hv-chip:not(.can):not(.none) { opacity:.55; } .hv-chip.queen .hv-timg { filter:drop-shadow(0 0 6px rgba(232,176,74,.75)); }
+.hv-wordmark { position:absolute; z-index:3; top:14px; left:50%; transform:translateX(-50%); height:40px; width:auto; pointer-events:none; filter:drop-shadow(0 3px 4px rgba(0,0,0,.7)); }
+/* ---- the honeycomb menu: one hexagonal button that opens a cluster of labelled hexagons ---- */
+.hv-comb { position:absolute; z-index:6; right:12px; top:12px; width:60px; height:54px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
+.hv-hex { position:relative; display:block; clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); background:#a87a30; }
+.hv-hex > span { position:absolute; inset:1.5px; clip-path:inherit; background:#13100c; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; color:#f6ecd8; transition:background .15s; }
+.hv-comb .hv-hex { width:60px; height:54px; }
+.hv-comb:hover .hv-hex > span,.hv-comb.open .hv-hex > span { background:#3a2610; }
+.hv-comb svg { width:30px; height:30px; display:block; }
+.hv-combmenu { position:absolute; z-index:6; right:12px; top:12px; width:60px; height:54px; pointer-events:none; }
+.hv-combitem { position:absolute; left:0; top:0; width:88px; height:77px; margin:-11px 0 0 -14px; border:0; padding:0; background:transparent; cursor:pointer; pointer-events:auto; opacity:0; transform:translate(0,0) scale(.2); filter:drop-shadow(0 5px 7px rgba(0,0,0,.65)); transition:transform .22s cubic-bezier(.2,1.2,.3,1), opacity .15s; }
+.hv-combmenu.open .hv-combitem { opacity:1; transform:translate(var(--dx),var(--dy)) scale(1); }
+.hv-combitem .hv-hex { width:88px; height:77px; }
+.hv-combitem .hv-hex > span { font:400 12.5px/1.1 Georgia,'Times New Roman',serif; color:#f1e6cf; }
+.hv-combitem svg { width:25px; height:25px; display:block; }
+.hv-combitem:hover:not(:disabled) .hv-hex > span { background:#3a2610; }
+.hv-combitem:disabled { cursor:default; opacity:.4 !important; }
+.hv-combitem.warn .hv-hex { background:#EA4335; }
+.hv-scrim { position:absolute; inset:0; z-index:5; background:transparent; }
+/* ---- victory banner ---- */
+.hv-victory { position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:4; text-align:center; padding:8px 44px 10px; background:#0d0b08; border:1px solid #c28a2c; box-shadow:inset 0 0 0 3px #0d0b08,inset 0 0 0 4px #5d452c,0 6px 18px rgba(0,0,0,.6); clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%); pointer-events:none; }
+.hv-victory b { display:block; font:700 32px/1 Georgia,'Times New Roman',serif; letter-spacing:.14em; color:#efbd4e; }
+.hv-victory span { display:block; margin-top:4px; font:500 15px Georgia,serif; color:#f1e6cf; }
+.hv-flatbar { position:absolute; z-index:4; left:12px; right:12px; bottom:70px; display:flex; justify-content:center; }
+.hv-arena.d3 .hv-flatbar { display:none; }
+.hv-confirm { height:46px; min-width:170px; padding:0 22px; background:#e6a72a; border:1px solid #f6cc6a; color:#1f1407; font:800 16px var(--font); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; }
+.hv-confirm:disabled { display:none; }
+/* ---- wide screens: the rules and move history sit beside the table ---- */
+.hv-inspector { grid-area:info; display:none; min-width:0; min-height:0; padding:10px; background:#0b0907; border-left:1px solid #6d4a22; flex-direction:column; gap:10px; overflow:auto; }
+@container hv (min-width:700px) { .hv-plaque.me { right:auto; left:12px; bottom:auto; top:var(--hv-me-top, 150px); max-width:360px; } }
+@container hv (max-width:699px) { .hv-plaque.me .pc { display:flex; justify-content:space-between; } .hv-plaque.me .hv-chip .hv-timg { width:36px; height:36px; } }
+@container hv (min-width:1000px) { .hv { grid-template-columns:minmax(0,1fr) 300px; grid-template-areas:"center info"; } .hv-inspector { display:flex; } }
+@container hv (max-width:560px) { .hv-wordmark { display:none; } .hv-plaque { padding:9px 10px; gap:4px 9px; } .hv-plaque b { font-size:16px; } .hv-plaque .ps { font-size:12.5px; } .hv-plaque .qr { width:38px; height:38px; } .hv-plaque .pc { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; padding-top:6px; } .hv-chip .hv-timg { width:30px; height:30px; } .hv-chip .x { position:absolute; right:-3px; bottom:-3px; min-width:16px; height:16px; padding:0 3px; border-radius:8px; background:#13100c; border:1px solid #c9973e; color:#f4ead6; font:400 10px/14px Georgia,serif; text-align:center; } .hv-chip .x u { display:none; } }
+@media (prefers-reduced-motion:reduce) { .hv-target polygon,.hv-arrive,.hv-plaque .ps i { animation:none; } .hv-combitem { transition:none; } }
+
 .hv-defs { pointer-events:none; }
 ${GLYPH_CSS}
-.hv-rail { grid-area:rail; min-width:0; display:grid; grid-template-rows:1fr 1fr; gap:1px; padding:8px; background:#0e0c09; border-right:1px solid #6d4a22; }
-.hv-player { min-width:0; min-height:0; display:flex; flex-direction:column; gap:8px; align-items:stretch; padding:10px 8px; background:#171512;color:#f7efe3;border:1px solid #5d452c; box-shadow:inset 0 0 0 1px #070605,var(--z1); z-index:4; overflow:hidden; }
-.hv-player.bottom { border-color:#bc812e; }
-.hv-who { min-width:0; display:flex; align-items:center; gap:7px; font:700 13px var(--font); }
-.hv-who .name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hv-who small { display:block; color:#bca98c; font:600 10px var(--font); text-transform:uppercase; letter-spacing:.06em; }
-.hv-player.turn { box-shadow:inset 3px 0 0 var(--m-yellow),inset 0 0 18px rgba(251,188,5,.09),var(--z1); }
-.hv-danger { display:grid; grid-template-columns:repeat(6,7px); gap:4px; justify-content:start; }
-.hv-danger i { width:6px; height:6px; border-radius:50%; background:var(--line2); }
-.hv-danger i.on { background:var(--m-red); }
-.hv-reserve { min-width:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-content:start; justify-items:center; gap:4px 0; overflow:auto; scrollbar-width:none; padding:2px; }
-.hv-reserve::-webkit-scrollbar { display:none; }
 .hv-rpiece { position:relative; width:42px; height:46px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 3px 2px rgba(0,0,0,.34)); transition:transform .16s var(--std),filter .16s; }
 .hv-rpiece svg { width:42px; height:46px; display:block; }
 .hv-rpiece:hover:not(:disabled),.hv-rpiece.sel { transform:translateY(-4px); filter:drop-shadow(0 6px 4px rgba(0,0,0,.23)); }
 .hv-rpiece.sel { outline:none; filter:drop-shadow(0 0 7px #ffc84a) drop-shadow(0 5px 3px rgba(0,0,0,.4)); }
 .hv-rpiece:disabled { cursor:default; opacity:.52; }
 .hv-rpiece.empty { display:none; }
-.hv-count { position:absolute; right:-1px; bottom:0; width:19px; height:19px; border-radius:50%; display:grid; place-items:center; background:var(--m-blue); color:#fff; border:2px solid var(--surface); font:800 10px var(--font); }
-.hv-arena.d3 { background:#1c2216; }
-.hv-arena.d3 .hv-board,.hv-arena.d3 .hv-zoom { display:none; }
-.hv-arena.d3::before { box-shadow:inset 0 0 90px rgba(10,8,3,.5); }
-.hv.d3 .hv-tray { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); padding:0; }
-.hv.d3 .hv-bag { display:none; }
-.hv-tray { display:flex; justify-content:center; padding:6px 10px 4px; background:#120f0b; min-width:0; }
-.hv-trayrow { position:relative; width:min(100%, calc(var(--n) * 104px)); aspect-ratio:var(--ratio); background-size:100% 100%; background-repeat:no-repeat; filter:drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
-.hv-trayrow .hv-rpiece { position:absolute; top:46%; width:var(--tw); height:auto; aspect-ratio:1; transform:translate(-50%,-50%); filter:drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
-.hv-trayrow .hv-rpiece svg { width:100%; height:auto; }
-.hv-trayrow .hv-rpiece:hover:not(:disabled),.hv-trayrow .hv-rpiece.sel { transform:translate(-50%,-62%); }
-.hv-trayrow .hv-rpiece.empty { display:block; visibility:hidden; }
-.hv-trayrow .hv-count { right:2%; bottom:-6%; }
-.hv-bag { position:relative; width:100%; max-width:150px; margin:auto auto 0; aspect-ratio:3/2; pointer-events:none; }
-.hv-bag img.bag { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 5px 5px rgba(0,0,0,.55)); }
-.hv-bag .peek { position:absolute; width:34%; height:auto; aspect-ratio:1; filter:drop-shadow(0 3px 3px rgba(0,0,0,.5)); }
-.hv-bag .peek.a { right:8%; top:2%; transform:rotate(14deg); }
-.hv-bag .peek.b { right:27%; top:-9%; transform:rotate(-12deg); }
-.hv-bag b { position:absolute; left:4%; bottom:4%; min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:var(--m-blue); color:#fff; font:800 11px/22px var(--font); text-align:center; border:2px solid #120f0b; }
 .hv-timg { width:100%; height:auto; aspect-ratio:1; display:block; pointer-events:none; filter:drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
 .hv-seg { display:flex; gap:0; margin:6px 0 14px; border:1px solid var(--line2); }
 .hv-seg button { flex:1; border:0; border-right:1px solid var(--line2); background:var(--surface); color:var(--on); padding:10px 6px; font:700 13px var(--font); cursor:pointer; }
 .hv-seg button:last-child { border-right:0; }
 .hv-seg button.on { background:var(--blue); color:#fff; }
 .hv-set small { display:block; color:var(--on2); font:500 12px/1.4 var(--font); margin:-2px 0 4px; }
-.hv-center { grid-area:center; display:flex; flex-direction:column; min-height:0; min-width:0; }
-.hv-center > .hv-arena { flex:1; min-height:0; }
-.hv-arena { position:relative; min-height:0; overflow:hidden; background:var(--hv-board) url("assets/hive/walnut-table-v2.png") center/cover no-repeat; border:1px solid #25170e; touch-action:none; user-select:none; }
-.hv-arena::before { content:''; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 70px rgba(15,8,3,.42); }
 .hv-board { position:absolute; inset:0; width:100%; height:100%; overflow:visible; touch-action:none; }
 .hv-world { transform-origin:0 0; }
 .hv-grid polygon { fill:rgba(68,38,19,.035); stroke:rgba(40,21,11,.46); stroke-width:1.35; vector-effect:non-scaling-stroke; pointer-events:all; }
@@ -118,18 +151,6 @@ ${GLYPH_CSS}
 @keyframes hvPulse { to { stroke-width:7; opacity:.72; } }
 @keyframes hvArrive { 0% { opacity:.25; transform:translateY(-20px) scale(1.18); } 70% { transform:translateY(2px) scale(.98); } 100% { opacity:1; transform:none; } }
 .hv-arrive { animation:hvArrive .34s cubic-bezier(.2,.8,.2,1) both; transform-box:fill-box; transform-origin:center; }
-.hv-float { position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:7px; z-index:3; }
-.hv-float .iconbtn { background:var(--surface); color:var(--on); box-shadow:var(--z2); }
-.hv-zoom { position:absolute; left:10px; bottom:9px; padding:5px 9px; background:var(--surface); color:var(--on2); box-shadow:var(--z1); border-radius:2px; font:700 10px var(--font); pointer-events:none; }
-.hv-command { display:grid; grid-template-columns:minmax(150px,1fr) auto auto; gap:8px; align-items:center; min-height:64px; padding:7px 10px; background:#171512;color:#f7efe3;border-top:2px solid #b47b2d; z-index:4; }
-.hv-status { min-width:0; }
-.hv-status b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 14px var(--font); }
-.hv-status span { display:block; color:#bca98c; font:500 12px var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hv-actions { display:flex; gap:3px; align-items:center; }
-.hv-actions .iconbtn { width:40px; height:40px; }
-.hv-confirm { min-width:116px; height:42px; border:1px solid #f4c562; border-radius:2px; background:#e6a72a; color:#211407; font:800 13px var(--font); box-shadow:inset 0 1px 0 #ffe7a7,0 3px 8px #0008; cursor:pointer; }
-.hv-confirm:disabled { opacity:.38; cursor:default; filter:saturate(.25); }
-.hv-inspector { grid-area:info; min-width:0; padding:8px; background:#0e0c09; border-left:1px solid #6d4a22; overflow:auto; }
 .hv-info-card { border:1px solid #6f522f; background:#171512; box-shadow:inset 0 0 0 1px #050403; padding:10px; }
 .hv-info-head { display:grid; grid-template-columns:58px 1fr; gap:8px; align-items:center; padding-bottom:8px; border-bottom:1px solid #443422; }
 .hv-info-head svg { width:56px; height:61px; }
@@ -141,8 +162,6 @@ ${GLYPH_CSS}
 .hv-history { display:grid; gap:0; }
 .hv-history-row { display:grid; grid-template-columns:24px 1fr; gap:5px; padding:6px 0; border-top:1px solid #2b251e; font:500 11px/1.25 var(--font); color:#c8baa7; }
 .hv-history-row b { color:#8d806f; text-align:right; }
-.hv-result-card { margin-bottom:8px; border:1px solid #f1b83f; padding:10px; background:#21170d; color:#ffe29a; }
-.hv-result-card strong { display:block; font:800 20px Georgia,serif; }
 .hv-thinking { color:var(--m-blue)!important; }
 .hv-sheet { min-width:min(520px,90vw); }
 .hv-sheet h3 { margin:0 0 12px; }
@@ -156,33 +175,6 @@ ${GLYPH_CSS}
 .hv-log-row:last-child { border:0; }
 .hv-log-row b { color:var(--on3); text-align:right; }
 .hv-empty { padding:20px; text-align:center; color:var(--on2); }
-:root[data-theme="dark"] .hv { --hv-board:#2d1b10; --hv-board2:#100a06; }
-
-/* ---- the dark, gold-edged look of the design: serif titles, black panels, labelled buttons ---- */
-.hv-head { grid-area:head; display:flex; align-items:center; gap:26px; padding:6px 16px; background:#0c0a07; border-bottom:1px solid #6d4a22; z-index:5; min-width:0; }
-.hv-logo { display:flex; align-items:center; gap:10px; flex:none; }
-.hv-logo svg { width:34px; height:34px; display:block; }
-.hv-logo b { display:block; font:700 28px/1 Georgia,'Times New Roman',serif; letter-spacing:.16em; color:#e8b64a; }
-.hv-logo small { display:block; margin-top:3px; font:600 8.5px var(--font); letter-spacing:.34em; color:#b99a5c; }
-.hv-tabs { display:flex; gap:2px; padding:3px; background:#13100c; border:1px solid #3d2f1b; }
-.hv-tabs button { border:0; background:transparent; color:#eadfc9; font:600 15px Georgia,'Times New Roman',serif; padding:8px 22px; cursor:pointer; }
-.hv-tabs button.on { background:#e6a72a; color:#1d1307; box-shadow:inset 0 0 0 1px #ffe08a; }
-.hv-tabs button:not(.on):hover { background:#211b12; }
-.hv-rail { background:#0b0907; gap:8px; padding:10px; min-height:0; overflow:auto; contain:size; scrollbar-width:none; }
-.hv-player { background:#12100c; border:1px solid #5d452c; gap:10px; padding:12px 12px 14px; justify-content:flex-start; }
-.hv-player.turn { border:2px solid #e6a72a; padding:11px 11px 13px; box-shadow:inset 0 0 0 1px #3a2a10; }
-.hv-who { gap:12px; }
-.hv-who .name { font:700 18px Georgia,'Times New Roman',serif; white-space:normal; }
-.hv-who small { text-transform:none; letter-spacing:0; font:500 13px var(--font); color:#bda985; margin-top:2px; }
-.hv-who small.turn { color:#f0c250; font-weight:700; }
-.hv-chips { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; }
-.hv-chip { display:flex; align-items:center; gap:5px; color:#e9dec8; font:600 14px var(--font); }
-.hv-chip .hv-timg { width:38px; height:38px; }
-.hv-chip .x u { text-decoration:none; }
-.hv-chip.none { opacity:.38; }
-.hv-chip.queen .hv-timg { filter:drop-shadow(0 0 5px rgba(232,182,74,.7)) drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
-.hv-danger { margin-top:auto; }
-.hv-inspector { background:#0b0907; padding:10px; display:flex; flex-direction:column; gap:10px; border-left:1px solid #6d4a22; min-height:0; contain:size; }
 .hv-info-card,.hv-stats-card,.hv-hist-card { border:1px solid #6d4a22; background:#12100c; box-shadow:inset 0 0 0 1px #040302; padding:14px 16px; }
 .hv-info-head { grid-template-columns:62px 1fr; gap:12px; border-bottom:0; padding-bottom:6px; }
 .hv-info-head h3 { font:700 24px Georgia,'Times New Roman',serif; margin:0; }
@@ -206,21 +198,6 @@ ${GLYPH_CSS}
 .hv-stat small { display:block; color:#a09076; font:500 12px var(--font); }
 .hv-final { display:grid; grid-template-columns:30px 1fr; gap:10px; align-items:center; padding:8px 0; border-top:1px solid #2a231a; font:500 13.5px var(--font); color:#e5dbc8; }
 .hv-final.win { color:#f3c85c; }
-.hv-victory { position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:4; text-align:center; padding:8px 44px 10px; background:#0d0b08; border:1px solid #c28a2c; box-shadow:inset 0 0 0 3px #0d0b08,inset 0 0 0 4px #5d452c,0 6px 18px rgba(0,0,0,.6); clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%); pointer-events:none; }
-.hv-victory b { display:block; font:700 32px/1 Georgia,'Times New Roman',serif; letter-spacing:.14em; color:#efbd4e; }
-.hv-victory span { display:block; margin-top:4px; font:500 15px Georgia,serif; color:#f1e6cf; }
-.hv-command { background:#0e0c09; border-top:1px solid #6d4a22; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; padding:10px 14px; }
-.hv-status { flex:1 1 100%; min-width:0; }
-.hv-confirm { margin-left:auto; }
-.hv-status b { font:600 14px var(--font); white-space:normal; color:#efe4cd; }
-.hv-status span { display:none; }
-.hv-actions { display:flex; gap:8px; }
-.hv-btn { display:flex; align-items:center; gap:9px; height:50px; padding:0 18px; background:#14110d; border:1px solid #5d452c; color:#f1e7d3; font:600 16px var(--font); cursor:pointer; }
-.hv-btn:hover:not(:disabled) { border-color:#c28a2c; background:#1b160f; }
-.hv-btn:disabled { opacity:.38; cursor:default; }
-.hv-btn svg,.hv-btn .ic { flex:none; }
-.hv-confirm { height:50px; min-width:168px; padding:0 22px; background:#e6a72a; border:1px solid #f6cc6a; color:#1f1407; font:800 17px var(--font); box-shadow:inset 0 1px 0 #ffe9a8; }
-.hv-float .iconbtn { background:#14110d; color:#eadfc9; border:1px solid #5d452c; box-shadow:0 3px 8px rgba(0,0,0,.5); }
 .hv-learn { display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; }
 .hv-lp { flex:1 1 92px; border:1px solid var(--line2); background:var(--surface); padding:10px 6px; cursor:pointer; text-align:center; font:700 14px Georgia,serif; color:var(--on); }
 .hv-lp.on { border-color:#e6a72a; box-shadow:inset 0 0 0 1px #e6a72a; }
@@ -230,57 +207,6 @@ ${GLYPH_CSS}
 .hv-lesson i { width:40px; height:44px; display:grid; place-items:center; background:#1c1710; color:#e6a72a; font:700 18px Georgia,serif; clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%); font-style:normal; }
 .hv-lesson b { display:block; font:700 16px Georgia,serif; }
 .hv-lesson span { color:var(--on2); font-size:13.5px; }
-@container hv (max-width:1180px) { .hv { grid-template-columns:232px minmax(0,1fr) 0; } .hv-inspector { display:none; } .hv-who .name { font-size:16px; } .hv-chip .hv-timg { width:34px; height:34px; } }
-@media (max-width:900px) {
-  .hv { grid-template-columns:1fr; grid-template-rows:auto minmax(220px,1fr) auto auto auto; grid-template-areas:"top" "arena" "bottom" "tray" "command"; }
-  .hv-center { display:contents; }
-  .hv-center > .hv-arena { grid-area:arena; }
-  .hv-tray { grid-area:tray; }
-  .hv-command { grid-area:command; }
-  .hv-bag { max-width:72px; margin:0 0 0 auto; }
-  .hv-player.bottom { grid-template-columns:minmax(110px,auto) 1fr 76px; }
-  .hv-player.bottom .hv-bag { margin-top:-6px; }
-  .hv-rail { display:contents; }
-  .hv-player { min-height:64px; display:grid; grid-template-columns:minmax(110px,auto) 1fr auto; gap:7px; align-items:center; padding:6px 8px; border-inline:0; overflow:visible; }
-  .hv-player.top { grid-area:top; }
-  .hv-player.bottom { grid-area:bottom; }
-  .hv-reserve { display:flex; align-items:center; justify-content:flex-start; gap:1px; overflow-x:auto; }
-  .hv-danger { grid-template-columns:repeat(3,6px); width:30px; }
-  .hv-inspector { display:none; }
-  .hv-head { display:none; }
-  .hv-player { gap:8px; padding:6px 10px; }
-  .hv-player.turn { padding:5px 9px; }
-  .hv-who .name { font:700 14px Georgia,serif; white-space:nowrap; }
-  .hv-who small { font-size:11px; }
-  .hv-chips { gap:2px 3px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
-  .hv-chip { position:relative; }
-  .hv-chip .x u { display:none; }
-  .hv-chip .hv-timg { width:29px; height:29px; }
-  .hv-chips { gap:0 !important; }
-  .hv-who .avatar { transform:scale(.8); margin:-4px; }
-  .hv-who .name { max-width:92px; overflow:hidden; text-overflow:ellipsis; }
-  .hv-player.bottom .hv-chips { display:none; }
-  .hv-chip .x { position:absolute; right:-2px; bottom:-1px; min-width:16px; height:16px; padding:0 3px; border-radius:8px; background:#4285F4; color:#fff; font:800 10px/16px var(--font); text-align:center; border:1.5px solid #0c0a07; }
-  .hv-victory { top:8px; padding:6px 30px 8px; } .hv-victory b { font-size:22px; } .hv-victory span { font-size:12px; }
-  .hv-command { padding:7px 8px; min-height:60px; gap:6px; flex-wrap:wrap; }
-  .hv-status { flex:1 1 100%; }
-  .hv-status b { font-size:14px; } .hv-status span { display:none; }
-  .hv-confirm { flex:1; } .hv-btn { height:44px; padding:0 12px; } .hv-btn span.t { display:none; } .hv-confirm { min-width:108px; height:44px; font-size:15px; }
-}
-@media (max-width:480px) {
-  .hv-player { grid-template-columns:112px 1fr 28px; padding-inline:7px; min-height:62px; }
-  .hv-player.bottom { grid-template-columns:112px 1fr 72px; }
-  .hv-who { gap:5px; font-size:11px; }
-  .hv-who .avatar { transform:scale(.88); margin:-2px; }
-  .hv-rpiece { width:43px; height:47px; }
-  .hv-rpiece svg { width:42px; height:46px; }
-  .hv-count { width:18px; height:18px; }
-  .hv-danger { width:28px; }
-  .hv-command { min-height:56px; }
-  .hv-confirm { min-width:104px; height:42px; }
-  .hv-status b { font-size:13px; }
-}
-@media (prefers-reduced-motion:reduce) { .hv-target polygon,.hv-arrive { animation:none; } }
 `;
 
 function optionsOf(value) {
@@ -301,8 +227,6 @@ export function start(api) {
 
   const root = h('div.hv');
   root.insertAdjacentHTML('afterbegin', glyphDefs());
-  const rail = h('div.hv-rail');
-  const topBar = h('div.hv-player.top');
   const arena = h('div.hv-arena');
   const board = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   board.setAttribute('class', 'hv-board');
@@ -311,27 +235,53 @@ export function start(api) {
   const world = document.createElementNS(board.namespaceURI, 'g');
   world.setAttribute('class', 'hv-world');
   board.append(world);
-  const floatTools = h('div.hv-float');
   const zoomLabel = h('div.hv-zoom', '100%');
-  arena.append(board, floatTools, zoomLabel);
-  const bottomBar = h('div.hv-player.bottom');
-  const trayEl = h('div.hv-tray');
-  rail.append(topBar, bottomBar);
-  const inspector = h('aside.hv-inspector', { 'aria-label': 'Piece rules and move history' });
-  const statusEl = h('div.hv-status');
-  const actions = h('div.hv-actions');
-  const confirmMove = h('button.hv-confirm', { disabled: true, onclick: () => commitPending() }, 'Confirm move');
-  const command = h('div.hv-command', statusEl, actions, confirmMove);
-  const tab = (label, fn, on) => h('button' + (on ? '.on' : ''), { onclick: fn }, label);
-  const head = h('header.hv-head',
-    h('div.hv-logo', h('span', { innerHTML: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="#e8b64a"><path d="M20 3l8 4.6v9.2L20 21.4l-8-4.6V7.6z"/><path d="M11 18.6l8 4.6v9.2L11 37l-8-4.6v-9.2z" transform="translate(1 -1)"/><path d="M29 18.6l8 4.6v9.2L29 37l-8-4.6v-9.2z" transform="translate(-1 -1)"/></g></svg>' }), h('div', h('b', 'HIVE'), h('small', 'A GAME OF SURROUNDING'))),
-    h('nav.hv-tabs', tab('Play', () => {}, true), tab('Learn', () => showGuide()), tab('Rules', () => showRules()), tab('Settings', () => showSettings())));
+  const topBar = h('div.hv-plaque.opp');
+  const bottomBar = h('div.hv-plaque.me');
+  const wordmark = h('img.hv-wordmark', { src: 'assets/hive3d/logo.svg', alt: 'Hive' });
   const victoryEl = h('div.hv-victory', { hidden: true });
-  arena.append(victoryEl);
-  const center = h('div.hv-center', arena, trayEl, command);
-  root.append(head, rail, center, inspector);
+  const confirmMove = h('button.hv-confirm', { disabled: true, onclick: () => commitPending() });
+  const flatbar = h('div.hv-flatbar', confirmMove);
+  const combBtn = h('button.hv-comb', { title: 'Menu', 'aria-label': 'Menu', 'aria-expanded': 'false', onclick: () => toggleComb() });
+  combBtn.innerHTML = '<span class="hv-hex"><span><img src="assets/hive3d/mark.svg" alt="" style="width:28px;height:28px"></span></span>';
+  const combMenu = h('div.hv-combmenu');
+  const scrim = h('div.hv-scrim', { hidden: true, onclick: () => toggleComb(false) });
+  arena.append(board, zoomLabel, wordmark, scrim, topBar, bottomBar, victoryEl, flatbar, combMenu, combBtn);
+  const trayEl = h('div.hv-tray');
+  const inspector = h('aside.hv-inspector', { 'aria-label': 'Piece rules and move history' });
+  const center = h('div.hv-center', arena, trayEl);
+  root.append(center, inspector);
   api.root.style.containerType = 'inline-size'; api.root.style.containerName = 'hv';   // panels adapt to the room the game is given (chat docked, split view…)
   api.root.append(h('style', CSS), root);
+
+  // ---- honeycomb menu: a cluster of labelled hexagons instead of a row of unlabelled icons
+  const COMB = [[-57, 33], [0, 66], [-114, 66], [-57, 99], [0, 132], [-114, 132]];
+  let combOpen = false;
+  function combItems() {
+    return [
+      ['undo', 'Undo', () => api.toHost('undo'), !canUndo(), false],
+      ['lightbulb', 'Hint', requestHint, !canAct() || hintBusy || pos.legalMoves().every((m) => m.k === K_PASS), false],
+      ['my_location', 'Frame', () => fitBoard(), false, false],
+      ['menu_book', 'Rules', () => showRules(), false, false],
+      ['tune', 'Display', () => showSettings(), false, false],
+      ['flag', 'Resign', () => resign(), !!S.result || (myColor < 0 && !otb), true],
+    ];
+  }
+  function renderComb() {
+    combMenu.replaceChildren(...combItems().map(([ic, label, fn, off, warn], i) => {
+      const b = h('button.hv-combitem' + (warn ? '.warn' : ''), { disabled: off, 'aria-label': label, style: `--dx:${COMB[i][0] * 1.04}px;--dy:${COMB[i][1] * 1.04}px;transition-delay:${i * 28}ms`, onclick: () => { toggleComb(false); fn(); } });
+      const hex = h('span.hv-hex', h('span', icon(ic), label));
+      b.append(hex); return b;
+    }));
+  }
+  function toggleComb(force) {
+    combOpen = force ?? !combOpen;
+    if (combOpen) renderComb();
+    combBtn.classList.toggle('open', combOpen); combBtn.setAttribute('aria-expanded', String(combOpen));
+    scrim.hidden = !combOpen;
+    requestAnimationFrame(() => combMenu.classList.toggle('open', combOpen));
+    api.sfx(combOpen ? 'pop' : 'click', .4);
+  }
 
   // ---- 3D table (falls back to the flat SVG board if WebGL or the art cannot load)
   const PREF_KEY = 'gn.hive3d';
@@ -342,7 +292,9 @@ export function start(api) {
   if (webglAvailable() && !/[?&]flat\b/.test(location.href)) {
     import('./hive3d.js').then((m) => m.createHive3D(arena, {
       onPiece: (piece) => { const cell = pos.occ.find((c) => pos.stack(c).includes(piece)); if (cell != null) selectCell(cell); },
-      onTarget: (id) => { const mv = targetMoves[id]; if (mv) stageMove(mv); },
+      onTarget: (id) => { const mv = targetMoves[id]; if (mv) stageMove(mv); else if (id === -1) { api.toast('Pick an insect from the tray first'); view3d?.nudgeTray?.(); } },
+      onConfirm: () => commitPending(),
+      onCancel: () => { pendingMove = null; hintMove = null; selected = null; render(); },
       onCell: (q, r) => tapCell(cellOf(q, r)),
       onReserve: (type) => { const color = otb ? pos.turn : viewColor; const btn = trayEl.querySelector(`[aria-label^="${LABEL[type]},"]`); if (btn && !btn.disabled) btn.click(); },
       onEmpty: () => { if (selected || pendingMove) { selected = null; pendingMove = null; hintMove = null; render(); } },
@@ -463,6 +415,11 @@ export function start(api) {
       return { id: i, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: m.k === K_PLACE ? 'place' : 'move', pending: key === pendingKey, hint: key === hintKey,
         color: m.k !== K_MOVE ? '#34A853' : colourOfMove(m), shape: 'circle' };
     });
+    // At the very start nothing is selected yet, so show where the first stones may go; tapping one reminds you to pick an insect.
+    if (!selected && !pendingMove && prefs.hints >= 1 && canAct() && pos.occ.length < 2 && !S.result) {
+      const seenStart = new Set();
+      for (const m of moves) if (m.k === K_PLACE && !seenStart.has(m.to)) { seenStart.add(m.to); targets.push({ id: -1, q: qOf(m.to), r: rOf(m.to), height: pos.H[m.to], kind: 'place', color: '#34A853', shape: 'plus' }); }
+    }
     let arrows = prefs.hints >= 2 && fp != null ? buildArrows(chosen) : [];
     if (prefs.hints >= 3 && fp != null && !selected && !pendingMove) {
       // "All pieces": every move of every stone is on the board at once; the stone in the spotlight is bright, the rest quiet
@@ -480,7 +437,7 @@ export function start(api) {
     const last = [...(S.moves || [])].reverse().find((m) => m.to);
     const lastCell = last?.to ? cellOf(last.to[0], last.to[1]) : -1;
     view3d.update({
-      tiles, targets, arrows, ghost: ghostFor(ghostMove), moveAnim: anim, instant,
+      tiles, targets, arrows, ghost: ghostFor(ghostMove), confirm: !!pendingMove, moveAnim: anim, instant,
       selectable: new Set(prefs.hints > 0 && canAct() ? moves.filter((m) => m.k === K_MOVE).map((m) => pos.top(m.from)) : []),
       selected: selected?.kind === 'board' ? pos.top(selected.cell) : null, focus: fp != null ? [fp] : [],
       reserve: { color: otb ? pos.turn : viewColor, items: pos.types.map((t) => ({ type: t, count: pos.handCount(otb ? pos.turn : viewColor, t), active: moves.some((m) => m.k === K_PLACE && typeOfPiece(m.p) === t), selected: selected?.kind === 'reserve' && selected.type === t })) },
@@ -599,23 +556,50 @@ export function start(api) {
     return bag;
   }
 
+  /** Seven hexagons: the Queen Bee in the middle and the six cells around her, filled red as the opposing hive closes in. */
+  function queenRing(closed) {
+    const R = 7.6, cx = 24, cy = 24, d = R * Math.sqrt(3) + 0.9;
+    const hex = (x, y, r, fill, stroke) => `<polygon points="${Array.from({ length: 6 }, (_, k) => { const a = Math.PI / 3 * k; return `${(x + Math.cos(a) * r).toFixed(1)},${(y + Math.sin(a) * r).toFixed(1)}`; }).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="1"/>`;
+    let g = '';
+    for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + Math.PI / 3 * k; g += hex(cx + Math.cos(a) * d, cy + Math.sin(a) * d, R - 0.6, k < closed ? '#EA4335' : '#2a1d10', k < closed ? '#ff8b80' : '#7a5a2a'); }
+    return `<svg class="qr" viewBox="0 0 48 48" role="img" aria-label="${closed} of 6 sides closed">${g}${hex(cx, cy, R - 0.6, '#FBBC05', '#fff3c4')}</svg>`;
+  }
+  function plaqueStatus(color) {
+    const id = idOf(color), mine = !otb && color === myColor;
+    if (S.result) return S.result.winner === 2 ? 'Draw' : S.result.winner === color ? 'Winner' : 'Surrounded';
+    if (pos.turn !== color) return mine || otb ? 'Waiting' : 'Waiting for their move';
+    if (hintBusy && (mine || otb)) return 'Studying the hive…';
+    if (api.isBot(id) && botBusy) return 'Thinking…';
+    if (mine || otb) return statusText();
+    return 'Choosing…';
+  }
   function playerBar(color, bottom) {
     const id = idOf(color);
     const player = api.player(id);
     const danger = Math.max(0, pos.queenNeighbours(color));
-    const chips = h('div.hv-chips', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => {
-      const n = pos.handCount(color, t);
-      const c = h('div.hv-chip' + (n ? '' : '.none') + (t === 'Q' ? '.queen' : ''), { title: `${LABEL[t]} ×${n}` });
-      c.innerHTML = tileArt(t, 0, 38) + `<span class="x"><u>×</u>${n}</span>`;
-      return c;
-    }));
     const turn = pos.turn === color && !S.result;
-    const sub = turn ? (canAct() && (otb || color === myColor) ? 'Your turn' : 'To act') : (color === 0 ? 'White pieces' : 'Black pieces');
-    const who = h('div.hv-who', avatarEl(player, 'sm', { still: true }), h('div.name', nameOf(id), h('small' + (turn ? '.turn' : ''), turn ? `● ${sub}` : sub)));
-    const pips = h('div.hv-danger', { title: `${danger} of 6 sides closed`, 'aria-label': `${danger} of 6 sides closed` }, Array.from({ length: 6 }, (_, i) => h('i' + (i < danger ? '.on' : ''))));
     const el = bottom ? bottomBar : topBar;
     el.classList.toggle('turn', turn);
-    el.replaceChildren(who, chips, pips);
+    const sub = h('span.ps'); if (turn) sub.append(h('i')); sub.append(plaqueStatus(color));
+    const qr = h('div'); qr.innerHTML = queenRing(danger);
+    const kids = [avatarEl(player, 'sm', { still: true }), h('div.pt', h('b', nameOf(id)), sub), qr.firstChild];
+    // the reserve: your own insects are the buttons you place from; the opponent's are shown for reading the game
+    const mine = otb ? pos.turn === color : color === myColor;
+    const moves = mine ? legal() : [];
+    const chips = h('div.pc', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => {
+      const n = pos.handCount(color, t);
+      const can = mine && moves.some((m) => m.k === K_PLACE && typeOfPiece(m.p) === t);
+      const sel = selected?.kind === 'reserve' && selected.type === t && selected.color === color;
+      const c = h((mine ? 'button' : 'div') + '.hv-chip' + (n ? '' : '.none') + (t === 'Q' ? '.queen' : '') + (sel ? '.sel' : '') + (can ? '.can' : ''), {
+        title: `${LABEL[t]} — ${SHORT_RULE[t]} ${n} left`, 'aria-label': `${LABEL[t]}, ${n} left`,
+        ...(mine ? { disabled: !can, onclick: () => { selected = sel ? null : { kind: 'reserve', type: t, color }; pendingMove = null; hintMove = null; api.sfx(sel ? 'click' : 'pop', .5); render(); } } : {}),
+      });
+      c.innerHTML = tileArt(t, color, 38) + `<span class="x"><u>×</u>${n}</span>`;
+      return c;
+    }));
+    if (!(view3d && mine)) kids.push(chips);           // your own reserve lives in the tray on the table
+    el.replaceChildren(...kids);
+    if (!bottom) requestAnimationFrame(() => arena.style.setProperty('--hv-me-top', (topBar.offsetTop + topBar.offsetHeight + 10) + 'px'));
   }
 
   function chosenMoves() {
@@ -754,9 +738,10 @@ export function start(api) {
     if (api.isBot(current) && botBusy) return `${nameOf(current)} is thinking…`;
     if (!canAct()) return `${nameOf(current)} is choosing`;
     if (pos.mustPlaceQueen()) return 'Place your Queen Bee now';
+    if (pendingMove) return 'Tap the check to confirm, or tap another space';
     if (selected?.kind === 'reserve') return `Choose a space for ${LABEL[selected.type]}`;
     if (selected?.kind === 'board') return `Choose a destination for ${LABEL[typeOfPiece(pos.top(selected.cell))]}`;
-    return 'Place a piece from your reserve, or select a piece on the board to move.';
+    return pos.occ.length < 2 ? 'Pick an insect from the tray to place' : 'Place a piece from the tray, or tap one on the board to move it';
   }
 
   function canUndo() {
@@ -767,16 +752,9 @@ export function start(api) {
   }
 
   function renderActions() {
-    const btn = (name, label, fn, title) => { const b = h('button.hv-btn', { title: title || label, 'aria-label': title || label, onclick: fn }); b.append(icon(name), h('span.t', label)); return b; };
-    const undo = btn('undo', 'Undo', () => api.toHost('undo'), 'Undo last turn');
-    const zoom = btn('search', 'Zoom', fitBoard, 'Fit the whole hive in view');
-    const hint = btn('lightbulb', 'Hint', requestHint);
-    undo.disabled = !canUndo();
-    hint.disabled = !canAct() || hintBusy || pos.legalMoves().every((m) => m.k === K_PASS);
-    actions.replaceChildren(undo, zoom, hint);
     confirmMove.disabled = !pendingMove || !canAct();
-    confirmMove.replaceChildren(icon('chevron_right'), h('span', pendingMove ? 'Confirm Move' : 'Select a space'));
-    confirmMove.style.display = 'flex'; confirmMove.style.alignItems = 'center'; confirmMove.style.justifyContent = 'center'; confirmMove.style.gap = '6px';
+    confirmMove.replaceChildren(icon('check'), h('span', 'Confirm move'));
+    if (combOpen) renderComb();
   }
 
   function activeType() {
@@ -834,11 +812,6 @@ export function start(api) {
     playerBar(1 - bottomColor, false);
     playerBar(bottomColor, true);
     renderTray(otb ? pos.turn : viewColor);
-    const current = idOf(pos.turn);
-    statusEl.replaceChildren(
-      h('b', statusText()),
-      h('span' + (api.isBot(current) && botBusy ? '.hv-thinking' : ''), S.result ? `Finished after ${pos.ply} turns` : `Turn ${pos.ply + 1} · ${pos.turn === 0 ? 'White' : 'Black'} to act`),
-    );
     if (view3d) { pushModel(pendingAnim); pendingAnim = null; } else drawBoard();
     syncSpot();
     victoryEl.hidden = !S.result;
@@ -872,7 +845,7 @@ export function start(api) {
   }
   function showRules() {
     const L = [['Basics', 'Meet the pieces and learn how they move. Each turn you place a piece from your reserve or move one already on the board.'], ['One Hive Rule', 'Your pieces must always stay connected in a single group. Never break the hive.'], ['Sliding', 'Ground insects move between pieces without breaking the hive, and must be able to squeeze through the gap.'], ['Jumping', 'The Grasshopper leaps in a straight line over at least one piece and lands in the first empty space.'], ['Stacking', 'The Beetle can climb on top of the hive. A covered piece cannot move, and a stacked Beetle still counts as part of the hive.'], ['Winning', "Surround your opponent's Queen Bee on all six sides. Place your own Queen by your fourth turn."]];
-    openSheet(h('div.hv-sheet', h('h3', 'Rules'), h('div.hv-lessons', L.map(([t, d], i) => h('div.hv-lesson', h('i', String(i + 1)), h('div', h('b', t), h('span', d)))))), { wide: true });
+    openSheet(h('div.hv-sheet', h('h3', 'Rules'), h('div.hv-lessons', L.map(([t, d], i) => h('div.hv-lesson', h('i', String(i + 1)), h('div', h('b', t), h('span', d))))), h('div', { style: 'display:flex;gap:10px;margin-top:14px;flex-wrap:wrap' }, h('button.btn', { onclick: () => showGuide() }, 'How the pieces move'), h('button.btn', { onclick: () => showLog() }, 'Move log'))), { wide: true });
   }
 
   function showLog() {
@@ -991,7 +964,7 @@ export function start(api) {
     if (first) fitBoard(); else worldTransform();
   });
   resize.observe(arena);
-  floatTools.append(iconBtn('tune', 'Display and hints', showSettings), iconBtn('history', 'Move log', showLog), iconBtn('flag', 'Resign', resign));
+  
 
   let maybeBot = () => {};
   if (api.isHost) {
@@ -1108,6 +1081,13 @@ export function start(api) {
     api.timeout(() => { publish(); maybeBot(); }, 120);
   }
 
+  const onKey = (e) => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName)) return;
+    if (e.key === 'Enter' && pendingMove) { e.preventDefault(); commitPending(); }
+    else if (e.key === 'Escape') { if (combOpen) toggleComb(false); else if (pendingMove || selected) { pendingMove = null; selected = null; hintMove = null; render(); } }
+  };
+  window.addEventListener('keydown', onKey);
+  api.cleanup(() => window.removeEventListener('keydown', onKey));
   api.on('state', applyState);
   api.onPlayersChanged(render);
   Object.defineProperty(arena, '__hv', { value: { get view() { return view3d; }, get targets() { return targetMoves; }, get pos() { return pos; }, prefs, load(list, turn = 0) { pos = Position.setup(opts, list, turn); S = { ...S, moves: [], result: null }; selected = null; pendingMove = null; render(); } }, enumerable: false });

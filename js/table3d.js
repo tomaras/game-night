@@ -52,7 +52,7 @@ export function createTable3D(host, opts = {}) {
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   let tier = 2; // 2 = shadows + full pixel ratio, 1 = shadows at 1x, 0 = no shadows
-  const dpr = () => Math.min(devicePixelRatio || 1, tier >= 2 ? 2 : 1);
+  const dpr = () => Math.min(devicePixelRatio || 1, tier >= 2 ? (innerWidth < 700 ? 1.5 : 1.75) : 1);
   renderer.setPixelRatio(dpr());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.06;
@@ -63,16 +63,16 @@ export function createTable3D(host, opts = {}) {
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.36;
+  scene.environmentIntensity = 0.6;
 
   const key = new THREE.DirectionalLight(0xffe0bd, 2.95);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.mapSize.set(innerWidth < 700 ? 1024 : 2048, innerWidth < 700 ? 1024 : 2048);
   key.shadow.radius = 4;
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.025;
   scene.add(key, key.target);
-  const fill = new THREE.HemisphereLight(0xcfe3ff, 0x3a2a18, 0.26);
+  const fill = new THREE.HemisphereLight(0xdfeaff, 0x4a3a22, 0.55);
   scene.add(fill);
 
   /** Aim the shadow camera at a square of the table (centre cx,cz and half size r). */
@@ -124,7 +124,7 @@ export function createTable3D(host, opts = {}) {
     tweens.add(tw); invalidate();
     return { cancel() { tw.dead = true; } };
   }
-  let raf = 0, last = 0, disposed = false, frames = 0, slow = 0;
+  let raf = 0, last = 0, disposed = false, frames = 0, slow = 0, lastDraw = 0;
   function invalidate() { if (!raf && !disposed) raf = requestAnimationFrame(frame); }
   function frame(now) {
     raf = 0;
@@ -139,8 +139,14 @@ export function createTable3D(host, opts = {}) {
       tw.update?.(tw.e(c), c);
       if (c >= 1) { tweens.delete(tw); tw.done?.(); } else live = true;
     }
-    if (opts.onFrame?.(now, dt)) live = true;
-    renderFrame();
+    const amb = opts.onFrame?.(now, dt);
+    if (amb === true) live = true;
+    else if (amb === 'ambient' && !live) {
+      if (now - lastDraw < 30) { raf = requestAnimationFrame(frame); return; }      // 30 fps is plenty for a gentle pulse
+    }
+    lastDraw = now;
+    renderer.render(scene, camera);
+    if (amb === 'ambient') live = true;
     // If the first seconds of animation run slowly, drop to a cheaper tier before it ever feels bad.
     if (live) {
       frames++;
@@ -152,61 +158,10 @@ export function createTable3D(host, opts = {}) {
   function setTier(n) {
     tier = n;
     renderer.shadowMap.enabled = n > 0;
+    renderer.shadowMap.type = n >= 2 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
     renderer.setPixelRatio(dpr());
     renderer.setSize(W, H, false);
-    invalidate();
-  }
-
-  // ---- spotlight: soften everything, then redraw a few objects sharp on top (correctly hidden by whatever stands in front of them)
-  const spot = { k: 0, front: [], occluders: [] };
-  let rt = null, quad = null;
-  const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
-  function ensureBlur() {
-    if (quad) return;
-    quad = {
-      cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), scene: new THREE.Scene(),
-      mat: new THREE.ShaderMaterial({
-        uniforms: { tex: { value: null }, px: { value: new THREE.Vector2() } }, depthTest: false, depthWrite: false, toneMapped: true,
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
-        fragmentShader: `uniform sampler2D tex; uniform vec2 px; varying vec2 vUv;
-          void main(){
-            vec4 c = texture2D(tex, vUv) * 0.16;
-            for (int i = 0; i < 12; i++) { float a = float(i) * 2.399963; float r = sqrt((float(i) + .5) / 12.); vec2 o = vec2(cos(a), sin(a)) * r * px; c += texture2D(tex, vUv + o) * 0.07; }
-            gl_FragColor = c;
-            #include <tonemapping_fragment>
-            #include <colorspace_fragment>
-          }`,
-      }),
-    };
-    quad.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quad.mat));
-    quad.scene.children[0].frustumCulled = false;
-  }
-  const setLayers = (list, layer, on) => { for (const o of list) o.traverse((c) => { if (on) c.layers.enable(layer); else c.layers.disable(layer); }); };
-  function renderFrame() {
-    if (spot.k <= 0.02 || !spot.front.length || !renderer.capabilities.isWebGL2) { renderer.render(scene, camera); return; }
-    ensureBlur();
-    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-    if (!rt || rt.width !== size.x || rt.height !== size.y) { rt?.dispose(); rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 }); }
-    // 1. everything, into the buffer
-    camera.layers.set(0);
-    renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null);
-    // 2. the blurred picture to the screen
-    quad.mat.uniforms.tex.value = rt.texture;
-    quad.mat.uniforms.px.value.set(spot.k * 1.9 * renderer.getPixelRatio() / size.x, spot.k * 1.9 * renderer.getPixelRatio() / size.y);
-    renderer.render(quad.scene, quad.cam);
-    // 3 + 4. depth of every stone, then the spotlit objects in colour on top (reusing the shadow map from step 1)
-    const auto = renderer.autoClear, upd = renderer.shadowMap.autoUpdate;
-    renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
-    camera.layers.set(2); scene.overrideMaterial = depthOnly; renderer.render(scene, camera); scene.overrideMaterial = null;
-    camera.layers.set(1); renderer.render(scene, camera);
-    renderer.autoClear = auto; renderer.shadowMap.autoUpdate = upd; camera.layers.set(0);
-  }
-  /** front: objects to keep sharp; occluders: everything that can stand in front of them; k: 0..1 blur amount. */
-  function setSpotlight({ front = spot.front, occluders = spot.occluders, k = spot.k } = {}) {
-    setLayers(spot.front, 1, false); setLayers(spot.occluders, 2, false);
-    spot.front = front; spot.occluders = occluders; spot.k = k;
-    setLayers(front, 1, true); setLayers(occluders, 2, true);
     invalidate();
   }
 
@@ -309,12 +264,12 @@ export function createTable3D(host, opts = {}) {
   canvas.addEventListener('webglcontextrestored', () => { scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; }); invalidate(); });
 
   return {
-    THREE, scene, camera, renderer, key, canvas, rig, aimLight, tween, invalidate, fit, resize, groundPoint, pick, setTier, setSpotlight,
+    THREE, scene, camera, renderer, key, canvas, rig, aimLight, tween, invalidate, fit, resize, groundPoint, pick, setTier,
     get tier() { return tier; }, get size() { return { w: W, h: H }; },
     dispose() {
       disposed = true; cancelAnimationFrame(raf); ro.disconnect();
       scene.traverse((o) => { o.geometry?.dispose?.(); const m = o.material; if (m) [].concat(m).forEach((x) => x.dispose?.()); });
-      rt?.dispose(); pmrem.dispose(); renderer.dispose(); canvas.remove();
+      pmrem.dispose(); renderer.dispose(); canvas.remove();
     },
   };
 }

@@ -2,6 +2,7 @@
 // etched into them, clean legal-move outlines, flowing path arrows and smooth piece motion.
 // Rules live in ../engines/hive-rules.js; this file only draws.
 import { THREE, createTable3D, loadTexture, ease, KEY_DIR } from '../table3d.js';
+import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { GLYPHS, INK, TEAM } from './hive-art.js';
 
 const A = (f) => `assets/hive3d/${f}`;
@@ -124,21 +125,70 @@ export async function createHive3D(host, handlers = {}) {
   }));
 
   // ---------------- the table: floor, and a stump top whose hex cells are carved into the wood
-  const scenery = []; // materials that dim when a stone is in the spotlight
-  const floorMat = new THREE.MeshStandardMaterial({ map: floorT, roughness: 1, alphaMap: radialAlpha(.5), transparent: true, color: 0xcdc4ab });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 22.5), floorMat);
-  floor.rotation.x = -Math.PI / 2; floor.position.y = -0.02; floor.receiveShadow = true;
+  // ---------------- the ground: the forest-floor picture with real relief (height + normals derived from it), so its stones, leaves and moss
+  // catch the same low light as everything else; mirrored beyond its edges so no view ever runs out of forest.
+  const SLAB_T = 0.34, SLAB_B = 0.04;
+  const [floorH, floorN, slabN] = await Promise.all([
+    tex('floor-h.jpg', { srgb: false }), tex('floor-n.jpg', { srgb: false }), tex('slab-n.jpg', { srgb: false })]);
+  const FW = 21, FH = FW * 901 / 1600;
+  for (const t of [floorT, floorH, floorN]) { t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; t.repeat.set(3, 3); t.offset.set(-1, -1); t.needsUpdate = true; }
+  const fseg = innerWidth < 700 ? [190, 108] : [320, 180];
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorT, normalMap: floorN, displacementMap: floorH, displacementScale: 0.36, displacementBias: 0, roughness: 0.96, color: 0xe2dac6 });
+  floorMat.normalScale.set(1.35, 1.35);
+  // The ground lies over the wood and opens onto it with a ragged edge of soil, moss and stones (crisp, never faded), so the slab
+  // has no outline at all: it simply shows where the forest floor gives way.
+  const HOLE = { rx: 4.5, rz: 3.05 };
+  floorMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uHole = { value: new THREE.Vector2(HOLE.rx, HOLE.rz) };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
+      varying vec2 vWxz; uniform vec2 uHole;
+      float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p *= 2.03; a *= 0.5; } return s; }
+      float holeD(vec2 w, vec2 hole) { return length(w / hole) + (fbm(w * 0.75) - 0.5) * 0.42 + (fbm(w * 3.1 + 7.0) - 0.5) * 0.12; }`)
+      .replace('#include <displacementmap_vertex>', `
+        // soil lies on the wood: thin at the opening, building up into the forest floor further out
+        vec2 wv = (modelMatrix * vec4(transformed, 1.0)).xz;
+        float dv = holeD(wv, uHole), grow = smoothstep(1.0, 1.55, dv);
+        float hgt = texture2D(displacementMap, vDisplacementMapUv).x;
+        transformed.z += 0.012 + grow * 0.2 + (hgt - 0.45) * displacementScale * mix(0.35, 1.0, grow);`)
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWxz = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec2 vWxz; uniform vec2 uHole;
+      float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p *= 2.03; a *= 0.5; } return s; }
+      float holeD(vec2 w, vec2 hole) { return length(w / hole) + (fbm(w * 0.75) - 0.5) * 0.42 + (fbm(w * 3.1 + 7.0) - 0.5) * 0.12; }`)
+      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      float dH = holeD(vWxz, uHole);
+      float crumb = (fbm(vWxz * 13.0 + 3.0) - 0.5) * 0.16;          // crumbs of soil and grit along the edge
+      if (dH + crumb < 1.0) discard;`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(1.0, 1.12, dH));   // the soil's thin lip is darker, damp earth`);
+  };
+  floorMat.customProgramCacheKey = () => 'hive-floor-hole';
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FW * 3, FH * 3, fseg[0], fseg[1]), floorMat);
+  floor.rotation.x = -Math.PI / 2; floor.position.y = 0; floor.receiveShadow = true; floor.castShadow = true;
   scene.add(floor);
-  scene.fog = new THREE.FogExp2(0x14180f, 0.012);
+  scene.fog = new THREE.FogExp2(0x161a10, 0.018);
 
+  // ---------------- the slab: a real cross-section of a stump (your slab picture on top, bark around its rim) standing in the
+  // forest floor, with the hex cells carved into its face. Plants and moss grow over its edge; nothing is faded or blurred.
   const SK = 1;
-  const stumpW = 9.4, stumpH = stumpW * 1024 / 1536;
-  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, bumpMap: stumpT, bumpScale: 2.2, roughness: 0.82, alphaMap: radialAlpha(.5), transparent: true, color: 0xdccab4 });
+  const stumpW = 12.6, stumpH = stumpW * 1024 / 1536, SE_N = 3.4;
+  // the wood runs on under the ground in every direction (mirrored beyond the picture), so wherever the soil dips, it is still wood
+  for (const t of [stumpT, slabN]) { t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; t.repeat.set(5, 5); t.offset.set(-2, -2); t.needsUpdate = true; }
+  const slabGeo = new THREE.PlaneGeometry(stumpW * 5, stumpH * 5, 1, 1);
+  slabGeo.rotateX(-Math.PI / 2);
+  const stumpMat = new THREE.MeshStandardMaterial({ map: stumpT, normalMap: slabN, bumpMap: stumpT, bumpScale: 1.2, roughness: 0.8, color: 0xe4d4c0 });
+  stumpMat.normalScale.set(1.3, 1.3);
   // The cell lattice is analytic (no texture), so the grooves stay razor sharp at any zoom and always line up with the pieces.
   stumpMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vGp;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = vec2(position.x, -position.y);');
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = (modelMatrix * vec4(position, 1.0)).xz;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         varying vec2 vGp;
@@ -159,65 +209,100 @@ export async function createHive3D(host, handlers = {}) {
         float gw = max(0.017, fwidth(e) * 1.7);
         float groove = 1.0 - smoothstep(0.0, gw, e);
         float pocket = smoothstep(0.0, 0.085, e);
-        float groveFade = 1.0 - smoothstep(0.28, 0.46, length((vMapUv - 0.5) * vec2(1.0, 0.92)));
+        vec2 su = abs(vMapUv * 2.0 - 1.0); float se = pow(pow(su.x, 3.4) + pow(su.y, 3.4), 1.0 / 3.4);
+        float groveFade = 1.0;
         groveH = (-2.1 * groove - 0.5 * (1.0 - pocket)) * groveFade;
         diffuseColor.rgb *= 1.0 - (0.6 * groove + 0.15 * (1.0 - pocket)) * groveFade;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         normal = perturbNormalArb(-vViewPosition, normal, vec2(dFdx(groveH), dFdy(groveH)) * 0.85, faceDirection);`);
   };
   stumpMat.customProgramCacheKey = () => 'hive-stump';
-  const stump = new THREE.Mesh(new THREE.PlaneGeometry(stumpW, stumpH), stumpMat);
-  stump.rotation.x = -Math.PI / 2; stump.position.set(0, 0, SQ3 * R * 1.5 * 0); stump.receiveShadow = true; // a whole cell down (a lattice step), so the reserve tray sits on the wood
+  const stump = new THREE.Mesh(slabGeo, stumpMat);
+  stump.position.set(-2.3, 0, 0.35);                      // brings the cracked, split wood on the right of the slab into the play area
+  stump.receiveShadow = true;
   scene.add(stump);
-  scenery.push({ m: floorMat, c: floorMat.color.clone() }, { m: stumpMat, c: stumpMat.color.clone() });
+  /** A point on the edge of the opening in the ground: angle t, pushed out by `out` (negative = onto the wood). */
+  const rimAt = (t, out = 0) => ({ x: Math.cos(t) * (HOLE.rx * 1.04 + out), z: Math.sin(t) * (HOLE.rz * 1.04 + out * 0.8) });
 
   const world = new THREE.Group(); // everything that moves with the hive (shifted so the hive stays on the stump)
   scene.add(world);
   const origin = { x: 0, z: 0 };
   const setOrigin = (x, z) => { origin.x = x; origin.z = z; world.position.set(-x, 0, -z); };
 
-  // dressing: cut-outs standing at the camera's tilt so they read like the pictures they came from
+  // Real 3D foliage and rocks (CC0 Poly Haven models), instanced so a whole forest costs a handful of draw calls. They stream in after the board is
+  // visible, and are thinned out (or skipped) on slow devices.
   const props = new THREE.Group(); scene.add(props);
+  const gltf = new GLTFLoader();
   const shadowTex = dropShadowTexture();
-  // Foliage lies on the ground (as it does in the forest-floor picture) instead of standing up as cut-outs; only solid things (stones, mushrooms) stand.
-  async function laid(file, x, z, w, rotY, { stretch = 1.18, tint = 0xcfc7b4, lift = 0 } = {}) {
-    const t = await tex(file);
-    const aspect = t.image.height / t.image.width;
-    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.2, roughness: 1, side: THREE.DoubleSide, color: tint });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * aspect * stretch), mat);
-    m.rotation.order = 'YXZ'; m.rotation.x = -Math.PI / 2 + 0.07; m.rotation.y = 0; m.rotation.z = rotY;
-    m.position.set(x, 0.012 + lift, z); m.receiveShadow = true; m.castShadow = true;
-    props.add(m); scenery.push({ m: mat, c: mat.color.clone() });
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.15, w * 1.0), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.55 }));
-    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.1, 0.005, z + w * 0.03); props.add(sh);
+  async function modelParts(name) {
+    const g = await gltf.loadAsync(`assets/hive3d/models/${name}/${name}_1k.gltf`);
+    g.scene.updateMatrixWorld(true);
+    const parts = [];
+    g.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      geo.computeBoundingBox();
+      const b = geo.boundingBox;
+      geo.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);   // stand on the ground, centred
+      geo.computeBoundingBox();
+      const m = o.material; m.side = THREE.DoubleSide;
+      // Some plants ship with a black background instead of an alpha channel: key that black out (with a soft, antialiased edge)
+      if (m.userData.keyBlack === undefined) {                       // (all parts of a model share one material: decide once)
+        m.userData.keyBlack = m.transparent; m.transparent = false; m.depthWrite = true;
+        if (m.userData.keyBlack) { m.alphaTest = 0.5; m.alphaToCoverage = true; } else if (m.alphaTest === 0) m.alphaTest = 0.5;
+      }
+      const keyBlack = m.userData.keyBlack;
+      parts.push({ keyBlack, geo, mat: m, size: new THREE.Vector3().subVectors(geo.boundingBox.max, geo.boundingBox.min) });
+    });
+    const typical = parts.map((q) => Math.max(q.size.x, q.size.z)).sort((a, b) => a - b)[Math.floor(parts.length / 2)];
+    parts.forEach((q) => { q.unit = typical; });
+    return parts;
   }
-  async function stand(file, x, z, w, { tint = 0xcfc7b4 } = {}) {
-    const t = await tex(file);
-    const aspect = t.image.height / t.image.width;
-    const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.2, roughness: 1, side: THREE.DoubleSide, color: tint });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * aspect).translate(0, w * aspect * 0.45, 0), mat);
-    m.rotation.order = 'YXZ'; m.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; m.position.set(x, 0.01, z); m.castShadow = true;
-    props.add(m); scenery.push({ m: mat, c: mat.color.clone() });
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.2, w * 0.6), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.8 }));
-    sh.rotation.x = -Math.PI / 2; sh.position.set(x + w * 0.16, 0.005, z + 0.04); props.add(sh);
+  /** place: [{ x, z, s (target width in cells), yaw, tilt? }] — variants are picked per placement. */
+  function scatter(parts, place, { shadow = false, tint = 0xc9c2b0 } = {}) {
+    const buckets = parts.map(() => []);
+    place.forEach((p, i) => buckets[(i + Math.floor(hash(i * 3 + 9) * parts.length)) % parts.length].push(p));
+    buckets.forEach((list, vi) => {
+      if (!list.length) return;
+      const part = parts[vi], mat = part.mat.clone(); mat.color.setHex(tint);
+      if (part.keyBlack) { mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n        diffuseColor.a = smoothstep(0.05, 0.13, dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)));'); }; mat.customProgramCacheKey = () => 'hive-keyblack'; }
+      const im = new THREE.InstancedMesh(part.geo, mat, list.length);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+      list.forEach((p, i) => {
+        const k = p.s / part.unit;
+        e.set(p.tilt || 0, p.yaw || 0, (p.tilt || 0) * 0.6); q.setFromEuler(e); sc.setScalar(k * (p.sy || 1)); sc.x = k; sc.z = k;
+        m4.compose(v.set(p.x, p.y || 0, p.z), q, sc); im.setMatrixAt(i, m4);
+      });
+      im.castShadow = shadow; im.receiveShadow = true; im.frustumCulled = false; props.add(im);
+    });
+    stage.invalidate();
   }
-  const FLAT = [['fol-fern1.webp', 2.5, 3], ['fol-fern2.webp', 2.1, 3], ['fol-fern1.webp', 1.9, 2], ['fol-moss.webp', 1.7, 3], ['fol-leaves.webp', 1.3, 3], ['fol-ivy.webp', 1.3, 2], ['fol-clover.webp', 0.95, 2], ['prop-twig.webp', 1.2, 1], ['fol-fern2.webp', 1.6, 2], ['fol-leaves.webp', 1.0, 2], ['prop-acorns.webp', 0.55, 1], ['prop-pinecone.webp', 0.7, 1]];
-  const jobs = [];
-  // a ring of ground cover around the wood, thickest at the outside, slightly overlapping its edge
-  for (let i = 0; i < 46; i++) {
-    const a = (i / 46) * Math.PI * 2 + hash(i * 3 + 1) * 0.5, ring = 0.82 + hash(i * 5 + 2) * 0.7;
-    const rx = (portrait ? 3.5 : 5.0) * ring, rz = (portrait ? 5.0 : 3.5) * ring;
-    const [file, w, weight] = FLAT[Math.floor(hash(i * 7 + 3) * FLAT.length)];
-    jobs.push(laid(file, Math.cos(a) * rx, Math.sin(a) * rz, w * (0.85 + hash(i * 11 + 4) * 0.4) * (portrait ? 0.9 : 1), hash(i * 13 + 5) * 6.28, { tint: 0xb9b19c + (Math.floor(hash(i * 17) * 12) << 8) }));
+  // Ground cover hugs the rim of the slab: tufts of moss and small plants creeping over the bark edge, ferns and rocks just outside it.
+  const rimPlace = (n, inMin, outMax, size, seed) => Array.from({ length: n }, (_, i) => {
+    const t = (i + hash(seed + i * 3)) / n * Math.PI * 2, o = inMin + (outMax - inMin) * hash(seed + i * 5 + 1);
+    const p = rimAt(t, o);
+    return { x: p.x, z: p.z, y: 0.04, s: size * (0.7 + hash(seed + i * 7 + 2) * 0.6), yaw: hash(seed + i * 11 + 3) * 6.28, tilt: (hash(seed + i * 13 + 4) - 0.5) * 0.2 };
+  });
+  let dressed = false;
+  async function dress() {
+    if (dressed) return; dressed = true;
+    const phone = innerWidth < 700, t = stage.tier;
+    const jobs = [
+      ['moss_01', () => [...rimPlace(phone ? 60 : 80, -0.45, 0.35, 1.1, 11), ...rimPlace(phone ? 24 : 36, 0.2, 1.6, 1.5, 12)]],
+      ['celandine_01', () => rimPlace(phone ? 8 : 14, -0.1, 1.0, 1.2, 31)],
+      ['fern_02', () => rimPlace(phone ? 7 : 14, 0.35, 1.9, 2.4, 21)],
+    ];
+    for (const [name, make] of jobs) {
+      if (t < 1 && name !== 'moss_01') continue;
+      try { scatter(await modelParts(name), make()); } catch (e) { console.warn('[hive3d] model', name, e); }
+    }
+    if (t >= 2 && !phone) {
+      for (const [name, ang, out, w, yaw] of [['rock_moss_set_01', 3.6, 1.0, 2.4, 0.6], ['rock_moss_set_02', 5.9, 0.9, 2.2, 2.2]]) {
+        const p = rimAt(ang, out);
+        try { scatter(await modelParts(name), [{ x: p.x, z: p.z, y: -0.05, s: w, yaw }], { tint: 0xb0aa9c }); } catch (e) { console.warn('[hive3d] model', name, e); }
+      }
+    }
   }
-  // an outer band so the edge of any view is forest
-  for (let i = 0; i < 40; i++) {
-    const a = (i / 40) * Math.PI * 2 + 0.2, rx = (portrait ? 5.3 : 7.2) + hash(i + 90) * 1.2, rz = (portrait ? 7.4 : 5.2) + hash(i + 91) * 1.0;
-    const [file, w] = FLAT[Math.floor(hash(i * 3 + 70) * 9)];
-    jobs.push(laid(file, Math.cos(a) * rx, Math.sin(a) * rz, w * 1.2, hash(i * 9 + 6) * 6.28, { tint: 0xa8a08c, lift: 0.004 }));
-  }
-  jobs.push(stand('prop-stone1.webp', 4.1, -2.7, 1.2, { tint: 0xa8a090 }), stand('prop-stone2.webp', -4.3, -2.4, 0.85, { tint: 0xa8a090 }), stand('prop-mushrooms.webp', -3.6, -3.1, 0.95), stand('prop-stone2.webp', 3.4, 3.6, 0.7, { tint: 0xa8a090 }), stand('prop-mushrooms.webp', 4.7, 0.6, 0.7));
-  const dressing = Promise.all(jobs).catch((e) => console.warn('[hive3d] dressing', e));
 
   // ---------------- stones
   const tileGeo = new THREE.ExtrudeGeometry(hexShape(R - 0.0015 - 0.03, 0.06), { depth: TH, bevelEnabled: true, bevelThickness: BEV, bevelSize: 0.03, bevelSegments: 4, curveSegments: 6 }); // outer wall at R: stones touch
@@ -231,11 +316,7 @@ export async function createHive3D(host, handlers = {}) {
   function capMaterial(type, col) {
     const k = type + col; if (MATS.has(k)) return MATS.get(k);
     const e = emblems[type];
-    const m = new THREE.MeshPhysicalMaterial({
-      bumpMap: e.height, bumpScale: col === 'w' ? 34 : 28, color: 0xffffff,
-      roughness: col === 'w' ? 0.5 : 0.34, clearcoat: col === 'w' ? 0.28 : 0.4, clearcoatRoughness: col === 'w' ? 0.4 : 0.22,
-      sheen: col === 'w' ? 0.25 : 0, sheenColor: new THREE.Color(0xffe9bf), sheenRoughness: 0.6,
-    });
+    const m = new THREE.MeshStandardMaterial({ bumpMap: e.height, bumpScale: col === 'w' ? 34 : 28, color: 0xffffff, roughness: col === 'w' ? 0.5 : 0.36 });
     m.userData.u = { uBodyTex: { value: bodyTex[col] }, uEmb: { value: e.color }, uBody: { value: new THREE.Vector4(0, 0, 0.34, 0) }, uTint: { value: new THREE.Color(col === 'w' ? 0xf4ecd8 : 0xffffff) } };
     m.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, m.userData.u);
@@ -261,8 +342,8 @@ export async function createHive3D(host, handlers = {}) {
     MATS.set(k, m); return m;
   }
   const sideBase = {
-    w: new THREE.MeshPhysicalMaterial({ color: 0xd6c8a3, roughness: 0.55, clearcoat: 0.2, clearcoatRoughness: 0.3 }),
-    b: new THREE.MeshPhysicalMaterial({ color: 0x0c0d11, roughness: 0.5, clearcoat: 0.25, clearcoatRoughness: 0.3 }),
+    w: new THREE.MeshStandardMaterial({ color: 0xd6c8a3, roughness: 0.55 }),
+    b: new THREE.MeshStandardMaterial({ color: 0x0c0d11, roughness: 0.45 }),
   };
   /** One material set per piece (the shared look with its own stone offset), so no two stones are alike and each can dim alone. */
   function pieceMaterials(piece, type, col) {
@@ -345,10 +426,6 @@ export async function createHive3D(host, handlers = {}) {
         const flat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, depthTest: false });
         mk(w * 2.8, flat(col, op * 0.1), 14);          // a very soft halo, no hard rim
         mk(w, flat(col, op * 0.86), 15);               // the fine line itself
-        const pulse = pulseTex.clone(); pulse.needsUpdate = true; pulse.repeat.set(Math.max(1, dist * 2.2), 1);
-        const pm = new THREE.MeshBasicMaterial({ color: 0xffffff, alphaMap: pulse, transparent: true, opacity: op * 0.4, depthWrite: false, depthTest: false });
-        pm.userData.pulse = pulse; flowMats.push(pm); part.mats.push([pm, pm.opacity]);
-        mk(w * 1.12, pm, 16);                          // light pulses travelling along it
         if (a.head === true) {
           const tan = curve.getTangent(1).normalize();
           const cone = (r, h, c, order, back) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 18), flat(c, op)); m.userData.own = true; m.position.copy(B0).addScaledVector(tan, -back); m.quaternion.setFromUnitVectors(up, tan); m.renderOrder = order; arrowGroup.add(m); part.mats.push([m.material, m.material.opacity]); };
@@ -358,22 +435,53 @@ export async function createHive3D(host, handlers = {}) {
     }
   }
 
+  const badgeCache = new Map();
+  function actionTexture(kind) {
+    if (badgeCache.has(kind)) return badgeCache.get(kind);
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const ok = kind === 'ok';
+    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 10; g.shadowOffsetY = 4;
+    g.fillStyle = ok ? '#FBBC05' : '#241a10'; g.beginPath(); g.arc(64, 62, 48, 0, 7); g.fill();
+    g.shadowColor = 'transparent'; g.lineWidth = 5; g.strokeStyle = ok ? '#fff3c4' : '#9c6a24'; g.stroke();
+    g.lineWidth = 11; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = ok ? '#2a1a05' : '#e9dcc0';
+    g.beginPath(); if (ok) { g.moveTo(40, 64); g.lineTo(58, 82); g.lineTo(90, 44); } else { g.moveTo(46, 46); g.lineTo(82, 80); g.moveTo(82, 46); g.lineTo(46, 80); } g.stroke();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.userData.keep = true;
+    badgeCache.set(kind, t); return t;
+  }
+  const projV = new THREE.Vector3();
+  function buildConfirm(g) {
+    const p = cellXZ(g.q, g.r), y = levelY(g.height || 0) + 0.45;
+    projV.set(p.x - origin.x, y, p.z - origin.z).project(stage.camera);
+    const side = projV.x > 0.55 ? -1 : 1;                              // keep the buttons on screen
+    for (const [kind, ox, oz, sz] of [['ok', 0.98 * side, -0.12, 0.66], ['cancel', 0.72 * side, 0.78, 0.4]]) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: actionTexture(kind), depthTest: false, transparent: true }));
+      sp.position.set(p.x + ox, y, p.z + oz); sp.renderOrder = 40; sp.userData = { confirm: kind, base: sz };
+      sp.scale.setScalar(0.001); ghostHolder.add(sp);
+      stage.tween({ dur: 320, delay: kind === 'ok' ? 80 : 160, ease: ease.outBack, update: (k) => sp.scale.setScalar(sz * k) });
+    }
+  }
+  let ghostKey = '';
   function buildGhost(model) {
-    clearGroup(ghostHolder);
     const g = model.ghost;
+    const key = g ? `${g.q},${g.r},${g.height},${g.type},${g.color},${model.confirm ? 1 : 0}` : '';
+    if (key === ghostKey && ghostHolder.children.length) return;       // unchanged: keep it (and its pop-in) as it is
+    ghostKey = key;
+    clearGroup(ghostHolder);
     if (!g) return;
+    if (model.confirm) buildConfirm(g);
     const mats = pieceMaterials(900 + g.type.charCodeAt(0), g.type, g.color === 0 ? 'w' : 'b');
     mats.forEach((m) => { m.transparent = true; m.opacity = 0.88; });
     const mesh = new THREE.Mesh(tileGeo, mats);
     const p = cellXZ(g.q, g.r);
     mesh.position.set(p.x, levelY(g.height || 0) + 0.1, p.z);
     mesh.rotation.y = yawFor(900 + g.type.charCodeAt(0), 0);
-    mesh.castShadow = true; mesh.userData.bob = true;
+    mesh.castShadow = true;
     ghostHolder.add(mesh);
   }
 
   // ---------------- the reserve tray and the bag, physical objects standing on the table at the bottom of the view
   const [trL, trM, trR, tr5, tr8, bagTex] = await Promise.all([tex('tray-l.webp'), tex('tray-m.webp'), tex('tray-r.webp'), tex('tray.webp'), tex('tray8.webp'), tex('bag.webp')]);
+  const BAG_MOUTH = [[0.30, 0.075], [0.455, 0.155], [0.58, 0.225], [0.72, 0.29], [0.80, 0.375], [0.86, 0.30], [0.84, 0.07], [0.52, 0.0], [0.36, 0.0]];
   const TRAY = { L: 384, M: 280, R: 376, H: 347, C: 244 }; // artwork geometry in px: caps, one well, height, first well centre
   const hud = new THREE.Group(); scene.add(hud);
   const trayTexCache = new Map();
@@ -396,29 +504,46 @@ export async function createHive3D(host, handlers = {}) {
   }
   const trayMat = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.72, alphaTest: 0.04 });
   const trayMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), trayMat);
-  trayMesh.rotation.x = -Math.PI / 2; trayMesh.receiveShadow = true; hud.add(trayMesh);
+  trayMesh.rotation.x = -Math.PI / 2; trayMesh.receiveShadow = true; trayMesh.renderOrder = 50; hud.add(trayMesh);
+  trayMat.depthTest = false; trayMat.depthWrite = false;
+  trayMesh.onAfterRender = (r) => r.clearDepth();
   const bagAspect = bagTex.image.height / bagTex.image.width;
-  const bagMat = new THREE.MeshStandardMaterial({ map: bagTex, transparent: true, alphaTest: 0.08, roughness: 0.9, side: THREE.DoubleSide });
-  const bagMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, bagAspect).translate(0, bagAspect / 2, 0), bagMat);
-  bagMesh.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; hud.add(bagMesh);
+  // Two copies of the bag picture: a full one behind the stones, and one in front that is cut away over the open mouth. The stones sit
+  // between them, so they disappear into the bag along its inner edge.
+  const bagFrontMask = (() => {
+    const w = bagTex.image.width, h = bagTex.image.height, c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#000'; g.filter = 'blur(2px)'; g.beginPath();
+    // the open mouth: everything above the front lip line (picture fractions, v measured from the top)
+    for (const [u, v] of BAG_MOUTH) g.lineTo(u * w, v * h);
+    g.closePath(); g.fill();
+    const t = new THREE.CanvasTexture(c); return t;
+  })();
+  const bagMat = new THREE.MeshStandardMaterial({ map: bagTex, transparent: true, alphaTest: 0.08, depthTest: false, depthWrite: false, roughness: 0.9, side: THREE.DoubleSide });
+  const bagFrontMat = new THREE.MeshStandardMaterial({ map: bagTex, alphaMap: bagFrontMask, transparent: true, alphaTest: 0.5, depthTest: false, depthWrite: false, roughness: 0.9, side: THREE.DoubleSide });
+  const bagGeo = new THREE.PlaneGeometry(1, bagAspect).translate(0, bagAspect / 2, 0);
+  const bagMesh = new THREE.Mesh(bagGeo, bagMat), bagFront = new THREE.Mesh(bagGeo, bagFrontMat);
+  bagMesh.renderOrder = 40; bagFront.renderOrder = 42;
+  bagMesh.onAfterRender = (r) => r.clearDepth();           // the stones inside only need to sort among themselves
+  bagMesh.rotation.x = bagFront.rotation.x = -(portrait ? 58 : 53) * Math.PI / 180; hud.add(bagMesh, bagFront);
   const bagShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.85 }));
   bagShadow.rotation.x = -Math.PI / 2; hud.add(bagShadow);
-  let reserve = { color: 0, items: [] }, trayN = 0;
+  let reserve = { color: 0, items: [] }, trayN = 0, reserveKey = '';
   const trayStones = new Map(), badges = new Map(), trayWell = new Map(), spill = [];
   const badgeSprite = (key, text) => {
     let b = badges.get(key);
-    if (!b) { const c = document.createElement('canvas'); c.width = c.height = 96; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; b = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); b.renderOrder = 30; b.userData = { c, last: '' }; hud.add(b); badges.set(key, b); }
+    if (!b) { const c = document.createElement('canvas'); c.width = c.height = 96; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; b = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); b.renderOrder = 60; b.userData = { c, last: '' }; hud.add(b); badges.set(key, b); }
     if (b.userData.last !== text) {
       const g = b.userData.c.getContext('2d'); g.clearRect(0, 0, 96, 96);
-      g.fillStyle = '#4285F4'; g.beginPath(); g.arc(48, 48, 40, 0, 7); g.fill(); g.lineWidth = 6; g.strokeStyle = '#120f0b'; g.stroke();
-      g.fillStyle = '#fff'; g.font = '800 46px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 48, 52);
+      g.fillStyle = '#13100c'; g.beginPath(); g.arc(48, 48, 38, 0, 7); g.fill(); g.lineWidth = 5; g.strokeStyle = '#c9973e'; g.stroke();
+      g.fillStyle = '#f4ead6'; g.font = '400 44px Georgia, "Times New Roman", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 48, 52);
       b.material.map.needsUpdate = true; b.userData.last = text;
     }
     return b;
   };
   function trayStone(key, type, colour, idx) {
     let m = trayStones.get(key);
-    if (!m) { m = new THREE.Mesh(tileGeo, pieceMaterials(2000 + idx, type, colour === 0 ? 'w' : 'b')); m.castShadow = true; m.receiveShadow = true; hud.add(m); trayStones.set(key, m); }
+    if (!m) { m = new THREE.Mesh(tileGeo, pieceMaterials(2000 + idx, type, colour === 0 ? 'w' : 'b')); m.material.forEach((x) => { x.transparent = true; }); m.renderOrder = key.startsWith('bag:') ? 41 : 51; m.castShadow = !key.startsWith('bag:'); hud.add(m); trayStones.set(key, m); }
     return m;
   }
   const trayMeshes = () => [...trayStones.values()].filter((m) => m.visible && m.userData.reserve != null);
@@ -434,11 +559,11 @@ export async function createHive3D(host, handlers = {}) {
     stage.camera.updateMatrixWorld();
     const n = Math.max(2, Math.min(8, items.length)), G = trayGeo(n);
     const px = G.W;
-    if (!groundAt(portrait ? -0.94 : -0.58, -0.6, hA, TRAY_Y) || !groundAt(0.94, -0.6, hB, TRAY_Y)) return;
+    if (!groundAt(portrait ? -0.9 : -0.6, portrait ? -0.7 : -0.72, hA, TRAY_Y) || !groundAt(0.94, portrait ? -0.7 : -0.72, hB, TRAY_Y)) return;
     const span = Math.abs(hB.x - hA.x), pitch = Math.min(0.92, span / (px / G.M)), pw = pitch / G.M;
     const wW = px * pw, hW = G.H * pw, cx = (hA.x + hB.x) / 2, cz = hA.z;
     if (trayN !== n) { trayMat.map = trayTexture(n); trayMat.needsUpdate = true; trayN = n; }
-    trayMesh.position.set(cx, TRAY_Y, cz); trayMesh.scale.set(wW, hW, 1); trayMesh.castShadow = true;
+    trayMesh.position.set(cx, TRAY_Y, cz); trayMesh.scale.set(wW, hW, 1); trayMesh.visible = true; trayMesh.castShadow = true;
     const sc = pitch * 0.84, x0 = cx - wW / 2, zRow = cz - hH(hW);
     items.forEach((it, i) => {
       const wx = x0 + (G.C + G.M * i) * pw;
@@ -449,7 +574,7 @@ export async function createHive3D(host, handlers = {}) {
         m.visible = k < show;
         if (!m.visible) continue;
         m.userData.reserve = it.type; m.scale.setScalar(sc);
-        const lift = it.selected ? 0.16 + Math.sin(hudTime * 3) * 0.015 : 0;
+        const lift = it.selected ? 0.18 : 0;
         m.position.set(wx, TRAY_Y + 0.02 + BEV * sc + k * LV * sc + lift, zRow);
         m.rotation.y = hash(i * 31 + k * 7 + 3) * 0.12 - 0.06;
         const v = it.active ? 1 : 0.55;
@@ -470,17 +595,18 @@ export async function createHive3D(host, handlers = {}) {
       const topP = hA.clone().addScaledVector(upv, bh).project(stage.camera);
       groundAt(-1.0 + (bw / (2 * k)) * 0.5 * 0.9, -1.0 - 0.27 * Math.max(0.1, topP.y + 1.0), hA, 0);   // drop it until 27% of the bag is below the bottom edge
       bagMesh.scale.set(bw, bw, 1); bagMesh.position.set(hA.x, 0.0, hA.z);
+      bagFront.scale.set(bw, bw, 1); bagFront.position.set(hA.x, 0.0, hA.z);
       bagShadow.scale.set(bw * 1.1, bw * 0.8, 1); bagShadow.position.set(hA.x + bw * 0.1, 0.004, hA.z + 0.05);
       const next = items.filter((it) => it.count > 0).slice(-3);
-      // mouth of the bag in the picture (about 62% across, 17% from the top), expressed along the standing plane
       const up = upv;
-      const mouth = new THREE.Vector3(hA.x + (0.62 - 0.5) * bw, 0, hA.z).addScaledVector(up, bh * 0.6).addScaledVector(nrm, 0.14);
+      const onBag = (u, v, lift) => new THREE.Vector3(hA.x + (u - 0.5) * bw, 0, hA.z).addScaledVector(up, bh * (1 - v)).addScaledVector(nrm, lift);
+      const SPOTS = [[0.52, 0.27, -0.25, 0.25], [0.64, 0.31, 0.12, -0.35], [0.73, 0.355, 0.42, 0.1]];  // u, v (from the top), roll, yaw — all inside the mouth
       next.forEach((it, i) => {
         const m = trayStone(`bag:${it.type}:${reserve.color}`, it.type, reserve.color, 80 + i);
-        m.visible = true; m.userData.reserve = null; m.scale.setScalar(0.82);               // exactly the size of the stones on the board
-        m.position.copy(mouth).addScaledVector(nrm, i * 0.16).add(new THREE.Vector3((i - 1) * 0.28, -(i % 2) * 0.12, 0));
-        m.rotation.set(Math.PI / 2 - tl, 0, 0); m.rotation.y = 0; m.rotation.z = (i - 1) * 0.35;
-        m.rotation.order = 'YXZ'; m.rotation.x = Math.PI / 2 - tl;
+        const [u, v, roll, yaw] = SPOTS[i];
+        m.visible = true; m.userData.reserve = null; m.scale.setScalar(1);               // exactly the size of the stones on the board
+        m.position.copy(onBag(u, v, 0.05));
+        m.rotation.order = 'YXZ'; m.rotation.set(Math.PI / 2 - tl - 0.75, yaw, roll);    // leaning back into the bag, cap towards the light
       });
       for (const [key, m] of trayStones) if (key.startsWith('bag:') && !next.some((it) => key === `bag:${it.type}:${reserve.color}`)) m.visible = false;
       const total = items.reduce((a, it) => a + it.count, 0);
@@ -489,28 +615,9 @@ export async function createHive3D(host, handlers = {}) {
   }
   const hH = (h) => h * 0.04; // the wells sit slightly above the tray's middle
 
-  // ---------------- spotlight: dim the table and every other stone while one stone's moves are shown
-  let dimK = 0, dimTween = null, focusSet = new Set();
-  function spotObjects() { return [...[...tiles.values()].filter((e) => focusSet.has(e.mesh.userData.piece)).map((e) => e.mesh), targetGroup, arrowGroup, ghostHolder]; }
-  function applyDim(k) {
-    dimK = k;
-    const f = 1 - 0.2 * k;
-    for (const s of scenery) s.m.color.copy(s.c).multiplyScalar(f);
-    for (const e of tiles.values()) {
-      const v = focusSet.has(e.mesh.userData.piece) ? 1 : 1 - 0.18 * k;
-      e.mesh.material[0].color.setScalar(v);
-      e.mesh.material[1].color.set(e.mesh.material[1].userData.base).multiplyScalar(v);
-    }
-    stage.setSpotlight({ k });
-  }
-  function setFocus(set) {
-    focusSet = set;
-    const want = set.size ? 1 : 0, from = dimK;
-    dimTween?.cancel();
-    stage.setSpotlight({ front: spotObjects(), occluders: [...tiles.values()].map((e) => e.mesh), k: dimK });
-    if (from === want) return applyDim(want);
-    dimTween = stage.tween({ dur: 260, ease: ease.out, update: (k) => applyDim(from + (want - from) * k), done: () => applyDim(want) });
-  }
+  // the focused stone rises off the board (see animate); nothing else changes
+  let focusSet = new Set();
+  const setFocus = (set) => { focusSet = set; stage.invalidate(); };
 
   // ---------------- update(model)
   let lastModel = { tiles: [], targets: [], arrows: [] };
@@ -565,7 +672,7 @@ export async function createHive3D(host, handlers = {}) {
 
   function update(model) {
     settings = { ...settings, ...(model.settings || {}) };
-    if (model.reserve) reserve = model.reserve;
+    if (model.reserve) { reserve = model.reserve; reserveKey = JSON.stringify(reserve.items.map((it) => [it.type, it.count, it.selected ? 1 : 0, it.active ? 1 : 0])) + reserve.color; }
     // keep the hive on the stump: re-centre on a whole cell when its centre of mass drifts (the carved lattice then still lines up)
     if (model.tiles.length) {
       let sq = 0, sr = 0; for (const t of model.tiles) { sq += t.q; sr += t.r; }
@@ -611,7 +718,7 @@ export async function createHive3D(host, handlers = {}) {
     if (!model.keepView) {
       const b = bounds(model);
       const local = { minX: b.minX - origin.x, maxX: b.maxX - origin.x, minZ: b.minZ - origin.z, maxZ: b.maxZ - origin.z };
-      if (model.refit || !fitted || offscreen(model)) { stage.fit(local, { animate: fitted && !model.instant, margin: 1.4 }); fitted = true; }
+      if (model.refit || !fitted || offscreen(model)) { stage.fit(local, { animate: fitted && !model.instant, margin: 1.4 }); if (!fitted) setTimeout(dress, 700); fitted = true; }
     }
     stage.invalidate();
   }
@@ -627,35 +734,33 @@ export async function createHive3D(host, handlers = {}) {
     return false;
   }
 
+  let hudKey = '';
+  // Only real motion keeps the renderer running (stones lifting, the camera gliding); a still board is drawn once and costs nothing.
   function animate(t, dt) {
     if (!ready) return false;
     let live = false;
-    const s = t / 1000;
     for (const o of targetObjs) {
-      const u = o.g.userData; u.pulse += dt / 1000 * (u.id === hoverId ? 5 : 2.4);
-      const k = 0.5 + 0.5 * Math.sin(u.pulse);
-      u.well.material.opacity = u.faint ? 0.3 + k * 0.08 : (u.pending ? 0.92 : 0.74) + k * 0.2 + (u.id === hoverId ? 0.1 : 0);
-      u.well.scale.setScalar((u.pending ? 1.04 : 1) + (u.id === hoverId ? 0.025 : 0) + k * 0.012);
-      live = true;
+      const u = o.g.userData, want = u.faint ? 0.32 : u.pending ? 1 : u.id === hoverId ? 1 : 0.86;
+      if (u.well.material.opacity !== want) { u.well.material.opacity = want; u.well.scale.setScalar(u.pending || u.id === hoverId ? 1.04 : 1); }
     }
-    for (const m of flowMats) { m.userData.pulse.offset.x = -s * 0.8; live = true; }
-    if (arrowParts.length) for (const part of arrowParts) { const on = hoverId == null || part.dests.includes(hoverId); for (const [mat, base] of part.mats) mat.opacity = base * (on ? 1 : 0.22); }
-    for (const g of ghostHolder.children) if (g.userData.bob) { g.position.y = levelY(lastModel.ghost?.height || 0) + 0.1 + Math.sin(s * 3.2) * 0.04; live = true; }
     for (const e of tiles.values()) {
-      if (e.ring.visible && e.can) { e.ringMat.opacity = 0.6 + 0.3 * Math.sin(s * 3.1 + e.q); live = true; }
       // the stone in the spotlight rises off the board, and settles back when it is released
       const want = focusSet.has(e.mesh.userData.piece) ? 0.17 : 0, d = want - (e.lift || 0);
       if (Math.abs(d) > 0.002) { e.lift = (e.lift || 0) + d * Math.min(1, dt / 110); live = true; } else e.lift = want;
       if (!e.animating) e.mesh.position.y = levelY(e.level) + e.lift;
     }
-    hudTime = s; placeHud();
-    if (reserve.items.some((it) => it.selected)) live = true;
+    // the tray and bag are glued to the view: only re-lay them when the camera or the reserve changed
+    stage.camera.updateMatrixWorld();
+    const k2 = stage.camera.position.x.toFixed(3) + stage.camera.position.y.toFixed(3) + stage.camera.position.z.toFixed(3) + stage.size.w + reserveKey;
+    if (k2 !== hudKey) { hudKey = k2; placeHud(); live = true; }
     return live;
   }
 
   // ---------------- picking
   function tapAt(x, y) {
     if (!ready) return;
+    const btn = stage.pick(x, y, ghostHolder.children.filter((c) => c.userData.confirm))[0];
+    if (btn) return btn.object.userData.confirm === 'ok' ? handlers.onConfirm?.() : handlers.onCancel?.();
     const hit = stage.pick(x, y, [...targetObjs.filter((o) => o.hit).map((o) => o.hit), ...trayMeshes(), ...[...tiles.values()].map((e) => e.mesh)])[0];
     if (!hit) {
       const p = stage.groundPoint(x, y);
@@ -680,7 +785,7 @@ export async function createHive3D(host, handlers = {}) {
     if (!ready) return;
     const hit = leave ? null : stage.pick(x, y, targetObjs.filter((o) => o.hit).map((o) => o.hit))[0];
     const id = hit ? hit.object.userData.target : null;
-    if (id !== hoverId) { hoverId = id; handlers.onHover?.(id); stage.canvas.style.cursor = id != null ? 'pointer' : ''; stage.invalidate(); }
+    if (id !== hoverId) { hoverId = id; for (const part of arrowParts) { const on = hoverId == null || part.dests.includes(hoverId); for (const [mat, base] of part.mats) mat.opacity = base * (on ? 1 : 0.22); } handlers.onHover?.(id); stage.canvas.style.cursor = id != null ? 'pointer' : ''; stage.invalidate(); }
   }
 
   // ---------------- thumbnails for the trays, lit by the same light
@@ -709,7 +814,6 @@ export async function createHive3D(host, handlers = {}) {
     thumbCache.set(k, url); return url;
   }
 
-  await dressing;
   ready = true;
   stage.invalidate();
 
@@ -717,7 +821,16 @@ export async function createHive3D(host, handlers = {}) {
     stage, update, thumb,
     setHandlers(h) { Object.assign(handlers, h); },
     refit() { const b = bounds(lastModel); stage.fit({ minX: b.minX - origin.x, maxX: b.maxX - origin.x, minZ: b.minZ - origin.z, maxZ: b.maxZ - origin.z }, { margin: 1.4 }); },
+    /** Client coordinates of the confirm check (tests). */
+    confirmScreen() {
+      const sp = ghostHolder.children.find((c) => c.userData.confirm === 'ok'); if (!sp) return null;
+      const v = sp.getWorldPosition(new THREE.Vector3()); stage.camera.updateMatrixWorld(); v.project(stage.camera);
+      const b = stage.canvas.getBoundingClientRect();
+      return { x: b.left + (v.x + 1) / 2 * b.width, y: b.top + (1 - v.y) / 2 * b.height };
+    },
+    nudgeTray() { for (const m of trayMeshes()) { const y0 = m.position.y; stage.tween({ dur: 420, ease: ease.out, update: (k) => { m.position.y = y0 + Math.sin(k * Math.PI) * 0.22; }, done: () => { m.position.y = y0; } }); } },
     get tilesOnBoard() { return tiles.size; },
+    _dbg: { bagMesh, bagFront, bagFrontMat, bagFrontMask },
     /** Client coordinates of a cell's top surface (tests and onboarding hints use this). */
     screenOf(q, r, count = 0) {
       const p = cellXZ(q, r), v = new THREE.Vector3(p.x - origin.x, topY(count), p.z - origin.z);

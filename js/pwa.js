@@ -79,8 +79,32 @@ export async function initPwa(isQuiet) {
 
   // look for updates on launch, whenever the app comes back to the front, and every 20 minutes
   let last = Date.now();
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 5 * 60000) { last = Date.now(); check(); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - last > 60000) { last = Date.now(); check(); staleCheck(); } });
   setInterval(() => { last = Date.now(); check(); }, 20 * 60000);
   setInterval(() => { if (pwa.ready) apply(false); }, 4000); // keep trying until a quiet moment comes
   check();
+  staleCheck();
+
+  // Belt and braces: ask the server which version is live. If this copy is older, the new one is installed and applied right away
+  // while the app has only just opened (nothing is in progress yet); if the service worker cannot install it (a flaky phone cache),
+  // this channel's cached copy is dropped and the page reloads once from the network.
+  const launchedAt = Date.now();
+  async function staleCheck() {
+    let live;
+    try { live = await (await fetch('build.json?t=' + Date.now(), { cache: 'no-store' })).json(); } catch { return; }
+    if (!live?.build || live.build === CFG.build) { try { sessionStorage.removeItem('gn.staleFix'); } catch { /* ignore */ } return; }
+    pwa.liveBuild = live.build; emit();
+    check();
+    const fresh = () => Date.now() - launchedAt < 20000;
+    for (let i = 0; i < 24; i++) {                         // up to ~12 s for the new version to download
+      await new Promise((r) => setTimeout(r, 500));
+      if (reg.waiting) { pwa.ready = true; emit(); if (fresh() || isQuiet()) apply(true); return; }
+    }
+    let tried = false; try { tried = sessionStorage.getItem('gn.staleFix') === live.build; } catch { /* ignore */ }
+    if (tried || !(fresh() || isQuiet())) return;
+    try { sessionStorage.setItem('gn.staleFix', live.build); } catch { /* ignore */ }
+    try { for (const k of await caches.keys()) if (k.startsWith(CFG.env === 'nightly' ? 'gn-nightly-' : 'gn-app-')) await caches.delete(k); } catch { /* ignore */ }
+    try { await reg.unregister(); } catch { /* ignore */ }
+    location.reload();
+  }
 }
