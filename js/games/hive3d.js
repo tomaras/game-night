@@ -130,47 +130,43 @@ export async function createHive3D(host, handlers = {}) {
   const SLAB_T = 0.34, SLAB_B = 0.04;
   const [floorH, floorN, slabN] = await Promise.all([
     tex('floor-h.jpg', { srgb: false }), tex('floor-n.jpg', { srgb: false }), tex('slab-n.jpg', { srgb: false })]);
-  const FW = 21, FH = FW * 901 / 1600;
+  const FW = 21, FH = FW * 721 / 1600;
   for (const t of [floorT, floorH, floorN]) { t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; t.repeat.set(3, 3); t.offset.set(-1, -1); t.needsUpdate = true; }
-  const fseg = innerWidth < 700 ? [190, 108] : [320, 180];
-  const floorMat = new THREE.MeshStandardMaterial({ map: floorT, normalMap: floorN, displacementMap: floorH, displacementScale: 0.36, displacementBias: 0, roughness: 0.96, color: 0xe2dac6 });
-  floorMat.normalScale.set(1.35, 1.35);
-  // The ground lies over the wood and opens onto it with a ragged edge of soil, moss and stones (crisp, never faded), so the slab
-  // has no outline at all: it simply shows where the forest floor gives way.
-  const HOLE = { rx: 4.5, rz: 3.05 };
+  const fseg = innerWidth < 700 ? [220, 100] : [340, 160];
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorT, normalMap: floorN, displacementMap: floorH, displacementScale: 0.4, roughness: 0.96, color: 0xe2dac6 });
+  floorMat.normalScale.set(1.5, 1.5);
+  // The ground is real terrain: inside the clearing it sinks below the wood, outside it rises over it. The wood's face slices through
+  // that terrain, so the edge is wherever the soil, moss and stones happen to stand proud of it: lumpy, crisp and never a cut-out.
+  const HOLE = { rx: 4.3, rz: 2.9 }, holeU = { value: new THREE.Vector2(HOLE.rx, HOLE.rz) };
   floorMat.onBeforeCompile = (sh) => {
-    sh.uniforms.uHole = { value: new THREE.Vector2(HOLE.rx, HOLE.rz) };
+    sh.uniforms.uHole = holeU;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
-      varying vec2 vWxz; uniform vec2 uHole;
+      varying vec2 vWxz; varying float vHt; uniform vec2 uHole;
       float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
       float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p *= 2.03; a *= 0.5; } return s; }
       float holeD(vec2 w, vec2 hole) { return length(w / hole) + (fbm(w * 0.75) - 0.5) * 0.42 + (fbm(w * 3.1 + 7.0) - 0.5) * 0.12; }`)
       .replace('#include <displacementmap_vertex>', `
-        // soil lies on the wood: thin at the opening, building up into the forest floor further out
         vec2 wv = (modelMatrix * vec4(transformed, 1.0)).xz;
-        float dv = holeD(wv, uHole), grow = smoothstep(1.0, 1.55, dv);
+        float rise = smoothstep(0.74, 1.16, holeD(wv, uHole));
         float hgt = texture2D(displacementMap, vDisplacementMapUv).x;
-        transformed.z += 0.012 + grow * 0.2 + (hgt - 0.45) * displacementScale * mix(0.35, 1.0, grow);`)
+        vHt = mix(-0.32, 0.16, rise) + (hgt - 0.42) * displacementScale;
+        transformed.z += vHt;`)
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWxz = (modelMatrix * vec4(transformed, 1.0)).xz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec2 vWxz; uniform vec2 uHole;
+      varying vec2 vWxz; varying float vHt; uniform vec2 uHole;
       float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
       float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p *= 2.03; a *= 0.5; } return s; }
       float holeD(vec2 w, vec2 hole) { return length(w / hole) + (fbm(w * 0.75) - 0.5) * 0.42 + (fbm(w * 3.1 + 7.0) - 0.5) * 0.12; }`)
-      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-      float dH = holeD(vWxz, uHole);
-      float crumb = (fbm(vWxz * 13.0 + 3.0) - 0.5) * 0.16;          // crumbs of soil and grit along the edge
-      if (dH + crumb < 1.0) discard;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
-      diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(1.0, 1.12, dH));   // the soil's thin lip is darker, damp earth`);
+      diffuseColor.rgb *= mix(0.5, 1.0, smoothstep(0.0, 0.14, vHt));    // where the soil meets the wood it is damp and in shade`);
   };
-  floorMat.customProgramCacheKey = () => 'hive-floor-hole';
+  floorMat.customProgramCacheKey = () => 'hive-terrain';
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FW * 3, FH * 3, fseg[0], fseg[1]), floorMat);
-  floor.rotation.x = -Math.PI / 2; floor.position.y = 0; floor.receiveShadow = true; floor.castShadow = true;
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.castShadow = true;
   scene.add(floor);
   scene.fog = new THREE.FogExp2(0x161a10, 0.018);
 
@@ -186,6 +182,7 @@ export async function createHive3D(host, handlers = {}) {
   stumpMat.normalScale.set(1.3, 1.3);
   // The cell lattice is analytic (no texture), so the grooves stay razor sharp at any zoom and always line up with the pieces.
   stumpMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uHole = holeU;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vGp;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGp = (modelMatrix * vec4(position, 1.0)).xz;');
@@ -203,7 +200,12 @@ export async function createHive3D(host, handlers = {}) {
           vec2 d = abs(p - c);
           return R * 0.8660254 - max(d.y, 0.8660254 * d.x + 0.5 * d.y);
         }
-        float groveH;`)
+        float groveH; uniform vec2 uHole;
+        float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p *= 2.03; a *= 0.5; } return s; }
+      float holeD(vec2 w, vec2 hole) { return length(w / hole) + (fbm(w * 0.75) - 0.5) * 0.42 + (fbm(w * 3.1 + 7.0) - 0.5) * 0.12; }`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         float e = hexEdge(vGp);
         float gw = max(0.017, fwidth(e) * 1.7);
@@ -212,8 +214,13 @@ export async function createHive3D(host, handlers = {}) {
         vec2 su = abs(vMapUv * 2.0 - 1.0); float se = pow(pow(su.x, 3.4) + pow(su.y, 3.4), 1.0 / 3.4);
         float groveFade = 1.0;
         groveH = (-2.1 * groove - 0.5 * (1.0 - pocket)) * groveFade;
-        diffuseColor.rgb *= 1.0 - (0.6 * groove + 0.15 * (1.0 - pocket)) * groveFade;`)
+        diffuseColor.rgb *= 1.0 - (0.6 * groove + 0.15 * (1.0 - pocket)) * groveFade;
+        // soil washed onto the wood near the edge: a dark damp band, then specks and grit
+        float dW = holeD(vGp, uHole);
+        float band = smoothstep(0.9, 1.03, dW), speck = smoothstep(0.58, 0.78, fbm(vGp * 9.0 + 2.0)) * smoothstep(0.76, 0.98, dW);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.019, 0.01), clamp(band * 0.75 + speck * 0.6, 0.0, 0.85));`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        normal = normalize(mix(normal, nonPerturbedNormal, smoothstep(0.012, 0.035, length(fwidth(vGp)))));
         normal = perturbNormalArb(-vViewPosition, normal, vec2(dFdx(groveH), dFdy(groveH)) * 0.85, faceDirection);`);
   };
   stumpMat.customProgramCacheKey = () => 'hive-stump';
@@ -222,7 +229,7 @@ export async function createHive3D(host, handlers = {}) {
   stump.receiveShadow = true;
   scene.add(stump);
   /** A point on the edge of the opening in the ground: angle t, pushed out by `out` (negative = onto the wood). */
-  const rimAt = (t, out = 0) => ({ x: Math.cos(t) * (HOLE.rx * 1.04 + out), z: Math.sin(t) * (HOLE.rz * 1.04 + out * 0.8) });
+  const rimAt = (t, out = 0) => ({ x: Math.cos(t) * (holeU.value.x * 1.1 + out), z: Math.sin(t) * (holeU.value.y * 1.1 + out * 0.8) });
 
   const world = new THREE.Group(); // everything that moves with the hive (shifted so the hive stays on the stump)
   scene.add(world);
@@ -234,7 +241,9 @@ export async function createHive3D(host, handlers = {}) {
   const props = new THREE.Group(); scene.add(props);
   const gltf = new GLTFLoader();
   const shadowTex = dropShadowTexture();
-  async function modelParts(name) {
+  const partsCache = new Map();
+  const modelParts = (name) => { if (!partsCache.has(name)) partsCache.set(name, loadParts(name)); return partsCache.get(name); };
+  async function loadParts(name) {
     const g = await gltf.loadAsync(`assets/hive3d/models/${name}/${name}_1k.gltf`);
     g.scene.updateMatrixWorld(true);
     const parts = [];
@@ -281,19 +290,17 @@ export async function createHive3D(host, handlers = {}) {
   const rimPlace = (n, inMin, outMax, size, seed) => Array.from({ length: n }, (_, i) => {
     const t = (i + hash(seed + i * 3)) / n * Math.PI * 2, o = inMin + (outMax - inMin) * hash(seed + i * 5 + 1);
     const p = rimAt(t, o);
-    return { x: p.x, z: p.z, y: 0.04, s: size * (0.7 + hash(seed + i * 7 + 2) * 0.6), yaw: hash(seed + i * 11 + 3) * 6.28, tilt: (hash(seed + i * 13 + 4) - 0.5) * 0.2 };
+    return { x: p.x, z: p.z, y: o < 0 ? 0.0 : 0.06, s: size * (0.7 + hash(seed + i * 7 + 2) * 0.6), yaw: hash(seed + i * 11 + 3) * 6.28, tilt: (hash(seed + i * 13 + 4) - 0.5) * 0.2 };
   });
   let dressed = false;
-  async function dress() {
-    if (dressed) return; dressed = true;
+  async function dress(again) {
+    if (dressed && !again) return; dressed = true;
+    for (const o of [...props.children]) { props.remove(o); o.material?.dispose?.(); }
     const phone = innerWidth < 700, t = stage.tier;
     const jobs = [
-      ['moss_01', () => [...rimPlace(phone ? 60 : 80, -0.45, 0.35, 1.1, 11), ...rimPlace(phone ? 24 : 36, 0.2, 1.6, 1.5, 12)]],
-      ['celandine_01', () => rimPlace(phone ? 8 : 14, -0.1, 1.0, 1.2, 31)],
-      ['fern_02', () => rimPlace(phone ? 7 : 14, 0.35, 1.9, 2.4, 21)],
+      ['fern_02', () => rimPlace(phone ? 8 : 16, 0.25, 1.9, 2.3, 21)],
     ];
     for (const [name, make] of jobs) {
-      if (t < 1 && name !== 'moss_01') continue;
       try { scatter(await modelParts(name), make()); } catch (e) { console.warn('[hive3d] model', name, e); }
     }
     if (t >= 2 && !phone) {
@@ -336,7 +343,9 @@ export async function createHive3D(host, handlers = {}) {
           float edge = 1.0 - abs(2.0 * emb.a - 1.0);
           diffuseColor.rgb *= 1.0 - 0.6 * edge * edge;`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-          roughnessFactor = mix(roughnessFactor, 0.34, emb.a);`);
+          roughnessFactor = mix(roughnessFactor, 0.34, emb.a);`)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          normal = normalize(mix(normal, nonPerturbedNormal, smoothstep(0.0022, 0.008, length(fwidth(vBumpMapUv)))));   // no sparkle when small on screen`);
     };
     m.customProgramCacheKey = () => 'hive-cap';
     MATS.set(k, m); return m;
@@ -441,9 +450,9 @@ export async function createHive3D(host, handlers = {}) {
     const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
     const ok = kind === 'ok';
     g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 10; g.shadowOffsetY = 4;
-    g.fillStyle = ok ? '#FBBC05' : '#241a10'; g.beginPath(); g.arc(64, 62, 48, 0, 7); g.fill();
-    g.shadowColor = 'transparent'; g.lineWidth = 5; g.strokeStyle = ok ? '#fff3c4' : '#9c6a24'; g.stroke();
-    g.lineWidth = 11; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = ok ? '#2a1a05' : '#e9dcc0';
+    g.fillStyle = ok ? '#34A853' : '#EA4335'; g.beginPath(); g.arc(64, 62, 48, 0, 7); g.fill();
+    g.shadowColor = 'transparent'; g.lineWidth = 4; g.strokeStyle = 'rgba(255,255,255,.85)'; g.stroke();
+    g.lineWidth = 11; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#fff';
     g.beginPath(); if (ok) { g.moveTo(40, 64); g.lineTo(58, 82); g.lineTo(90, 44); } else { g.moveTo(46, 46); g.lineTo(82, 80); g.moveTo(82, 46); g.lineTo(46, 80); } g.stroke();
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.userData.keep = true;
     badgeCache.set(kind, t); return t;
@@ -559,7 +568,7 @@ export async function createHive3D(host, handlers = {}) {
     stage.camera.updateMatrixWorld();
     const n = Math.max(2, Math.min(8, items.length)), G = trayGeo(n);
     const px = G.W;
-    if (!groundAt(portrait ? -0.9 : -0.6, portrait ? -0.7 : -0.72, hA, TRAY_Y) || !groundAt(0.94, portrait ? -0.7 : -0.72, hB, TRAY_Y)) return;
+    if (!groundAt(portrait ? -0.92 : -0.6, portrait ? -0.84 : -0.83, hA, TRAY_Y) || !groundAt(0.94, portrait ? -0.84 : -0.83, hB, TRAY_Y)) return;
     const span = Math.abs(hB.x - hA.x), pitch = Math.min(0.92, span / (px / G.M)), pw = pitch / G.M;
     const wW = px * pw, hW = G.H * pw, cx = (hA.x + hB.x) / 2, cz = hA.z;
     if (trayN !== n) { trayMat.map = trayTexture(n); trayMat.needsUpdate = true; trayN = n; }
@@ -584,33 +593,35 @@ export async function createHive3D(host, handlers = {}) {
       b.visible = it.count > 0; b.scale.setScalar(pitch * 0.34); b.position.set(wx + pitch * 0.34, TRAY_Y + (show * LV + 0.1) * sc, zRow + pitch * 0.3);
     });
     for (const [key, m] of trayStones) if (!items.some((it) => key.startsWith(it.type + ':'))) m.visible = false;
+    { const top = new THREE.Vector3(cx, TRAY_Y, cz - hW / 2).project(stage.camera), b = stage.canvas.getBoundingClientRect();
+      handlers.onTrayTop?.((1 - top.y) / 2 * b.height); }
     // the bag: bottom-left corner, cropped by the edge of the view, mouth towards the top right; the next stones lie in its mouth at board size
     {
-      const bw = Math.min(5.0, span * 0.66), bh = bw * bagAspect, tl = (portrait ? 58 : 53) * Math.PI / 180;
+      const bw = Math.min(5.0, span * (portrait ? 0.6 : 0.66)), bh = bw * bagAspect, tl = (portrait ? 58 : 53) * Math.PI / 180;
       const upv = new THREE.Vector3(0, Math.cos(tl), -Math.sin(tl)), nrm = new THREE.Vector3(0, Math.sin(tl), Math.cos(tl));
       // bottom-left corner: the lowest quarter of the bag and its left edge fall outside the view
       groundAt(-1.0, -1.0, hA, 0); const x0 = hA.x; groundAt(1.0, -1.0, hB, 0);
       const k = (hB.x - x0) / 2;                                         // world units per half-screen
       groundAt(-1.0 + (bw / (2 * k)) * 0.5 * 0.9, -1.0, hA, 0);          // bag centre a little inside the left edge
       const topP = hA.clone().addScaledVector(upv, bh).project(stage.camera);
-      groundAt(-1.0 + (bw / (2 * k)) * 0.5 * 0.9, -1.0 - 0.27 * Math.max(0.1, topP.y + 1.0), hA, 0);   // drop it until 27% of the bag is below the bottom edge
+      groundAt(-1.0 + (bw / (2 * k)) * 0.5 * 0.9, portrait ? -0.74 - 0.25 * Math.max(0.1, topP.y + 1.0) : -1.0 - 0.2 * Math.max(0.1, topP.y + 1.0), hA, 0);   // drop it until 27% of the bag is below the bottom edge
       bagMesh.scale.set(bw, bw, 1); bagMesh.position.set(hA.x, 0.0, hA.z);
       bagFront.scale.set(bw, bw, 1); bagFront.position.set(hA.x, 0.0, hA.z);
       bagShadow.scale.set(bw * 1.1, bw * 0.8, 1); bagShadow.position.set(hA.x + bw * 0.1, 0.004, hA.z + 0.05);
       const next = items.filter((it) => it.count > 0).slice(-3);
       const up = upv;
       const onBag = (u, v, lift) => new THREE.Vector3(hA.x + (u - 0.5) * bw, 0, hA.z).addScaledVector(up, bh * (1 - v)).addScaledVector(nrm, lift);
-      const SPOTS = [[0.52, 0.27, -0.25, 0.25], [0.64, 0.31, 0.12, -0.35], [0.73, 0.355, 0.42, 0.1]];  // u, v (from the top), roll, yaw — all inside the mouth
+      const SPOTS = [[0.5, 0.21, -0.25, 0.25], [0.63, 0.25, 0.12, -0.35], [0.73, 0.3, 0.42, 0.1]];  // u, v (from the top), roll, yaw — all inside the mouth
       next.forEach((it, i) => {
         const m = trayStone(`bag:${it.type}:${reserve.color}`, it.type, reserve.color, 80 + i);
         const [u, v, roll, yaw] = SPOTS[i];
-        m.visible = true; m.userData.reserve = null; m.scale.setScalar(1);               // exactly the size of the stones on the board
-        m.position.copy(onBag(u, v, 0.05));
+        m.visible = true; m.userData.reserve = null; m.scale.setScalar(bw * 0.2);       // sized with the bag, which is fixed to the view
+        m.position.copy(onBag(u, v, 0.05 * bw));
         m.rotation.order = 'YXZ'; m.rotation.set(Math.PI / 2 - tl - 0.75, yaw, roll);    // leaning back into the bag, cap towards the light
       });
       for (const [key, m] of trayStones) if (key.startsWith('bag:') && !next.some((it) => key === `bag:${it.type}:${reserve.color}`)) m.visible = false;
       const total = items.reduce((a, it) => a + it.count, 0);
-      const b = badgeSprite('bag', String(total)); b.visible = true; b.scale.setScalar(bw * 0.12); b.position.copy(new THREE.Vector3(hA.x + bw * 0.04, 0, hA.z)).addScaledVector(up, bh * 0.62).addScaledVector(nrm, 0.2);
+      const b = badgeSprite('bag', String(total)); b.visible = true; b.scale.setScalar(bw * 0.15); b.position.copy(onBag(0.56, 0.62, 0.02 * bw));
     }
   }
   const hH = (h) => h * 0.04; // the wells sit slightly above the tray's middle
@@ -689,6 +700,7 @@ export async function createHive3D(host, handlers = {}) {
       }
     }
     stage.aimLight(0, 0, 9);
+    growClearing(model);
 
     const want = new Set(model.tiles.map((t) => t.piece));
     for (const [id, e] of tiles) if (!want.has(id)) { world.remove(e.mesh); tiles.delete(id); }
@@ -721,6 +733,20 @@ export async function createHive3D(host, handlers = {}) {
       if (model.refit || !fitted || offscreen(model)) { stage.fit(local, { animate: fitted && !model.instant, margin: 1.4 }); if (!fitted) setTimeout(dress, 700); fitted = true; }
     }
     stage.invalidate();
+  }
+  let dressedAt = { x: HOLE.rx, z: HOLE.rz }, clearTween = null;
+  function growClearing(model) {
+    let ax = 0, az = 0;
+    for (const t of model.tiles) { const p = cellXZ(t.q, t.r); ax = Math.max(ax, Math.abs(p.x - origin.x)); az = Math.max(az, Math.abs(p.z - origin.z)); }
+    const want = { x: Math.max(HOLE.rx, ax + 1.9), z: Math.max(HOLE.rz, az + 1.7) }, cur = holeU.value;
+    const lim = () => { stage.setLimit(holeU.value.x * 0.3, holeU.value.y * 0.3); rig.max = Math.max(rig.min + 2, stage.distanceFor({ minX: -holeU.value.x * 0.95, maxX: holeU.value.x * 0.95, minZ: -holeU.value.y * 0.95, maxZ: holeU.value.y * 0.95 }, 1)); };
+    if (Math.abs(want.x - cur.x) < 0.05 && Math.abs(want.z - cur.y) < 0.05) { lim(); return; }
+    const from = { x: cur.x, z: cur.y };
+    clearTween?.cancel();
+    clearTween = stage.tween({ dur: 1200, ease: ease.inOut, update: (k) => { holeU.value.set(from.x + (want.x - from.x) * k, from.z + (want.z - from.z) * k); }, done: () => {
+      lim();
+      if (Math.abs(want.x - dressedAt.x) > 0.35 || Math.abs(want.z - dressedAt.z) > 0.35) { dressedAt = { ...want }; dress(true); }
+    } });
   }
   const proj = new THREE.Vector3();
   /** True when any piece sits outside the comfortable middle of the view. */

@@ -10,6 +10,7 @@ import {
 import { chooseMoveAsync, stopHiveWorker } from '../engines/hive-ai.js';
 import { glyphDefs, GLYPH_CSS, tileInner, tileSVG } from './hive-art.js';
 import { webglAvailable } from '../table3d.js';
+import { openBook, BOOK_CSS } from './hive-book.js';
 
 const LABEL = {
   Q: 'Queen Bee', S: 'Spider', B: 'Beetle', G: 'Grasshopper', A: 'Soldier Ant',
@@ -58,19 +59,22 @@ const CSS = `
 .hv-trayrow .hv-rpiece:hover:not(:disabled),.hv-trayrow .hv-rpiece.sel { transform:translate(-50%,-62%); }
 .hv-trayrow .hv-rpiece.empty { display:block; visibility:hidden; }
 .hv-count { position:absolute; right:2%; bottom:-6%; min-width:19px; height:19px; border-radius:50%; display:grid; place-items:center; background:var(--m-blue); color:#fff; border:2px solid #120f0b; font:800 10px var(--font); }
-/* ---- player panels, after the design: near-black, a fine gold double rule, serif names, gold-ringed portrait ---- */
-.hv-plaque { position:absolute; z-index:4; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:6px 12px; align-items:center; padding:12px 14px 12px 12px; background:#13100c; border:1px solid #5e4729; border-radius:4px; box-shadow:inset 0 0 0 3px #13100c, inset 0 0 0 4px #2b2116, 0 10px 24px rgba(0,0,0,.55); color:#f4ead6; }
-.hv-plaque.turn { border-color:#d69a35; box-shadow:inset 0 0 0 3px #13100c, inset 0 0 0 4px #5a4220, 0 0 0 1px rgba(214,154,53,.35), 0 0 22px rgba(214,154,53,.28), 0 10px 24px rgba(0,0,0,.55); }
-.hv-plaque.opp { left:12px; top:12px; max-width:min(360px, calc(100% - 96px)); }
-.hv-plaque.me { right:12px; bottom:12px; max-width:min(330px, calc(100% - 150px)); }
+/* ---- player panels: near-black, a fine double gold rule with hexagon studs at the corners, serif name, gold-ringed portrait ---- */
+.hv-plaque { position:absolute; z-index:4; display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px 12px; align-items:center; padding:12px 16px 12px 12px; background-color:#13100c; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolygon points='3.5,1 10.5,1 14,7 10.5,13 3.5,13 0,7' fill='%23d69a35'/%3E%3Cpolygon points='4.6,3 9.4,3 11.7,7 9.4,11 4.6,11 2.3,7' fill='%2313100c'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolygon points='3.5,1 10.5,1 14,7 10.5,13 3.5,13 0,7' fill='%23d69a35'/%3E%3Cpolygon points='4.6,3 9.4,3 11.7,7 9.4,11 4.6,11 2.3,7' fill='%2313100c'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolygon points='3.5,1 10.5,1 14,7 10.5,13 3.5,13 0,7' fill='%23d69a35'/%3E%3Cpolygon points='4.6,3 9.4,3 11.7,7 9.4,11 4.6,11 2.3,7' fill='%2313100c'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolygon points='3.5,1 10.5,1 14,7 10.5,13 3.5,13 0,7' fill='%23d69a35'/%3E%3Cpolygon points='4.6,3 9.4,3 11.7,7 9.4,11 4.6,11 2.3,7' fill='%2313100c'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-size:12px 12px; background-position:-1px -1px, calc(100% + 1px) -1px, -1px calc(100% + 1px), calc(100% + 1px) calc(100% + 1px); border:1px solid #6e5430; border-radius:2px; box-shadow:inset 0 0 0 3px #13100c, inset 0 0 0 4px #3a2c18, 0 10px 24px rgba(0,0,0,.55); color:#f4ead6; transition:border-color .3s, box-shadow .3s; }
+.hv-plaque.turn { border-color:#e0a83a; box-shadow:inset 0 0 0 3px #13100c, inset 0 0 0 4px #6a4c1c, 0 0 0 1px rgba(224,168,58,.4), 0 0 24px rgba(224,168,58,.32), 0 10px 24px rgba(0,0,0,.55); }
+.hv-plaque.opp { left:12px; top:12px; max-width:min(380px, calc(100% - 100px)); }
+.hv-plaque.me { right:12px; bottom:var(--hv-me-bottom, 12px); padding:8px 16px 8px 10px; }
 .hv-plaque .avatar { box-shadow:0 0 0 2px #13100c, 0 0 0 3.5px #c9973e; border-radius:50%; }
-.hv-plaque .pt { min-width:0; }
+.hv-plaque.turn .avatar { box-shadow:0 0 0 2px #13100c, 0 0 0 3.5px #f0c060, 0 0 12px rgba(240,192,96,.6); }
 .hv-plaque b { display:block; font:400 19px/1.15 Georgia,'Times New Roman',serif; letter-spacing:.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hv-plaque .ps { display:block; margin-top:3px; font:400 14px/1.3 Georgia,'Times New Roman',serif; color:#b3a58d; }
-.hv-plaque.turn .ps { color:#e8b04a; }
-.hv-plaque .ps i { display:inline-block; width:7px; height:7px; margin:0 7px 1px 0; border-radius:50%; background:#e8b04a; vertical-align:middle; }
-.hv-plaque .qr { width:44px; height:44px; display:block; }
-.hv-plaque .pc { grid-column:1 / -1; display:grid; grid-template-columns:repeat(4, auto); justify-content:start; gap:6px 14px; padding-top:8px; margin-top:2px; border-top:1px solid #2b2116; }
+.hv-plaque .pc { grid-column:1 / -1; display:grid; grid-template-columns:repeat(4, auto); justify-content:start; gap:6px 14px; padding-top:8px; border-top:1px solid #2e2417; }
+.hv-veil { position:absolute; inset:0; z-index:15; display:grid; place-items:center; align-content:center; gap:14px; background:#120f0b; color:#b9aa8f; font:400 15px Georgia,'Times New Roman',serif; transition:opacity .45s; }
+.hv-veil img { width:min(260px,60%); height:auto; animation:hvBreathe 1.6s ease-in-out infinite alternate; }
+.hv-veil.gone { opacity:0; pointer-events:none; }
+@keyframes hvBreathe { from { opacity:.55; } to { opacity:1; } }
+.hv-arena.pending .hv-board,.hv-arena.pending .hv-plaque,.hv-arena.pending .hv-zoom,.hv-arena.pending .hv-wordmark { visibility:hidden; }
+.hv.pending .hv-tray { display:none; }
+${BOOK_CSS}
 .hv-chip { position:relative; flex:none; display:flex; align-items:center; gap:4px; }
 .hv-chip .hv-timg { width:38px; height:38px; }
 .hv-chip .x { font:400 14px Georgia,'Times New Roman',serif; color:#cfc3ad; } .hv-chip .x u { text-decoration:none; }
@@ -82,21 +86,21 @@ button.hv-chip.sel { transform:translateY(-4px); background:#2a1f12; box-shadow:
 button.hv-chip:not(.can):not(.none) { opacity:.55; } .hv-chip.queen .hv-timg { filter:drop-shadow(0 0 6px rgba(232,176,74,.75)); }
 .hv-wordmark { position:absolute; z-index:3; top:14px; left:50%; transform:translateX(-50%); height:40px; width:auto; pointer-events:none; filter:drop-shadow(0 3px 4px rgba(0,0,0,.7)); }
 /* ---- the honeycomb menu: one hexagonal button that opens a cluster of labelled hexagons ---- */
-.hv-comb { position:absolute; z-index:6; right:12px; top:12px; width:60px; height:54px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
-.hv-hex { position:relative; display:block; clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); background:#a87a30; }
-.hv-hex > span { position:absolute; inset:1.5px; clip-path:inherit; background:#13100c; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; color:#f6ecd8; transition:background .15s; }
-.hv-comb .hv-hex { width:60px; height:54px; }
-.hv-comb:hover .hv-hex > span,.hv-comb.open .hv-hex > span { background:#3a2610; }
-.hv-comb svg { width:30px; height:30px; display:block; }
-.hv-combmenu { position:absolute; z-index:6; right:12px; top:12px; width:60px; height:54px; pointer-events:none; }
-.hv-combitem { position:absolute; left:0; top:0; width:88px; height:77px; margin:-11px 0 0 -14px; border:0; padding:0; background:transparent; cursor:pointer; pointer-events:auto; opacity:0; transform:translate(0,0) scale(.2); filter:drop-shadow(0 5px 7px rgba(0,0,0,.65)); transition:transform .22s cubic-bezier(.2,1.2,.3,1), opacity .15s; }
+.hv-comb { position:absolute; z-index:6; right:12px; top:12px; width:68px; height:59px; border:0; padding:0; background:transparent; cursor:pointer; filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
+.hv-hex { position:relative; display:block; width:100%; height:100%; clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); background:#8a6428; }
+.hv-hex > span { position:absolute; inset:1.5px; clip-path:inherit; background:#13100c; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:#f1e6cf; transition:background .15s; }
+.hv-comb:hover .hv-hex > span,.hv-comb.open .hv-hex > span { background:#2c2114; }
+.hv-comb.open .hv-hex { background:#e0a83a; }
+.hv-combmenu { position:absolute; z-index:6; right:12px; top:12px; width:68px; height:59px; pointer-events:none; }
+.hv-combitem { position:absolute; left:0; top:0; width:68px; height:59px; border:0; padding:0; background:transparent; cursor:pointer; pointer-events:auto; opacity:0; transform:translate(0,0) scale(.3); filter:drop-shadow(0 4px 6px rgba(0,0,0,.65)); transition:transform .24s cubic-bezier(.2,1.2,.3,1), opacity .15s; }
 .hv-combmenu.open .hv-combitem { opacity:1; transform:translate(var(--dx),var(--dy)) scale(1); }
-.hv-combitem .hv-hex { width:88px; height:77px; }
-.hv-combitem .hv-hex > span { font:400 12.5px/1.1 Georgia,'Times New Roman',serif; color:#f1e6cf; }
-.hv-combitem svg { width:25px; height:25px; display:block; }
-.hv-combitem:hover:not(:disabled) .hv-hex > span { background:#3a2610; }
-.hv-combitem:disabled { cursor:default; opacity:.4 !important; }
-.hv-combitem.warn .hv-hex { background:#EA4335; }
+.hv-combmenu:not(.open) .hv-combitem { pointer-events:none; }
+.hv-combitem .hv-hex > span { font:400 11px/1 Georgia,'Times New Roman',serif; }
+.hv-combitem svg { width:21px; height:21px; display:block; fill:#e0b860; }
+.hv-combitem:hover:not(:disabled) .hv-hex { background:#e0a83a; }
+.hv-combitem:disabled { cursor:default; }
+.hv-combitem:disabled .hv-hex > span { color:#6d6152; } .hv-combitem:disabled svg { fill:#6d6152; }
+.hv-combitem.warn svg { fill:#ff7a6e; }
 .hv-scrim { position:absolute; inset:0; z-index:5; background:transparent; }
 /* ---- victory banner ---- */
 .hv-victory { position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:4; text-align:center; padding:8px 44px 10px; background:#0d0b08; border:1px solid #c28a2c; box-shadow:inset 0 0 0 3px #0d0b08,inset 0 0 0 4px #5d452c,0 6px 18px rgba(0,0,0,.6); clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,14px 100%,0 50%); pointer-events:none; }
@@ -108,8 +112,6 @@ button.hv-chip:not(.can):not(.none) { opacity:.55; } .hv-chip.queen .hv-timg { f
 .hv-confirm:disabled { display:none; }
 /* ---- wide screens: the rules and move history sit beside the table ---- */
 .hv-inspector { grid-area:info; display:none; min-width:0; min-height:0; padding:10px; background:#0b0907; border-left:1px solid #6d4a22; flex-direction:column; gap:10px; overflow:auto; }
-@container hv (min-width:700px) { .hv-plaque.me { right:auto; left:12px; bottom:auto; top:var(--hv-me-top, 150px); max-width:360px; } }
-@container hv (max-width:699px) { .hv-plaque.me .pc { display:flex; justify-content:space-between; } .hv-plaque.me .hv-chip .hv-timg { width:36px; height:36px; } }
 @container hv (min-width:1000px) { .hv { grid-template-columns:minmax(0,1fr) 300px; grid-template-areas:"center info"; } .hv-inspector { display:flex; } }
 @container hv (max-width:560px) { .hv-wordmark { display:none; } .hv-plaque { padding:9px 10px; gap:4px 9px; } .hv-plaque b { font-size:16px; } .hv-plaque .ps { font-size:12.5px; } .hv-plaque .qr { width:38px; height:38px; } .hv-plaque .pc { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; padding-top:6px; } .hv-chip .hv-timg { width:30px; height:30px; } .hv-chip .x { position:absolute; right:-3px; bottom:-3px; min-width:16px; height:16px; padding:0 3px; border-radius:8px; background:#13100c; border:1px solid #c9973e; color:#f4ead6; font:400 10px/14px Georgia,serif; text-align:center; } .hv-chip .x u { display:none; } }
 @media (prefers-reduced-motion:reduce) { .hv-target polygon,.hv-arrive,.hv-plaque .ps i { animation:none; } .hv-combitem { transition:none; } }
@@ -246,7 +248,8 @@ export function start(api) {
   combBtn.innerHTML = '<span class="hv-hex"><span><img src="assets/hive3d/mark.svg" alt="" style="width:28px;height:28px"></span></span>';
   const combMenu = h('div.hv-combmenu');
   const scrim = h('div.hv-scrim', { hidden: true, onclick: () => toggleComb(false) });
-  arena.append(board, zoomLabel, wordmark, scrim, topBar, bottomBar, victoryEl, flatbar, combMenu, combBtn);
+  const veil = h('div.hv-veil', h('img', { src: 'assets/hive3d/logo.svg', alt: 'Hive' }), h('span', 'Setting out the stones…'));
+  arena.append(board, zoomLabel, wordmark, scrim, topBar, bottomBar, victoryEl, flatbar, combMenu, combBtn, veil);
   const trayEl = h('div.hv-tray');
   const inspector = h('aside.hv-inspector', { 'aria-label': 'Piece rules and move history' });
   const center = h('div.hv-center', arena, trayEl);
@@ -255,21 +258,21 @@ export function start(api) {
   api.root.append(h('style', CSS), root);
 
   // ---- honeycomb menu: a cluster of labelled hexagons instead of a row of unlabelled icons
-  const COMB = [[-57, 33], [0, 66], [-114, 66], [-57, 99], [0, 132], [-114, 132]];
+  const COMB = [[-55, 32], [0, 64], [-110, 64], [-55, 96], [0, 128], [-110, 128]];   // a honeycomb hanging below the button, with a hairline gap
   let combOpen = false;
   function combItems() {
     return [
       ['undo', 'Undo', () => api.toHost('undo'), !canUndo(), false],
       ['lightbulb', 'Hint', requestHint, !canAct() || hintBusy || pos.legalMoves().every((m) => m.k === K_PASS), false],
       ['my_location', 'Frame', () => fitBoard(), false, false],
-      ['menu_book', 'Rules', () => showRules(), false, false],
-      ['tune', 'Display', () => showSettings(), false, false],
+      ['menu_book', 'Rules', () => book('rules'), false, false],
+      ['tune', 'Display', () => book('display'), false, false],
       ['flag', 'Resign', () => resign(), !!S.result || (myColor < 0 && !otb), true],
     ];
   }
   function renderComb() {
     combMenu.replaceChildren(...combItems().map(([ic, label, fn, off, warn], i) => {
-      const b = h('button.hv-combitem' + (warn ? '.warn' : ''), { disabled: off, 'aria-label': label, style: `--dx:${COMB[i][0] * 1.04}px;--dy:${COMB[i][1] * 1.04}px;transition-delay:${i * 28}ms`, onclick: () => { toggleComb(false); fn(); } });
+      const b = h('button.hv-combitem' + (warn ? '.warn' : ''), { disabled: off, 'aria-label': label, style: `--dx:${COMB[i][0]}px;--dy:${COMB[i][1]}px;transition-delay:${i * 28}ms`, onclick: () => { toggleComb(false); fn(); } });
       const hex = h('span.hv-hex', h('span', icon(ic), label));
       b.append(hex); return b;
     }));
@@ -289,7 +292,9 @@ export function start(api) {
   try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch {}
   const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
   let view3d = null, hoverTarget = null, targetMoves = [], firstState = true, pendingAnim = null;
+  const reveal = () => { arena.classList.remove('pending'); root.classList.remove('pending'); veil.classList.add('gone'); setTimeout(() => veil.remove(), 500); };
   if (webglAvailable() && !/[?&]flat\b/.test(location.href)) {
+    arena.classList.add('pending'); root.classList.add('pending');
     import('./hive3d.js').then((m) => m.createHive3D(arena, {
       onPiece: (piece) => { const cell = pos.occ.find((c) => pos.stack(c).includes(piece)); if (cell != null) selectCell(cell); },
       onTarget: (id) => { const mv = targetMoves[id]; if (mv) stageMove(mv); else if (id === -1) { api.toast('Pick an insect from the tray first'); view3d?.nudgeTray?.(); } },
@@ -299,9 +304,11 @@ export function start(api) {
       onReserve: (type) => { const color = otb ? pos.turn : viewColor; const btn = trayEl.querySelector(`[aria-label^="${LABEL[type]},"]`); if (btn && !btn.disabled) btn.click(); },
       onEmpty: () => { if (selected || pendingMove) { selected = null; pendingMove = null; hintMove = null; render(); } },
       onHover: (id) => { hoverTarget = id; pushModel(); },
-    })).then((v) => { view3d = v; arena.classList.add('d3'); root.classList.add('d3'); render(); })
-      .catch((e) => console.warn('[hive] 3D table unavailable, using the flat board', e));
-  }
+      onTrayTop: (y) => { const b = arena.clientHeight - y + 8; if (Math.abs(b - trayTopPx) > 1) { trayTopPx = b; arena.style.setProperty('--hv-me-bottom', b + 'px'); } },
+    })).then((v) => { view3d = v; arena.classList.add('d3'); root.classList.add('d3'); render(); requestAnimationFrame(() => requestAnimationFrame(reveal)); })
+      .catch((e) => { console.warn('[hive] 3D table unavailable, using the flat board', e); reveal(); });
+  } else reveal();
+  let trayTopPx = 0;
 
   let S = { moves: [], logs: [], result: null, version: 0 };
   let pos = new Position(opts);
@@ -576,30 +583,35 @@ export function start(api) {
   function playerBar(color, bottom) {
     const id = idOf(color);
     const player = api.player(id);
-    const danger = Math.max(0, pos.queenNeighbours(color));
     const turn = pos.turn === color && !S.result;
     const el = bottom ? bottomBar : topBar;
     el.classList.toggle('turn', turn);
-    const sub = h('span.ps'); if (turn) sub.append(h('i')); sub.append(plaqueStatus(color));
-    const qr = h('div'); qr.innerHTML = queenRing(danger);
-    const kids = [avatarEl(player, 'sm', { still: true }), h('div.pt', h('b', nameOf(id)), sub), qr.firstChild];
-    // the reserve: your own insects are the buttons you place from; the opponent's are shown for reading the game
+    el.setAttribute('aria-label', `${nameOf(id)}${turn ? ', to move' : ''}`);
+    const kids = [avatarEl(player, bottom ? 'sm' : 'md', { still: true }), h('div.pt', h('b', nameOf(id)))];
     const mine = otb ? pos.turn === color : color === myColor;
-    const moves = mine ? legal() : [];
-    const chips = h('div.pc', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => {
-      const n = pos.handCount(color, t);
-      const can = mine && moves.some((m) => m.k === K_PLACE && typeOfPiece(m.p) === t);
-      const sel = selected?.kind === 'reserve' && selected.type === t && selected.color === color;
-      const c = h((mine ? 'button' : 'div') + '.hv-chip' + (n ? '' : '.none') + (t === 'Q' ? '.queen' : '') + (sel ? '.sel' : '') + (can ? '.can' : ''), {
-        title: `${LABEL[t]} — ${SHORT_RULE[t]} ${n} left`, 'aria-label': `${LABEL[t]}, ${n} left`,
-        ...(mine ? { disabled: !can, onclick: () => { selected = sel ? null : { kind: 'reserve', type: t, color }; pendingMove = null; hintMove = null; api.sfx(sel ? 'click' : 'pop', .5); render(); } } : {}),
-      });
-      c.innerHTML = tileArt(t, color, 38) + `<span class="x"><u>×</u>${n}</span>`;
-      return c;
-    }));
-    if (!(view3d && mine)) kids.push(chips);           // your own reserve lives in the tray on the table
+    if (!(view3d && (bottom || mine))) {             // the opponent's tray, as pictures; your own lives on the table
+      const moves = mine ? legal() : [];
+      kids.push(h('div.pc', { 'aria-label': `${nameOf(id)} reserve` }, pos.types.map((t) => {
+        const n = pos.handCount(color, t);
+        const can = mine && moves.some((m) => m.k === K_PLACE && typeOfPiece(m.p) === t);
+        const sel = selected?.kind === 'reserve' && selected.type === t && selected.color === color;
+        const c = h((mine ? 'button' : 'div') + '.hv-chip' + (n ? '' : '.none') + (t === 'Q' ? '.queen' : '') + (sel ? '.sel' : '') + (can ? '.can' : ''), {
+          title: `${LABEL[t]} — ${SHORT_RULE[t]} ${n} left`, 'aria-label': `${LABEL[t]}, ${n} left`,
+          ...(mine ? { disabled: !can, onclick: () => { selected = sel ? null : { kind: 'reserve', type: t, color }; pendingMove = null; hintMove = null; api.sfx(sel ? 'click' : 'pop', .5); render(); } } : {}),
+        });
+        c.innerHTML = tileArt(t, color, 38) + `<span class="x"><u>×</u>${n}</span>`;
+        return c;
+      })));
+    }
     el.replaceChildren(...kids);
-    if (!bottom) requestAnimationFrame(() => arena.style.setProperty('--hv-me-top', (topBar.offsetTop + topBar.offsetHeight + 10) + 'px'));
+  }
+
+  /** The rule book (rules, insects with worked examples, strategy, controls, display, moves). */
+  function book(tab) {
+    openBook({
+      host: arena, types: pos.types, prefs, savePrefs, onPrefs: () => render(), history: historyRows,
+      thumb: (t, c) => { try { return view3d ? view3d.thumb(t, c) : `assets/hive3d/insect-${t}.webp`; } catch { return `assets/hive3d/insect-${t}.webp`; } },
+    }, tab);
   }
 
   function chosenMoves() {

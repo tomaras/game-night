@@ -264,7 +264,9 @@ export function createTable3D(host, opts = {}) {
   canvas.addEventListener('webglcontextrestored', () => { scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; }); invalidate(); });
 
   return {
-    THREE, scene, camera, renderer, key, canvas, rig, aimLight, tween, invalidate, fit, resize, groundPoint, pick, setTier,
+    THREE, scene, camera, renderer, key, canvas, rig, aimLight, tween, invalidate, fit, resize, groundPoint, pick, setTier, distanceFor,
+    /** How far the view may be dragged from the middle of the table. */
+    setLimit(x, z) { limit.x = x; limit.z = z; clampRig(); place(); invalidate(); },
     get tier() { return tier; }, get size() { return { w: W, h: H }; },
     dispose() {
       disposed = true; cancelAnimationFrame(raf); ro.disconnect();
