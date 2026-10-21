@@ -1,0 +1,11 @@
+Sound effects in assets/sfx/keys/
+
+Source:
+- "Keyboard Soundpack #1 - Typing and Single Keystrokes" by unicaegames (OpenGameArt)
+  https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes
+  (key1-12 from Single Keys/keypress-001,004,006,007,010,013,017,019,027-030)
+
+License: Creative Commons Zero (CC0 1.0 Universal) — public domain dedication.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The files here are trimmed, faded, loudness-matched and re-encoded (mono MP3) from the originals.

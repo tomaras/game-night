@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Harmonies">
+  <circle cx="24" cy="24" r="21" fill="#34A853"/>
+  <path d="M3 30c6-4 11-3 16 0 6 3 12 0 26-3v18H3Z" fill="#1A73E8"/>
+  <g stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M18 17.5 22 15l4 2.5v5L22 25l-4-2.5Z" fill="#FBBC05"/>
+    <path d="M26 17.5 30 15l4 2.5v5L30 25l-4-2.5Z" fill="#EA4335"/>
+    <path d="M14 24.5 18 22l4 2.5v5L18 32l-4-2.5Z" fill="#8E4DE8"/>
+    <path d="M22 24.5 26 22l4 2.5v5L26 32l-4-2.5Z" fill="#12B5CB"/>
+    <path d="M30 24.5 34 22l4 2.5v5L34 32l-4-2.5Z" fill="#FF6D00"/>
+  </g>
+  <path d="m20.5 21 1.5-4 1.5 4Z" fill="#188038"/>
+  <circle cx="24" cy="24" r="21" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+</svg>
